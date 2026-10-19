@@ -13,6 +13,7 @@ import { z } from "zod";
 import { getExtractor, getTranscriber } from "@/lib/ai";
 import { db } from "@/lib/db";
 import { dateToInstant, formatPartialDate, parseIsoDate, toIsoDate } from "./dates";
+import { resolveCheckins } from "./reminders";
 import { recordTimeline, type TimelineInput } from "./timeline";
 
 const { captures, contacts, facts, importantDates, interactionPeople, interactions, notes } = schema;
@@ -281,6 +282,7 @@ export async function commitCapture(tx: Tx, tenantId: string, captureId: string,
         .update(contacts)
         .set({ lastInteractionAt: sql`greatest(${contacts.lastInteractionAt}, ${occurredAt.toISOString()}::timestamptz)` })
         .where(inArray(contacts.id, participantIds));
+      await resolveCheckins(tx, participantIds);
       for (const contactId of participantIds) {
         timeline.push({
           tenantId,

@@ -8,7 +8,7 @@ const nextConfig: NextConfig = {
     // Every app page reads the session, so only validate pages that opt in with `instant`.
     instantInsights: { validationLevel: "manual-warning" },
   },
-  transpilePackages: ["@life-crm/ai", "@life-crm/core", "@life-crm/db"],
+  transpilePackages: ["@life-crm/ai", "@life-crm/core", "@life-crm/db", "@life-crm/reminders"],
   turbopack: {
     rules: {
       "*.css": {

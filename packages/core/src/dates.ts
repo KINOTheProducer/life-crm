@@ -92,3 +92,20 @@ export function isValidPartialDate(d: PartialDate): boolean {
   const max = daysInMonth(d.year ?? 2000, d.month);
   return Number.isInteger(d.day) && d.day >= 1 && d.day <= max;
 }
+
+/** Same day-of-month in a later month, clamped to the month's length (Jan 31 + 1 month = Feb 28/29). */
+export function addMonths(d: PlainDate, months: number): PlainDate {
+  const index = d.year * 12 + (d.month - 1) + months;
+  const year = Math.floor(index / 12);
+  const month = (index % 12) + 1;
+  return { year, month, day: Math.min(d.day, daysInMonth(year, month)) };
+}
+
+export function formatIsoDate(d: PlainDate): string {
+  return `${d.year}-${String(d.month).padStart(2, "0")}-${String(d.day).padStart(2, "0")}`;
+}
+
+export function parseIsoDate(s: string): PlainDate {
+  const [year, month, day] = s.split("-").map(Number);
+  return { year: year!, month: month!, day: day! };
+}

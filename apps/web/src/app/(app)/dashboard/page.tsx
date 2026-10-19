@@ -1,7 +1,11 @@
 import { Cake } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import Link from "next/link";
+import { ReminderItem } from "@/components/reminders/reminder-item";
 import { upcomingBirthdays } from "@/lib/data/people";
+import { listInbox } from "@/lib/data/reminders";
+import { tenantQuery } from "@/lib/session";
 
 const monthDay = new Intl.DateTimeFormat("en-CA", { month: "long", day: "numeric", timeZone: "UTC" });
 
@@ -13,11 +17,33 @@ function whenLabel(daysAway: number) {
 
 export default async function DashboardPage() {
   const birthdays = await upcomingBirthdays(30);
+  const inbox = await tenantQuery((tx, user) => listInbox(tx, user.id, user.timeZone, 6));
 
   return (
     <>
       <PageHeader eyebrow="Dashboard" title="This month with your people" />
-      <Card className="max-w-3xl">
+      <div className="grid max-w-5xl gap-6 lg:grid-cols-2">
+      <Card>
+        <CardHeader>
+          <p className="type-label text-muted-foreground">Needs you</p>
+          <CardTitle>Reminders</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {inbox.length === 0 ? (
+            <p className="text-muted-foreground">Nothing right now.</p>
+          ) : (
+            <ul className="divide-y divide-border">
+              {inbox.map((i) => (
+                <ReminderItem key={i.id} item={i} compact />
+              ))}
+            </ul>
+          )}
+          <Link href="/reminders" className="type-label mt-4 inline-block text-muted-foreground hover:text-foreground">
+            All reminders
+          </Link>
+        </CardContent>
+      </Card>
+      <Card>
         <CardHeader>
           <p className="type-label flex items-center gap-2 text-muted-foreground">
             <Cake className="size-3.5" />
@@ -50,6 +76,7 @@ export default async function DashboardPage() {
           )}
         </CardContent>
       </Card>
+      </div>
     </>
   );
 }

@@ -1,4 +1,4 @@
-import { boolean, index, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { boolean, date, index, pgTable, smallint, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { tenants } from "./tenants";
 
 // Better Auth tables. Not tenant-scoped by RLS: auth must look users up by email before a tenant is known.
@@ -11,6 +11,15 @@ export const user = pgTable("user", {
   image: text("image"),
   tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }),
   timeZone: text("time_zone").notNull().default("America/Toronto"),
+  /** Local hour (0-23) when the daily reminder pass and digest run. */
+  digestHour: smallint("digest_hour").notNull().default(8),
+  emailDigest: boolean("email_digest").notNull().default(true),
+  /** Days before birthdays and other dates to remind. */
+  reminderLeadDays: smallint("reminder_lead_days").array().notNull().default([14, 3, 0]),
+  /** Local date of the last completed daily reminder pass. */
+  lastReminderRunOn: date("last_reminder_run_on"),
+  /** SHA-256 of the secret in the user's calendar feed URL. */
+  calendarTokenHash: text("calendar_token_hash").unique(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()

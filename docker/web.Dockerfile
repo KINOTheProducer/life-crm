@@ -6,9 +6,11 @@ WORKDIR /app
 FROM base AS deps
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY apps/web/package.json apps/web/
+COPY apps/worker/package.json apps/worker/
 COPY packages/ai/package.json packages/ai/
 COPY packages/core/package.json packages/core/
 COPY packages/db/package.json packages/db/
+COPY packages/reminders/package.json packages/reminders/
 RUN pnpm install --frozen-lockfile
 
 FROM deps AS builder
@@ -22,6 +24,11 @@ RUN DATABASE_URL=postgres://build:build@localhost/build \
 # Runs database migrations, then exits.
 FROM builder AS migrate
 CMD ["pnpm", "--filter", "@life-crm/db", "migrate"]
+
+# Background jobs: daily reminders, digests, push.
+FROM builder AS worker
+ENV NODE_ENV=production
+CMD ["pnpm", "--filter", "@life-crm/worker", "start"]
 
 FROM node:22-alpine AS web
 WORKDIR /app

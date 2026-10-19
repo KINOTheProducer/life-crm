@@ -1,0 +1,24 @@
+{
+  "name": "@life-crm/reminders",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@life-crm/core": "workspace:*",
+    "@life-crm/db": "workspace:*",
+    "nodemailer": "^8.0.2",
+    "web-push": "^3.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "@types/nodemailer": "^8.0.2",
+    "@types/web-push": "^3.6.4",
+    "typescript": "^5.9.3",
+    "vitest": "^5.0.5"
+  }
+}

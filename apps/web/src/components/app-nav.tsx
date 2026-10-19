@@ -1,6 +1,6 @@
 "use client";
 
-import { LayoutDashboard, LogOut, Mic, Users } from "lucide-react";
+import { Bell, LayoutDashboard, LogOut, Mic, Settings, Users } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { buttonVariants } from "@/components/ui/button";
@@ -10,6 +10,8 @@ import { cn } from "@/lib/utils";
 const links = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/people", label: "People", icon: Users },
+  { href: "/reminders", label: "Reminders", icon: Bell },
+  { href: "/settings", label: "Settings", icon: Settings },
 ] as const;
 
 export function AppNav() {

@@ -5,12 +5,15 @@ import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
 import { Composer } from "@/components/profile/composer";
 import { FactsPanel } from "@/components/profile/facts-panel";
+import { CustomReminderList } from "@/components/reminders/custom-reminder-list";
+import { ReminderForm } from "@/components/reminders/reminder-form";
 import { Timeline } from "@/components/profile/timeline";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatPartialDate, toIsoDate } from "@/lib/data/dates";
 import { getProfile, parseKinds } from "@/lib/data/profile";
+import { listCustomReminders } from "@/lib/data/reminders";
 import { tenantQuery } from "@/lib/session";
 
 const tierLabel = { inner: "Inner circle", close: "Close", friend: "Friend", acquaintance: "Acquaintance" } as const;
@@ -36,6 +39,7 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
 
   const result = await tenantQuery(async (tx, user) => ({
     profile: await getProfile(tx, id, { kinds, before: cursor }),
+    reminders: await listCustomReminders(tx, user.id, id),
     timeZone: user.timeZone,
   }));
   if (!result.profile) notFound();
@@ -129,6 +133,16 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
                   <p>Every {contact.keepInTouchDays} days</p>
                 </div>
               )}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <p className="type-label text-muted-foreground">Don&apos;t forget</p>
+              <CardTitle>Reminders</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-4">
+              <CustomReminderList items={result.reminders} />
+              <ReminderForm today={toIsoDate(today)} contactId={contact.id} placeholder={`Ask ${contact.firstName} about…`} />
             </CardContent>
           </Card>
           <FactsPanel

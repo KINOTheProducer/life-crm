@@ -5,6 +5,7 @@ import { and, eq, isNull, schema, sql } from "@life-crm/db";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { dateToInstant, parseIsoDate, toIsoDate } from "@/lib/data/dates";
+import { resolveCheckins } from "@/lib/data/reminders";
 import { recordTimeline } from "@/lib/data/timeline";
 import { requireUser, tenantQuery } from "@/lib/session";
 
@@ -74,6 +75,7 @@ export async function logInteraction(contactId: string, _prev: FormState, form: 
       .update(contacts)
       .set({ lastInteractionAt: sql`greatest(${contacts.lastInteractionAt}, ${occurredAt.toISOString()}::timestamptz)` })
       .where(eq(contacts.id, contactId));
+    await resolveCheckins(tx, [contactId]);
     await recordTimeline(tx, [
       {
         tenantId: user.tenantId,
