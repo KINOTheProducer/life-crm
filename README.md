@@ -4,12 +4,14 @@ Personal relationship manager for the people in your life. Self-host it next to 
 
 ## Status
 
-Phase 0 (foundation): auth, multi-tenant schema with row-level security, people list, add person with birthday, dashboard with upcoming birthdays.
+- Phase 0: auth, multi-tenant schema with row-level security, people, birthdays dashboard.
+- Phase 1 (in progress): voice capture (record, transcribe, AI extraction, review, save), person profiles with a full timeline (notes, catch-ups, facts, voice notes, dates).
 
 ## Layout
 
 ```
 apps/web        Next.js 16 app (App Router, Tailwind, shadcn/ui, Better Auth)
+packages/ai     Speech to text and AI extraction (Claude, or any OpenAI-compatible server)
 packages/core   Domain logic and Zod schemas (date math, reminders)
 packages/db     Drizzle schema, migrations, tenant-scoped query helper
 docker/         Dockerfile and Postgres init
@@ -30,6 +32,13 @@ pnpm dev                                 # http://localhost:3000
 The app must connect as a role that is not a superuser, otherwise Postgres skips row-level security.
 
 Checks: `pnpm lint`, `pnpm typecheck`, `pnpm test` (DB tests run when `DATABASE_URL` is set), `pnpm build`.
+
+### AI
+
+Voice notes need two services:
+
+- **Speech to text**: any OpenAI-compatible `/audio/transcriptions` endpoint. Locally, run `docker run -p 8000:8000 ghcr.io/speaches-ai/speaches:latest-cpu` and set `STT_BASE_URL=http://localhost:8000/v1`. Or point it at OpenAI or Groq.
+- **Extraction**: Claude by default (`ANTHROPIC_API_KEY`). For a local model or another provider, set `AI_PROVIDER=openai_compatible`, `AI_BASE_URL`, `AI_MODEL` and optionally `AI_API_KEY`.
 
 After changing `packages/db/src/schema`, run `pnpm db:generate` to create a migration.
 

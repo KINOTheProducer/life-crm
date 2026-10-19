@@ -4,7 +4,11 @@ const nextConfig: NextConfig = {
   output: "standalone",
   cacheComponents: true,
   partialPrefetching: true,
-  transpilePackages: ["@life-crm/core", "@life-crm/db"],
+  experimental: {
+    // Every app page reads the session, so only validate pages that opt in with `instant`.
+    instantInsights: { validationLevel: "manual-warning" },
+  },
+  transpilePackages: ["@life-crm/ai", "@life-crm/core", "@life-crm/db"],
   turbopack: {
     rules: {
       "*.css": {

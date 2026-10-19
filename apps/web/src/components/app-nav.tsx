@@ -1,8 +1,9 @@
 "use client";
 
-import { LayoutDashboard, LogOut, Users } from "lucide-react";
+import { LayoutDashboard, LogOut, Mic, Users } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { buttonVariants } from "@/components/ui/button";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 
@@ -17,8 +18,12 @@ export function AppNav() {
 
   return (
     <nav className="flex h-full flex-col gap-1 px-4 py-6">
-      <Link href="/dashboard" className="type-display px-3 pb-8 text-3xl">
+      <Link href="/dashboard" className="type-display px-3 pb-6 text-3xl">
         Life CRM
+      </Link>
+      <Link href="/capture/new" className={cn(buttonVariants({ variant: "accent" }), "mb-6 justify-start")}>
+        <Mic />
+        Voice note
       </Link>
       {links.map(({ href, label, icon: Icon }) => {
         const active = pathname.startsWith(href);

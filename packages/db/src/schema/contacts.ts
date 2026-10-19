@@ -1,19 +1,7 @@
 import { sql } from "drizzle-orm";
 import { index, integer, pgTable, smallint, text, timestamp, uuid } from "drizzle-orm/pg-core";
-import { tenantIsolation, tenants } from "./tenants";
-
-const tenantId = () =>
-  uuid("tenant_id")
-    .notNull()
-    .references(() => tenants.id, { onDelete: "cascade" });
-
-const timestamps = {
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .notNull()
-    .defaultNow()
-    .$onUpdate(() => new Date()),
-};
+import { tenantId, timestamps } from "./columns";
+import { tenantIsolation } from "./tenants";
 
 export const contacts = pgTable(
   "contacts",

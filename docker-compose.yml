@@ -31,8 +31,25 @@ services:
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?set BETTER_AUTH_SECRET}
       BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3000}
       DEPLOY_MODE: self-hosted
+      AI_PROVIDER: ${AI_PROVIDER:-anthropic}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      AI_MODEL: ${AI_MODEL:-}
+      AI_BASE_URL: ${AI_BASE_URL:-}
+      AI_API_KEY: ${AI_API_KEY:-}
+      STT_BASE_URL: ${STT_BASE_URL:-http://whisper:8000/v1}
+      STT_API_KEY: ${STT_API_KEY:-}
+      STT_MODEL: ${STT_MODEL:-Systran/faster-whisper-small}
     depends_on:
       migrate: { condition: service_completed_successfully }
 
+  # Local speech-to-text with an OpenAI-compatible API. Remove it and set STT_BASE_URL
+  # (e.g. https://api.openai.com/v1) to use a hosted service instead.
+  whisper:
+    image: ghcr.io/speaches-ai/speaches:latest-cpu
+    restart: unless-stopped
+    volumes:
+      - whisper-models:/home/ubuntu/.cache/huggingface/hub
+
 volumes:
   pgdata:
+  whisper-models:

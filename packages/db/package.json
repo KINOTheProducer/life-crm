@@ -15,7 +15,8 @@
   },
   "dependencies": {
     "drizzle-orm": "^0.45.4",
-    "postgres": "^3.4.9"
+    "postgres": "^3.4.9",
+    "@life-crm/core": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22",
