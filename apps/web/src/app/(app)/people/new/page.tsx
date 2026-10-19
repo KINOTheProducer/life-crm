@@ -1,10 +1,16 @@
+import { Card, CardContent } from "@/components/ui/card";
+import { PageHeader } from "@/components/page-header";
 import { PersonForm } from "./person-form";
 
 export default function NewPersonPage() {
   return (
-    <div className="grid gap-6">
-      <h1 className="text-2xl font-semibold tracking-tight">Add a person</h1>
-      <PersonForm />
-    </div>
+    <>
+      <PageHeader eyebrow="People" title="Add someone" description="Start with a name. Everything else can come later." />
+      <Card className="max-w-2xl">
+        <CardContent>
+          <PersonForm />
+        </CardContent>
+      </Card>
+    </>
   );
 }

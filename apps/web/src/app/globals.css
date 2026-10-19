@@ -9,7 +9,11 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
+  --font-heading: var(--font-display-serif);
+  --font-display: var(--font-display-serif);
+  --color-gridline: var(--gridline);
+  --color-mint: var(--mint-400);
+  --color-mint-ink: var(--mint-600);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -48,73 +52,94 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/*
+ * Life CRM tokens. Warm oat paper, espresso ink, mint accent.
+ * See docs/DESIGN.md before adding colours: prefer an existing token.
+ */
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  /* Palette (raw). Use semantic tokens below in components. */
+  --oat-50: #f3f1e8;
+  --oat-100: #e9e6da;
+  --oat-200: #dcd8c6;
+  --oat-300: #c9c3ab;
+  --espresso-900: #24170a;
+  --espresso-800: #2e1f10;
+  --espresso-700: #372007;
+  --espresso-500: #6b5a45;
+  --espresso-300: #a89b85;
+  --mint-400: #8dfb79;
+  --mint-600: #2f8a1f;
+  --clay-600: #a3341c;
+  --clay-400: #e36b4f;
+
+  --background: var(--oat-100);
+  --foreground: var(--espresso-700);
+  --card: var(--oat-50);
+  --card-foreground: var(--espresso-700);
+  --popover: var(--oat-50);
+  --popover-foreground: var(--espresso-700);
+  --primary: var(--espresso-700);
+  --primary-foreground: var(--oat-50);
+  --secondary: var(--oat-200);
+  --secondary-foreground: var(--espresso-700);
+  --muted: var(--oat-200);
+  --muted-foreground: var(--espresso-500);
+  --accent: var(--mint-400);
+  --accent-foreground: var(--espresso-700);
+  --destructive: var(--clay-600);
+  --border: rgb(55 32 7 / 0.14);
+  --input: rgb(55 32 7 / 0.22);
+  --ring: rgb(55 32 7 / 0.45);
+  --gridline: rgb(55 32 7 / 0.07);
+  --chart-1: var(--espresso-700);
+  --chart-2: var(--mint-600);
+  --chart-3: var(--espresso-300);
+  --chart-4: var(--clay-400);
+  --chart-5: var(--oat-300);
+  --radius: 1rem;
+  --sidebar: var(--oat-200);
+  --sidebar-foreground: var(--espresso-700);
+  --sidebar-primary: var(--espresso-700);
+  --sidebar-primary-foreground: var(--oat-50);
+  --sidebar-accent: rgb(55 32 7 / 0.06);
+  --sidebar-accent-foreground: var(--espresso-700);
+  --sidebar-border: rgb(55 32 7 / 0.14);
+  --sidebar-ring: rgb(55 32 7 / 0.45);
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --background: var(--espresso-900);
+  --foreground: var(--oat-100);
+  --card: var(--espresso-800);
+  --card-foreground: var(--oat-100);
+  --popover: var(--espresso-800);
+  --popover-foreground: var(--oat-100);
+  --primary: var(--oat-100);
+  --primary-foreground: var(--espresso-900);
+  --secondary: rgb(233 230 218 / 0.08);
+  --secondary-foreground: var(--oat-100);
+  --muted: rgb(233 230 218 / 0.08);
+  --muted-foreground: var(--espresso-300);
+  --accent: var(--mint-400);
+  --accent-foreground: var(--espresso-900);
+  --destructive: var(--clay-400);
+  --border: rgb(233 230 218 / 0.12);
+  --input: rgb(233 230 218 / 0.2);
+  --ring: rgb(141 251 121 / 0.6);
+  --gridline: rgb(233 230 218 / 0.05);
+  --chart-1: var(--oat-100);
+  --chart-2: var(--mint-400);
+  --chart-3: var(--espresso-300);
+  --chart-4: var(--clay-400);
+  --chart-5: var(--espresso-500);
+  --sidebar: #1c1207;
+  --sidebar-foreground: var(--oat-100);
+  --sidebar-primary: var(--mint-400);
+  --sidebar-primary-foreground: var(--espresso-900);
+  --sidebar-accent: rgb(233 230 218 / 0.06);
+  --sidebar-accent-foreground: var(--oat-100);
+  --sidebar-border: rgb(233 230 218 / 0.1);
+  --sidebar-ring: rgb(141 251 121 / 0.6);
 }
 
 @layer base {
@@ -127,4 +152,32 @@
   html {
     @apply font-sans;
   }
+  ::selection {
+    background: var(--mint-400);
+    color: var(--espresso-900);
+  }
+}
+
+/* Large serif headings: tight tracking like a magazine masthead. */
+@utility type-display {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+}
+
+/* Small uppercase mono labels for nav, buttons, eyebrows and chips. */
+@utility type-label {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* Faint vertical rules behind a region, echoing a print layout grid. */
+@utility bg-gridlines {
+  background-image: linear-gradient(to right, var(--gridline) 1px, transparent 1px);
+  background-size: calc(100% / 6) 100%;
 }

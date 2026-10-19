@@ -1,4 +1,5 @@
 import { Cake } from "lucide-react";
+import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { upcomingBirthdays } from "@/lib/data/people";
 
@@ -14,29 +15,34 @@ export default async function DashboardPage() {
   const birthdays = await upcomingBirthdays(30);
 
   return (
-    <div className="grid max-w-3xl gap-6">
-      <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
-      <Card>
+    <>
+      <PageHeader eyebrow="Dashboard" title="This month with your people" />
+      <Card className="max-w-3xl">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Cake className="size-4" />
-            Birthdays in the next 30 days
-          </CardTitle>
+          <p className="type-label flex items-center gap-2 text-muted-foreground">
+            <Cake className="size-3.5" />
+            Next 30 days
+          </p>
+          <CardTitle>Birthdays</CardTitle>
         </CardHeader>
         <CardContent>
           {birthdays.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Nothing coming up.</p>
+            <p className="text-muted-foreground">Nothing coming up.</p>
           ) : (
-            <ul className="grid gap-3">
+            <ul className="divide-y divide-border">
               {birthdays.map((b) => (
-                <li key={b.contactId} className="flex items-center justify-between text-sm">
+                <li key={b.contactId} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
                   <span>
                     <span className="font-medium">{b.name}</span>
                     {b.turning != null && <span className="text-muted-foreground"> turns {b.turning}</span>}
                   </span>
-                  <span className="text-muted-foreground">
-                    {whenLabel(b.daysAway)} ·{" "}
-                    {monthDay.format(new Date(Date.UTC(b.date.year, b.date.month - 1, b.date.day)))}
+                  <span className="type-label text-muted-foreground">
+                    {b.daysAway <= 1 ? (
+                      <span className="rounded-full bg-accent px-2.5 py-1 text-accent-foreground">{whenLabel(b.daysAway)}</span>
+                    ) : (
+                      whenLabel(b.daysAway)
+                    )}{" "}
+                    · {monthDay.format(new Date(Date.UTC(b.date.year, b.date.month - 1, b.date.day)))}
                   </span>
                 </li>
               ))}
@@ -44,6 +50,6 @@ export default async function DashboardPage() {
           )}
         </CardContent>
       </Card>
-    </div>
+    </>
   );
 }
