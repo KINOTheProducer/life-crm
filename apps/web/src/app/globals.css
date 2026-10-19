@@ -12,8 +12,7 @@
   --font-heading: var(--font-display-serif);
   --font-display: var(--font-display-serif);
   --color-gridline: var(--gridline);
-  --color-mint: var(--mint-400);
-  --color-mint-ink: var(--mint-600);
+  --color-accent-ink: var(--accent-ink);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -53,93 +52,96 @@
 }
 
 /*
- * Life CRM tokens. Warm oat paper, espresso ink, mint accent.
+ * Life CRM tokens. Light paper, espresso ink, terracotta accent.
  * See docs/DESIGN.md before adding colours: prefer an existing token.
  */
 :root {
   /* Palette (raw). Use semantic tokens below in components. */
-  --oat-50: #f3f1e8;
-  --oat-100: #e9e6da;
-  --oat-200: #dcd8c6;
-  --oat-300: #c9c3ab;
+  --paper-50: #fcfbf7;
+  --paper-100: #f6f4ee;
+  --paper-200: #ece8de;
+  --paper-300: #dad4c5;
   --espresso-900: #24170a;
   --espresso-800: #2e1f10;
   --espresso-700: #372007;
   --espresso-500: #6b5a45;
   --espresso-300: #a89b85;
-  --mint-400: #8dfb79;
-  --mint-600: #2f8a1f;
-  --clay-600: #a3341c;
-  --clay-400: #e36b4f;
+  --terracotta-300: #e07a50;
+  --terracotta-500: #ba4b23;
+  --terracotta-700: #a8431f;
+  --raspberry-600: #b4233c;
+  --raspberry-300: #f07a8c;
 
-  --background: var(--oat-100);
+  --background: var(--paper-100);
   --foreground: var(--espresso-700);
-  --card: var(--oat-50);
+  --card: var(--paper-50);
   --card-foreground: var(--espresso-700);
-  --popover: var(--oat-50);
+  --popover: var(--paper-50);
   --popover-foreground: var(--espresso-700);
   --primary: var(--espresso-700);
-  --primary-foreground: var(--oat-50);
-  --secondary: var(--oat-200);
+  --primary-foreground: var(--paper-50);
+  --secondary: var(--paper-200);
   --secondary-foreground: var(--espresso-700);
-  --muted: var(--oat-200);
+  --muted: var(--paper-200);
   --muted-foreground: var(--espresso-500);
-  --accent: var(--mint-400);
-  --accent-foreground: var(--espresso-700);
-  --destructive: var(--clay-600);
-  --border: rgb(55 32 7 / 0.14);
-  --input: rgb(55 32 7 / 0.22);
-  --ring: rgb(55 32 7 / 0.45);
-  --gridline: rgb(55 32 7 / 0.07);
+  --accent: var(--terracotta-500);
+  --accent-foreground: var(--paper-50);
+  --accent-ink: var(--terracotta-700);
+  --destructive: var(--raspberry-600);
+  --border: rgb(55 32 7 / 0.12);
+  --input: rgb(55 32 7 / 0.2);
+  --ring: rgb(186 75 35 / 0.45);
+  --gridline: rgb(55 32 7 / 0.05);
   --chart-1: var(--espresso-700);
-  --chart-2: var(--mint-600);
+  --chart-2: var(--terracotta-500);
   --chart-3: var(--espresso-300);
-  --chart-4: var(--clay-400);
-  --chart-5: var(--oat-300);
+  --chart-4: var(--terracotta-300);
+  --chart-5: var(--paper-300);
   --radius: 1rem;
-  --sidebar: var(--oat-200);
+  --sidebar: var(--paper-200);
   --sidebar-foreground: var(--espresso-700);
   --sidebar-primary: var(--espresso-700);
-  --sidebar-primary-foreground: var(--oat-50);
+  --sidebar-primary-foreground: var(--paper-50);
   --sidebar-accent: rgb(55 32 7 / 0.06);
   --sidebar-accent-foreground: var(--espresso-700);
-  --sidebar-border: rgb(55 32 7 / 0.14);
-  --sidebar-ring: rgb(55 32 7 / 0.45);
+  --sidebar-border: rgb(55 32 7 / 0.1);
+  --sidebar-ring: rgb(186 75 35 / 0.45);
 }
 
 .dark {
   --background: var(--espresso-900);
-  --foreground: var(--oat-100);
+  --foreground: var(--paper-100);
   --card: var(--espresso-800);
-  --card-foreground: var(--oat-100);
+  --card-foreground: var(--paper-100);
   --popover: var(--espresso-800);
-  --popover-foreground: var(--oat-100);
-  --primary: var(--oat-100);
+  --popover-foreground: var(--paper-100);
+  --primary: var(--paper-100);
   --primary-foreground: var(--espresso-900);
-  --secondary: rgb(233 230 218 / 0.08);
-  --secondary-foreground: var(--oat-100);
-  --muted: rgb(233 230 218 / 0.08);
+  --secondary: rgb(246 244 238 / 0.08);
+  --secondary-foreground: var(--paper-100);
+  --muted: rgb(246 244 238 / 0.08);
   --muted-foreground: var(--espresso-300);
-  --accent: var(--mint-400);
+  --accent: var(--terracotta-300);
   --accent-foreground: var(--espresso-900);
-  --destructive: var(--clay-400);
-  --border: rgb(233 230 218 / 0.12);
-  --input: rgb(233 230 218 / 0.2);
-  --ring: rgb(141 251 121 / 0.6);
-  --gridline: rgb(233 230 218 / 0.05);
-  --chart-1: var(--oat-100);
-  --chart-2: var(--mint-400);
+  --accent-ink: var(--terracotta-300);
+  --destructive: var(--raspberry-300);
+  --border: rgb(246 244 238 / 0.12);
+  --input: rgb(246 244 238 / 0.2);
+  --ring: rgb(224 122 80 / 0.6);
+  --gridline: rgb(246 244 238 / 0.04);
+  --chart-1: var(--paper-100);
+  --chart-2: var(--terracotta-300);
   --chart-3: var(--espresso-300);
-  --chart-4: var(--clay-400);
+  --chart-4: var(--raspberry-300);
   --chart-5: var(--espresso-500);
   --sidebar: #1c1207;
-  --sidebar-foreground: var(--oat-100);
-  --sidebar-primary: var(--mint-400);
+  --sidebar-foreground: var(--paper-100);
+  --sidebar-primary: var(--terracotta-300);
   --sidebar-primary-foreground: var(--espresso-900);
-  --sidebar-accent: rgb(233 230 218 / 0.06);
-  --sidebar-accent-foreground: var(--oat-100);
-  --sidebar-border: rgb(233 230 218 / 0.1);
-  --sidebar-ring: rgb(141 251 121 / 0.6);
+  --sidebar-accent: rgb(246 244 238 / 0.06);
+  --sidebar-accent-foreground: var(--paper-100);
+  --sidebar-border: rgb(246 244 238 / 0.1);
+  --sidebar-ring: rgb(224 122 80 / 0.6);
 }
 
 @layer base {
@@ -153,7 +155,7 @@
     @apply font-sans;
   }
   ::selection {
-    background: var(--mint-400);
+    background: var(--terracotta-300);
     color: var(--espresso-900);
   }
 }

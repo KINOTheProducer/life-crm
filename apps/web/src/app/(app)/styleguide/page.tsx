@@ -7,15 +7,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 const swatches = [
-  ["--oat-50", "Card"],
-  ["--oat-100", "Page"],
-  ["--oat-200", "Sidebar / muted"],
-  ["--oat-300", "Rule"],
+  ["--paper-50", "Card"],
+  ["--paper-100", "Page"],
+  ["--paper-200", "Sidebar / muted"],
+  ["--paper-300", "Rule"],
   ["--espresso-700", "Ink"],
   ["--espresso-500", "Muted ink"],
   ["--espresso-900", "Dark page"],
-  ["--mint-400", "Accent"],
-  ["--clay-600", "Destructive"],
+  ["--terracotta-500", "Accent"],
+  ["--terracotta-300", "Accent on dark"],
+  ["--raspberry-600", "Destructive"],
 ] as const;
 
 function Section({ label, children }: { label: string; children: React.ReactNode }) {
@@ -34,14 +35,14 @@ export default function StyleguidePage() {
         eyebrow="Design system"
         title={
           <>
-            Warm paper, espresso ink, <em>a little mint</em>
+            Light paper, espresso ink, <em className="text-accent-ink">terracotta</em>
           </>
         }
         description="Tokens and components used across Life CRM. Source of truth: docs/DESIGN.md and globals.css."
       />
 
       <Section label="Colour">
-        <div className="grid grid-cols-3 gap-3 lg:grid-cols-9">
+        <div className="grid grid-cols-3 gap-3 lg:grid-cols-10">
           {swatches.map(([token, name]) => (
             <div key={token} className="grid gap-2">
               <div className="h-20 rounded-2xl ring-1 ring-foreground/10" style={{ background: `var(${token})` }} />
@@ -99,7 +100,7 @@ export default function StyleguidePage() {
             <CardHeader>
               <p className="type-label text-muted-foreground">Next 30 days</p>
               <CardTitle>Birthdays</CardTitle>
-              <CardDescription>Cards use a 32px radius on cream, never a drop shadow.</CardDescription>
+              <CardDescription>Cards use a 32px radius on paper, never a drop shadow.</CardDescription>
             </CardHeader>
             <CardContent className="grid gap-4">
               <div className="grid gap-2">
@@ -114,7 +115,7 @@ export default function StyleguidePage() {
           <div className="dark flex flex-col justify-between gap-8 rounded-[2rem] bg-background p-8 text-foreground">
             <p className="type-label text-muted-foreground">Dark surface</p>
             <p className="type-display text-4xl">
-              You haven&apos;t talked to <span className="text-mint">Mike</span> in 47 days.
+              You haven&apos;t talked to <em className="text-accent-ink">Mike</em> in 47 days.
             </p>
             <div className="flex gap-2">
               <Button variant="accent">Log a catch-up</Button>
