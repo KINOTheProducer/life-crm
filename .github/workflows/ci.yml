@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: life_crm
+          POSTGRES_PASSWORD: life_crm
+          POSTGRES_DB: life_crm
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U life_crm" --health-interval 5s --health-retries 20
+    env:
+      # RLS tests need a non-superuser role; the service user is a superuser, so create one below.
+      MIGRATION_DATABASE_URL: postgres://life_crm:life_crm@localhost:5432/life_crm
+      DATABASE_URL: postgres://app:app@localhost:5432/life_crm
+      BETTER_AUTH_SECRET: ci-secret-ci-secret-ci-secret-ci-secret
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Create app role
+        run: |
+          psql "$MIGRATION_DATABASE_URL" -c "CREATE ROLE app LOGIN PASSWORD 'app'"
+      - name: Migrate
+        run: pnpm db:migrate
+      - name: Grant app role
+        run: |
+          psql "$MIGRATION_DATABASE_URL" -c "GRANT USAGE ON SCHEMA public TO app; GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO app;"
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
