@@ -53,7 +53,7 @@ async function knownPeople(tx: Tx): Promise<KnownPerson[]> {
   const rows = await tx
     .select({ id: contacts.id, firstName: contacts.firstName, lastName: contacts.lastName, nickname: contacts.nickname })
     .from(contacts)
-    .where(isNull(contacts.deletedAt))
+    .where(and(isNull(contacts.deletedAt), eq(contacts.isSelf, false)))
     .limit(1000);
   return rows.map((r) => ({ id: r.id, name: [r.firstName, r.lastName].filter(Boolean).join(" "), nickname: r.nickname }));
 }
