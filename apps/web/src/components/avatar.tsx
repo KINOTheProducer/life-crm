@@ -1,20 +1,10 @@
 import { cn } from "@/lib/utils";
+import { AvatarImage } from "./avatar-image";
+import { initials, toneFor } from "./avatar-tone";
 
-const tones = ["bg-peach", "bg-sage", "bg-lilac", "bg-sky", "bg-butter", "bg-rose"] as const;
+export { initials, toneFor };
 
-/** Stable pastel for a person, so they look the same everywhere. */
-export function toneFor(id: string) {
-  let h = 0;
-  for (const c of id) h = (h * 31 + c.charCodeAt(0)) >>> 0;
-  return tones[h % tones.length]!;
-}
-
-export function initials(name: string) {
-  const parts = name.trim().split(/\s+/);
-  return ((parts[0]?.[0] ?? "") + (parts.length > 1 ? (parts.at(-1)?.[0] ?? "") : "")).toUpperCase();
-}
-
-/** Photo when we have one (Immich, later), otherwise initials on the person's pastel. */
+/** Photo when we have one (an Immich face), otherwise initials on the person's pastel. */
 export function Avatar({
   id,
   name,
@@ -29,11 +19,7 @@ export function Avatar({
   className?: string;
 }) {
   const style = { width: size, height: size, fontSize: Math.round(size * 0.36) };
-  if (src) {
-    // eslint-disable-next-line @next/next/no-img-element
-    return <img src={src} alt="" style={style} className={cn("shrink-0 rounded-full object-cover", className)} />;
-  }
-  return (
+  const fallback = (
     <span
       aria-hidden
       style={style}
@@ -42,4 +28,6 @@ export function Avatar({
       {initials(name)}
     </span>
   );
+  if (!src) return fallback;
+  return <AvatarImage src={src} style={style} className={cn("shrink-0 rounded-full object-cover", className)} fallback={fallback} />;
 }

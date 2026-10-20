@@ -37,7 +37,13 @@ export async function userPrefs(tx: Tx, userId: string) {
 
 export async function currentPartners(tx: Tx) {
   return tx
-    .select({ id: partnerships.id, contactId: partnerships.contactId, firstName: contacts.firstName, lastName: contacts.lastName })
+    .select({
+      id: partnerships.id,
+      contactId: partnerships.contactId,
+      firstName: contacts.firstName,
+      lastName: contacts.lastName,
+      avatarRef: contacts.avatarRef,
+    })
     .from(partnerships)
     .innerJoin(contacts, eq(contacts.id, partnerships.contactId))
     .where(and(eq(partnerships.status, "current"), isNull(contacts.deletedAt)))
@@ -197,6 +203,7 @@ export async function partnerCards(tx: Tx, timeZone: string) {
       contactId: p.contactId,
       name: fullName(p),
       firstName: p.firstName,
+      avatarRef: p.avatarRef,
       label: profile.partnership.label,
       together: profile.together,
       nextAnniversary: profile.nextAnniversary,

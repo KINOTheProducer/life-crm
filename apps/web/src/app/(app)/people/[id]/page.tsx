@@ -9,12 +9,16 @@ import { CustomReminderList } from "@/components/reminders/custom-reminder-list"
 import { ReminderForm } from "@/components/reminders/reminder-form";
 import { Timeline } from "@/components/profile/timeline";
 import { MemoryCard } from "@/components/memories/memory-card";
+import { FacesCard, PersonPhotosPanel } from "@/components/faces/faces";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatPartialDate, toIsoDate } from "@/lib/data/dates";
 import { getProfile, parseKinds } from "@/lib/data/profile";
+import { facesFor } from "@/lib/data/faces";
 import { listMemories } from "@/lib/data/memories";
+import { immichConnection } from "@/lib/immich";
+import { avatarSrc } from "@/lib/immich-urls";
 import { listCustomReminders } from "@/lib/data/reminders";
 import { tenantQuery } from "@/lib/session";
 
@@ -42,6 +46,8 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
     profile: await getProfile(tx, id, { kinds, before: cursor }),
     reminders: await listCustomReminders(tx, user.id, id),
     memories: await listMemories(tx, { contactId: id, limit: 3 }),
+    faces: (await facesFor(tx, [id])).get(id) ?? [],
+    immich: Boolean(await immichConnection(tx, user.id)),
     timeZone: user.timeZone,
   }));
   if (!result.profile) notFound();
@@ -75,7 +81,7 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
       </Link>
       <header className="flex flex-wrap items-end justify-between gap-6 pb-8">
         <div className="flex items-end gap-5">
-          <Avatar id={contact.id} name={profile.name} size={104} className="text-[2.5rem]" />
+          <Avatar id={contact.id} name={profile.name} src={avatarSrc(contact.avatarRef)} size={104} className="text-[2.5rem]" />
           <div className="grid gap-2">
             <h1 className="type-display text-[3.25rem] leading-[1.02]">
               {profile.name}
@@ -119,6 +125,7 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
       <div className="grid gap-8 lg:grid-cols-[1fr_340px]">
         <div className="grid content-start gap-8">
           <Composer contactId={contact.id} firstName={contact.firstName} today={toIsoDate(today)} />
+          {result.faces.length > 0 && result.immich && <PersonPhotosPanel contactId={contact.id} firstName={contact.firstName} />}
           <Timeline
             contactId={contact.id}
             entries={profile.timeline.entries}
@@ -205,6 +212,16 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
               </div>
             </CardContent>
           </Card>
+          {result.immich && (
+            <Card>
+              <CardHeader>
+                <CardTitle>In Immich</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <FacesCard contactId={contact.id} firstName={contact.firstName} faces={result.faces} avatarRef={contact.avatarRef} />
+              </CardContent>
+            </Card>
+          )}
           <FactsPanel
             contactId={contact.id}
             firstName={contact.firstName}

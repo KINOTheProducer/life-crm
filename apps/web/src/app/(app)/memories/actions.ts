@@ -15,7 +15,7 @@ export interface MemoryFormState {
   ok?: number;
 }
 
-const { contacts, memories, memoryAssets, memoryPeople, timelineEntries } = schema;
+const { contactFaces, contacts, memories, memoryAssets, memoryPeople, timelineEntries } = schema;
 const uuid = z.uuid();
 
 const optional = (max: number) =>
@@ -109,6 +109,8 @@ export async function deleteMemory(memoryId: string) {
 export interface PhotoResult {
   assets: Pick<ImmichAsset, "id" | "type" | "localDateTime" | "city" | "country">[];
   nextPage: number | null;
+  /** First names of tagged people linked to an Immich face. */
+  taggedWithFaces: string[];
   error?: string;
 }
 
@@ -116,28 +118,57 @@ export interface PhotoResult {
  * Photos to choose from: everything taken during the memory's dates, or Immich smart
  * search results when there's a query ("beach", "Holly at dinner").
  */
-export async function findPhotos(memoryId: string, query: string, page = 1): Promise<PhotoResult> {
-  if (!uuid.safeParse(memoryId).success) return { assets: [], nextPage: null, error: "Memory not found" };
+export async function findPhotos(memoryId: string, query: string, page = 1, onlyTagged = false): Promise<PhotoResult> {
+  if (!uuid.safeParse(memoryId).success) return { assets: [], nextPage: null, taggedWithFaces: [], error: "Memory not found" };
   const q = query.trim().slice(0, 200);
   return tenantQuery(async (tx, user) => {
     const immich = await immichFor(tx, user.id);
-    if (!immich) return { assets: [], nextPage: null, error: "Connect Immich in Settings first" };
+    if (!immich) return { assets: [], nextPage: null, taggedWithFaces: [], error: "Connect Immich in Settings first" };
     const [memory] = await tx
       .select({ startedOn: memories.startedOn, endedOn: memories.endedOn })
       .from(memories)
       .where(eq(memories.id, memoryId));
-    if (!memory) return { assets: [], nextPage: null, error: "Memory not found" };
+    if (!memory) return { assets: [], nextPage: null, taggedWithFaces: [], error: "Memory not found" };
+
+    // Tagged people who have Immich faces, so the picker can narrow to photos with them.
+    const tagged = await tx
+      .select({ firstName: contacts.firstName, personId: contactFaces.personId })
+      .from(memoryPeople)
+      .innerJoin(contacts, eq(contacts.id, memoryPeople.contactId))
+      .innerJoin(contactFaces, eq(contactFaces.contactId, memoryPeople.contactId))
+      .where(eq(memoryPeople.memoryId, memoryId));
+    const taggedWithFaces = [...new Set(tagged.map((t) => t.firstName))];
+
+    const from = memory.startedOn;
+    const to = memory.endedOn ?? memory.startedOn;
     try {
-      const result = q
-        ? await immich.smartSearch(q, { page, size: 60 })
-        : await immich.takenBetween(memory.startedOn, memory.endedOn ?? memory.startedOn, { page, size: 200 });
+      let result;
+      if (q) result = await immich.smartSearch(q, { page, size: 60 });
+      else if (onlyTagged && tagged.length) {
+        // Several person ids mean "all of them" to Immich, so search each face and merge.
+        const pages = await Promise.all(tagged.map((t) => immich.takenBetween(from, to, { page, size: 200, personIds: [t.personId] })));
+        const seen = new Set<string>();
+        result = {
+          assets: pages
+            .flatMap((p) => p.assets)
+            .filter((a) => !seen.has(a.id) && seen.add(a.id))
+            .sort((a, b) => (a.localDateTime ?? "").localeCompare(b.localDateTime ?? "")),
+          nextPage: pages.some((p) => p.nextPage) ? page + 1 : null,
+        };
+      } else result = await immich.takenBetween(from, to, { page, size: 200 });
       return {
         assets: result.assets.map(({ id, type, localDateTime, city, country }) => ({ id, type, localDateTime, city, country })),
         nextPage: result.nextPage,
+        taggedWithFaces,
       };
     } catch (err) {
       const message = err instanceof ImmichError ? err.message : "Couldn't search Immich";
-      return { assets: [], nextPage: null, error: q && err instanceof ImmichError && err.status != null ? `${message}. Smart search needs machine learning turned on in Immich.` : message };
+      return {
+        assets: [],
+        nextPage: null,
+        taggedWithFaces,
+        error: q && err instanceof ImmichError && err.status != null ? `${message}. Smart search needs machine learning turned on in Immich.` : message,
+      };
     }
   });
 }

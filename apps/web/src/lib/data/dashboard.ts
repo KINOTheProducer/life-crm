@@ -8,6 +8,7 @@ const { contacts, facts, interactionPeople, interactions } = schema;
 export interface DriftingPerson {
   id: string;
   name: string;
+  avatarRef: string | null;
   daysSince: number | null;
   cadenceDays: number;
   note: string | null;
@@ -22,6 +23,7 @@ export async function drifting(tx: Tx, limit = 4): Promise<DriftingPerson[]> {
       id: contacts.id,
       firstName: contacts.firstName,
       lastName: contacts.lastName,
+      avatarRef: contacts.avatarRef,
       cadence: contacts.keepInTouchDays,
       last: contacts.lastInteractionAt,
       createdAt: contacts.createdAt,
@@ -46,6 +48,7 @@ export async function drifting(tx: Tx, limit = 4): Promise<DriftingPerson[]> {
   return overdue.map(({ r, since }) => ({
     id: r.id,
     name: fullName(r),
+    avatarRef: r.avatarRef,
     daysSince: r.last ? since : null,
     cadenceDays: r.cadence!,
     note: notes.get(r.id) ?? null,

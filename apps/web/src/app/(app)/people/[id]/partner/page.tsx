@@ -23,6 +23,7 @@ import { formatPartialDate, parseIsoDate, toIsoDate } from "@/lib/data/dates";
 import { listMemories } from "@/lib/data/memories";
 import { getPartnerProfile, userPrefs } from "@/lib/data/partners";
 import { tenantQuery } from "@/lib/session";
+import { avatarSrc } from "@/lib/immich-urls";
 
 const cad = new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" });
 const shortDate = new Intl.DateTimeFormat("en-CA", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
@@ -121,7 +122,7 @@ export default async function PartnerPage({ params }: PageProps<"/people/[id]/pa
       {back}
       <header className="flex flex-wrap items-end justify-between gap-6 pb-8">
         <div className="flex items-end gap-5">
-          <Avatar id={contact.id} name={name} size={104} className="text-[2.5rem]" />
+          <Avatar id={contact.id} name={name} src={avatarSrc(contact.avatarRef)} size={104} className="text-[2.5rem]" />
           <div className="grid gap-2">
             <h1 className="type-display text-[3.25rem] leading-[1.02]">
               {contact.firstName} <em className="text-muted-foreground">and you.</em>

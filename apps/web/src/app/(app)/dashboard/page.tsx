@@ -14,6 +14,7 @@ import { upcomingBirthdays } from "@/lib/data/people";
 import { listInbox } from "@/lib/data/reminders";
 import { tenantQuery } from "@/lib/session";
 import { cn } from "@/lib/utils";
+import { avatarSrc } from "@/lib/immich-urls";
 
 const tiers = [
   { key: "inner", label: "Inner circle", tone: "bg-peach" },
@@ -149,7 +150,7 @@ export default async function DashboardPage() {
               {data.drifting.map((p) => (
                 <li key={p.id}>
                   <Link href={`/people/${p.id}`} className="flex items-center gap-3 py-3 hover:opacity-80">
-                    <Avatar id={p.id} name={p.name} size={38} />
+                    <Avatar id={p.id} name={p.name} src={avatarSrc(p.avatarRef)} size={38} />
                     <span className="min-w-0 flex-1">
                       <span className="block font-medium">{p.name}</span>
                       <span className="block truncate text-[13px] text-muted-foreground">
@@ -227,7 +228,7 @@ function PartnerCard({ partner: p }: { partner: Partner }) {
     p.dateNight.daysSince == null ? "No date nights logged yet" : p.dateNight.daysSince === 0 ? "Date night today" : `Last date night ${p.dateNight.daysSince} days ago`;
   return (
     <section className="flex flex-wrap items-center gap-6 rounded-3xl bg-card p-6">
-      <Avatar id={p.contactId} name={p.name} size={64} className="text-2xl" />
+      <Avatar id={p.contactId} name={p.name} src={avatarSrc(p.avatarRef)} size={64} className="text-2xl" />
       <div className="grid min-w-48 flex-1 gap-1">
         <p className="flex flex-wrap items-center gap-x-1.5 text-sm text-muted-foreground">
           <Heart className="size-3.5 fill-coral text-coral" />

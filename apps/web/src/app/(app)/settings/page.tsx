@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { eq, schema } from "@life-crm/db";
 import { PageHeader } from "@/components/page-header";
 import { CalendarFeed } from "@/components/settings/calendar-feed";
@@ -6,6 +7,7 @@ import { PushToggle } from "@/components/settings/push-toggle";
 import { RelationshipSettingsForm } from "@/components/settings/relationship-form";
 import { SettingsForm } from "@/components/settings/settings-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { SelfFace } from "@/components/faces/faces";
 import { ImmichForm } from "@/components/settings/immich-form";
 import { db } from "@/lib/db";
 import { immichConnection } from "@/lib/immich";
@@ -51,6 +53,14 @@ export default async function SettingsPage() {
           <CardContent>
             <ImmichForm connected={immich && { baseUrl: immich.baseUrl, accountName: immich.accountName }} />
           </CardContent>
+          {immich && (
+            <CardContent className="grid gap-4 border-t border-border pt-6">
+              <SelfFace personId={immich.selfPersonId} />
+              <Link href="/people/faces" className="text-sm font-medium underline-offset-4 hover:underline">
+                Match faces to your people
+              </Link>
+            </CardContent>
+          )}
         </Card>
         <Card>
           <CardHeader>

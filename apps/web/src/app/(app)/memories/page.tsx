@@ -1,19 +1,25 @@
 import { schema, eq } from "@life-crm/db";
-import { Plus } from "lucide-react";
+import { Plus, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { MemoryCard } from "@/components/memories/memory-card";
 import { PageHeader } from "@/components/page-header";
 import { buttonVariants } from "@/components/ui/button";
 import { fullName } from "@/lib/data/contacts";
 import { listMemories } from "@/lib/data/memories";
+import { immichConnection } from "@/lib/immich";
 import { tenantQuery } from "@/lib/session";
 
 export default async function MemoriesPage({ searchParams }: PageProps<"/memories">) {
   const { person } = await searchParams;
   const contactId = typeof person === "string" && /^[0-9a-f-]{36}$/.test(person) ? person : undefined;
-  const { items, who } = await tenantQuery(async (tx) => {
+  const { items, who, canSuggest } = await tenantQuery(async (tx, user) => {
     const [c] = contactId ? await tx.select().from(schema.contacts).where(eq(schema.contacts.id, contactId)) : [];
-    return { items: await listMemories(tx, { contactId }), who: c ? fullName(c) : null };
+    const [face] = await tx.select({ id: schema.contactFaces.personId }).from(schema.contactFaces).limit(1);
+    return {
+      items: await listMemories(tx, { contactId }),
+      who: c ? fullName(c) : null,
+      canSuggest: Boolean(face && (await immichConnection(tx, user.id))),
+    };
   });
 
   // Group by year, newest first.
@@ -27,6 +33,12 @@ export default async function MemoriesPage({ searchParams }: PageProps<"/memorie
         aside={items.length ? "The times worth keeping." : "Start with one you never want to forget."}
         actions={
           <>
+            {canSuggest && !who && (
+              <Link href="/memories/suggestions" className={buttonVariants({ variant: "outline" })}>
+                <Sparkles />
+                From your photos
+              </Link>
+            )}
             {who && (
               <Link href="/memories" className={buttonVariants({ variant: "outline" })}>
                 Everyone

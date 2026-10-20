@@ -68,6 +68,36 @@ describe("client", () => {
     expect(page.nextPage).toBe(2);
   });
 
+  it("lists named and unnamed people, leaving hidden ones out", async () => {
+    const f = fakeFetch((url) => {
+      expect(url).toBe("https://p.example.com/api/people?withHidden=false&page=1&size=500");
+      return Response.json({
+        people: [
+          { id: "p1", name: "Holly", birthDate: "1995-03-14T00:00:00.000Z", isHidden: false },
+          { id: "p2", name: "", birthDate: null, isHidden: false },
+          { id: "p3", name: "Ex", isHidden: true },
+        ],
+        hasNextPage: false,
+      });
+    });
+    const res = await createImmichClient({ baseUrl: "https://p.example.com", apiKey: "k", fetch: f }).people();
+    expect(res.people).toEqual([
+      { id: "p1", name: "Holly", birthDate: "1995-03-14", isHidden: false },
+      { id: "p2", name: "", birthDate: null, isHidden: false },
+    ]);
+  });
+
+  it("searches by people, newest first", async () => {
+    let body: Record<string, unknown> = {};
+    const f = fakeFetch((_url, init) => {
+      body = JSON.parse(String(init.body));
+      return Response.json({ assets: { items: [asset("a", "2025-03-10T08:00:00")], nextPage: null } });
+    });
+    const page = await createImmichClient({ baseUrl: "https://p.example.com", apiKey: "k", fetch: f }).withPeople(["me", "holly"], { size: 12 });
+    expect(body).toMatchObject({ personIds: ["me", "holly"], order: "desc", size: 12 });
+    expect(page.assets).toHaveLength(1);
+  });
+
   it("reports an unreachable server", async () => {
     const f = fakeFetch(() => {
       throw new TypeError("fetch failed");

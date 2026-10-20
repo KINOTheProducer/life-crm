@@ -19,6 +19,8 @@ export const contacts = pgTable(
     howMet: text("how_met"),
     /** What they are to the user, in the user's words: "Mom", "Brother", "Best friend". */
     relationship: text("relationship"),
+    /** Where the avatar comes from: "immich-person:<id>", or null for initials. */
+    avatarRef: text("avatar_ref"),
     lastInteractionAt: timestamp("last_interaction_at", { withTimezone: true }),
     ...timestamps,
     deletedAt: timestamp("deleted_at", { withTimezone: true }),

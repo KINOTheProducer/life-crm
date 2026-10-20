@@ -75,7 +75,43 @@ export const immichConnections = pgTable(
     apiKeyEnc: text("api_key_enc").notNull(),
     /** Immich account name, shown in Settings. */
     accountName: text("account_name"),
+    /** The user's own face in Immich, for "photos together". */
+    selfPersonId: text("self_person_id"),
     ...timestamps,
   },
   (t) => [uniqueIndex("immich_connections_user_idx").on(t.userId), tenantIsolation("immich_connections")],
+).enableRLS();
+
+/**
+ * Immich face clusters that are this person. Immich sometimes splits one person into
+ * several clusters, so a contact can have more than one.
+ */
+export const contactFaces = pgTable(
+  "contact_faces",
+  {
+    tenantId: tenantId(),
+    contactId: uuid("contact_id")
+      .notNull()
+      .references(() => contacts.id, { onDelete: "cascade" }),
+    personId: text("person_id").notNull(),
+    /** The name Immich had when linked, to spot renames. */
+    immichName: text("immich_name"),
+    linkedAt: timestamps.createdAt,
+  },
+  (t) => [
+    primaryKey({ columns: [t.contactId, t.personId] }),
+    uniqueIndex("contact_faces_person_idx").on(t.tenantId, t.personId),
+    tenantIsolation("contact_faces"),
+  ],
+).enableRLS();
+
+/** Memory suggestions the user said no to, keyed by date range, so they don't come back. */
+export const dismissedSuggestions = pgTable(
+  "dismissed_suggestions",
+  {
+    tenantId: tenantId(),
+    key: text("key").notNull(),
+    dismissedAt: timestamps.createdAt,
+  },
+  (t) => [primaryKey({ columns: [t.tenantId, t.key] }), tenantIsolation("dismissed_suggestions")],
 ).enableRLS();
