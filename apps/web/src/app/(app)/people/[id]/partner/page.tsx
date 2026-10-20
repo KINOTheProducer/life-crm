@@ -4,6 +4,7 @@ import { ArrowLeft, Heart, Star } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Avatar } from "@/components/avatar";
+import { MemoryCard } from "@/components/memories/memory-card";
 import {
   DateNightForm,
   EndPartnershipForm,
@@ -19,6 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { fullName } from "@/lib/data/contacts";
 import { formatPartialDate, parseIsoDate, toIsoDate } from "@/lib/data/dates";
+import { listMemories } from "@/lib/data/memories";
 import { getPartnerProfile, userPrefs } from "@/lib/data/partners";
 import { tenantQuery } from "@/lib/session";
 
@@ -50,11 +52,12 @@ export default async function PartnerPage({ params }: PageProps<"/people/[id]/pa
       contact,
       prefs: await userPrefs(tx, user.id),
       profile: await getPartnerProfile(tx, id, user.timeZone),
+      memories: await listMemories(tx, { contactId: id, limit: 4 }),
       today: toIsoDate(todayIn(user.timeZone)),
     };
   });
   if (!data) notFound();
-  const { contact, prefs, profile, today } = data;
+  const { contact, prefs, profile, today, memories } = data;
   const name = fullName(contact);
   const polyamorous = prefs.relationshipStyle === "polyamorous";
 
@@ -225,6 +228,36 @@ export default async function PartnerPage({ params }: PageProps<"/people/[id]/pa
                     </li>
                   ))}
                 </ul>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Memories together</CardTitle>
+              <CardDescription>
+                <Link href={`/memories/new?person=${id}`} className="underline-offset-4 hover:underline">
+                  Add one
+                </Link>
+                {memories.length > 0 && (
+                  <>
+                    {" · "}
+                    <Link href={`/memories?person=${id}`} className="underline-offset-4 hover:underline">
+                      See all
+                    </Link>
+                  </>
+                )}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {memories.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Trips, anniversaries, the good weekends. Photos come from Immich.</p>
+              ) : (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {memories.map((m) => (
+                    <MemoryCard key={m.id} memory={m} compact />
+                  ))}
+                </div>
               )}
             </CardContent>
           </Card>

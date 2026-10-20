@@ -14,6 +14,7 @@
     "@life-crm/ai": "workspace:*",
     "@life-crm/core": "workspace:*",
     "@life-crm/db": "workspace:*",
+    "@life-crm/immich": "workspace:*",
     "@life-crm/reminders": "workspace:*",
     "@react-three/drei": "10.7.9",
     "@react-three/fiber": "9.8.2",

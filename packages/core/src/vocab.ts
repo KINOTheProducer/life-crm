@@ -47,3 +47,15 @@ export const interactionTypeLabels: Record<InteractionType, string> = {
   event: "Event",
   other: "Other",
 };
+
+export const memoryKinds = ["trip", "celebration", "event", "everyday", "milestone", "other"] as const;
+export type MemoryKind = (typeof memoryKinds)[number];
+
+export const memoryKindLabels: Record<MemoryKind, string> = {
+  trip: "Trip",
+  celebration: "Celebration",
+  event: "Event",
+  everyday: "Everyday",
+  milestone: "Milestone",
+  other: "Other",
+};

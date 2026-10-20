@@ -31,6 +31,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { selectClass, textareaClass } from "@/lib/forms";
 import { cn } from "@/lib/utils";
+import { submitKeepingValues } from "@/lib/submit";
 
 function useResetOnSuccess(state: FormState) {
   const form = useRef<HTMLFormElement>(null);
@@ -62,7 +63,7 @@ function LabelInput({ defaultValue }: { defaultValue?: string }) {
 export function MakePartnerForm({ contactId, polyamorous }: { contactId: string; polyamorous: boolean }) {
   const [state, action, pending] = useActionState(makePartner.bind(null, contactId), {});
   return (
-    <form action={action} className="grid max-w-md gap-3">
+    <form onSubmit={submitKeepingValues(action)} className="grid max-w-md gap-3">
       <label className="grid gap-2 text-sm font-medium">
         What you call them
         <LabelInput />
@@ -108,7 +109,7 @@ export function PartnershipDetailsForm({
   const cadence = dateCadenceDays ?? 0;
   const known = cadenceOptions.some(([d]) => d === cadence);
   return (
-    <form action={action} className="grid gap-4">
+    <form onSubmit={submitKeepingValues(action)} className="grid gap-4">
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="grid gap-2 text-sm font-medium">
           What you call them
@@ -240,7 +241,7 @@ export function PromptsForm({
   const labels = partnerPrompts[section];
   const wide = section === "love";
   return (
-    <form action={action} className="grid gap-4">
+    <form onSubmit={submitKeepingValues(action)} className="grid gap-4">
       <div className={cn("grid gap-3", !wide && "sm:grid-cols-2")}>
         {labels.map((label, i) => (
           <label key={label} className="grid gap-1.5 text-[13px] text-muted-foreground">
@@ -318,7 +319,7 @@ export function MilestoneForm({ contactId }: { contactId: string }) {
   const [kind, setKind] = useState<MilestoneKind>("official");
   const form = useResetOnSuccess(state);
   return (
-    <form ref={form} action={action} className="grid gap-3 border-t border-border pt-4">
+    <form ref={form} onSubmit={submitKeepingValues(action)} className="grid gap-3 border-t border-border pt-4">
       <div className="grid gap-2 sm:grid-cols-2">
         <select name="kind" aria-label="Milestone" value={kind} onChange={(e) => setKind(e.target.value as MilestoneKind)} className={selectClass}>
           {milestoneKinds.map((k) => (
@@ -362,7 +363,7 @@ export function DateNightForm({ contactId, today }: { contactId: string; today: 
   const [state, action, pending] = useActionState(logDateNight.bind(null, contactId), {});
   const form = useResetOnSuccess(state);
   return (
-    <form ref={form} action={action} className="grid gap-3">
+    <form ref={form} onSubmit={submitKeepingValues(action)} className="grid gap-3">
       <div className="grid gap-2 sm:grid-cols-[1fr_2fr_1fr]">
         <Input name="date" type="date" aria-label="Date" defaultValue={today} max={today} required />
         <Input name="place" placeholder="Where" maxLength={200} />
@@ -413,7 +414,7 @@ export function EndPartnershipForm({ contactId, firstName, today }: { contactId:
       </button>
     );
   return (
-    <form action={action} className="grid gap-3">
+    <form onSubmit={submitKeepingValues(action)} className="grid gap-3">
       <p className="text-sm text-muted-foreground">
         {firstName} stays in your people with everything you&apos;ve saved. Anniversary reminders stop.
       </p>

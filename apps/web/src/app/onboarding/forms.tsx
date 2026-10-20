@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { selectClass } from "@/lib/forms";
 import { cn } from "@/lib/utils";
 import { finishOnboarding, saveFamily, savePartner, savePeople, saveRelationship, saveYou, type StepState } from "./actions";
+import { submitKeepingValues } from "@/lib/submit";
 
 function Submit({ pending, children, ...props }: { pending: boolean; children: React.ReactNode } & React.ComponentProps<typeof Button>) {
   return (
@@ -49,7 +50,7 @@ export function YouForm({ name, timeZone, timeZones, suggestBrowserZone }: { nam
   }, [suggestBrowserZone, timeZones]);
 
   return (
-    <form action={action} className="grid gap-5">
+    <form onSubmit={submitKeepingValues(action)} className="grid gap-5">
       <label className="grid gap-2 text-sm font-medium">
         What should we call you?
         <Input name="name" defaultValue={name} required maxLength={100} autoFocus />
@@ -79,7 +80,7 @@ export function RelationshipForm({ status, polyamorous }: { status: Relationship
   const partnered = picked != null && partneredStatuses.includes(picked);
 
   return (
-    <form action={action} className="grid gap-5">
+    <form onSubmit={submitKeepingValues(action)} className="grid gap-5">
       <fieldset className="grid gap-2 sm:grid-cols-2">
         <legend className="sr-only">Relationship status</legend>
         {relationshipStatuses.map((s) => (
@@ -115,7 +116,7 @@ export function RelationshipForm({ status, polyamorous }: { status: Relationship
 export function PartnerForm({ polyamorous, married, hasPartners }: { polyamorous: boolean; married: boolean; hasPartners: boolean }) {
   const [state, action, pending] = useActionState(savePartner, {});
   return (
-    <form action={action} className="grid gap-5">
+    <form onSubmit={submitKeepingValues(action)} className="grid gap-5">
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="grid gap-2 text-sm font-medium">
           First name
@@ -171,7 +172,7 @@ export function FamilyForm() {
   const [state, action, pending] = useActionState(saveFamily, {});
   const [rows, setRows] = useState(3);
   return (
-    <form action={action} className="grid gap-5">
+    <form onSubmit={submitKeepingValues(action)} className="grid gap-5">
       <input type="hidden" name="rowCount" value={rows} />
       <datalist id="family-labels">
         {familyLabels.map((l) => (
@@ -214,7 +215,7 @@ const cadences = [
 export function PeopleForm() {
   const [state, action, pending] = useActionState(savePeople, {});
   return (
-    <form action={action} className="grid gap-5">
+    <form onSubmit={submitKeepingValues(action)} className="grid gap-5">
       <div className="grid gap-2">
         {Array.from({ length: 5 }, (_, i) => (
           <div key={i} className="grid grid-cols-[1.6fr_1fr] gap-2">
@@ -244,7 +245,7 @@ function hourLabel(h: number) {
 export function RemindersForm({ digestHour, emailDigest }: { digestHour: number; emailDigest: boolean }) {
   const [state, action, pending] = useActionState(finishOnboarding, {});
   return (
-    <form action={action} className="grid gap-5">
+    <form onSubmit={submitKeepingValues(action)} className="grid gap-5">
       <label className="grid max-w-xs gap-2 text-sm font-medium">
         Send reminders at
         <select name="digestHour" defaultValue={digestHour} className={selectClass}>

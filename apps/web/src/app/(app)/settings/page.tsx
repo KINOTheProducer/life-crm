@@ -6,13 +6,16 @@ import { PushToggle } from "@/components/settings/push-toggle";
 import { RelationshipSettingsForm } from "@/components/settings/relationship-form";
 import { SettingsForm } from "@/components/settings/settings-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ImmichForm } from "@/components/settings/immich-form";
 import { db } from "@/lib/db";
-import { requireUser } from "@/lib/session";
+import { immichConnection } from "@/lib/immich";
+import { requireUser, tenantQuery } from "@/lib/session";
 
 export default async function SettingsPage() {
   const me = await requireUser();
   const [u] = await db.select().from(schema.user).where(eq(schema.user.id, me.id));
   const timeZones = ["UTC", ...Intl.supportedValuesOf("timeZone")];
+  const immich = await tenantQuery((tx) => immichConnection(tx, me.id));
 
   return (
     <>
@@ -39,6 +42,14 @@ export default async function SettingsPage() {
           </CardHeader>
           <CardContent>
             <RelationshipSettingsForm status={u!.relationshipStatus} style={u!.relationshipStyle} />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Immich</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ImmichForm connected={immich && { baseUrl: immich.baseUrl, accountName: immich.accountName }} />
           </CardContent>
         </Card>
         <Card>

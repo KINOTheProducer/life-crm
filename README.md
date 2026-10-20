@@ -46,6 +46,10 @@ Voice notes need two services:
 - **Speech to text**: any OpenAI-compatible `/audio/transcriptions` endpoint. Locally, run `docker run -p 8000:8000 ghcr.io/speaches-ai/speaches:latest-cpu` and set `STT_BASE_URL=http://localhost:8000/v1`. Or point it at OpenAI or Groq.
 - **Extraction**: Claude by default (`ANTHROPIC_API_KEY`). For a local model or another provider, set `AI_PROVIDER=openai_compatible`, `AI_BASE_URL`, `AI_MODEL` and optionally `AI_API_KEY`.
 
+### Immich
+
+Memories can pull photos from Immich. Each user connects their own server in Settings with an Immich API key; the key is encrypted with `BETTER_AUTH_SECRET` (changing that secret means reconnecting). Photos are never copied, thumbnails are proxied through the app. In cloud mode, Immich URLs on private networks are refused.
+
 After changing `packages/db/src/schema`, run `pnpm db:generate` to create a migration.
 
 ## Self-hosting

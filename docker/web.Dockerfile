@@ -10,6 +10,7 @@ COPY apps/worker/package.json apps/worker/
 COPY packages/ai/package.json packages/ai/
 COPY packages/core/package.json packages/core/
 COPY packages/db/package.json packages/db/
+COPY packages/immich/package.json packages/immich/
 COPY packages/reminders/package.json packages/reminders/
 RUN pnpm install --frozen-lockfile
 

@@ -8,11 +8,13 @@ import { FactsPanel } from "@/components/profile/facts-panel";
 import { CustomReminderList } from "@/components/reminders/custom-reminder-list";
 import { ReminderForm } from "@/components/reminders/reminder-form";
 import { Timeline } from "@/components/profile/timeline";
+import { MemoryCard } from "@/components/memories/memory-card";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatPartialDate, toIsoDate } from "@/lib/data/dates";
 import { getProfile, parseKinds } from "@/lib/data/profile";
+import { listMemories } from "@/lib/data/memories";
 import { listCustomReminders } from "@/lib/data/reminders";
 import { tenantQuery } from "@/lib/session";
 
@@ -39,6 +41,7 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
   const result = await tenantQuery(async (tx, user) => ({
     profile: await getProfile(tx, id, { kinds, before: cursor }),
     reminders: await listCustomReminders(tx, user.id, id),
+    memories: await listMemories(tx, { contactId: id, limit: 3 }),
     timeZone: user.timeZone,
   }));
   if (!result.profile) notFound();
@@ -179,6 +182,27 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
             <CardContent className="grid gap-4">
               <CustomReminderList items={result.reminders} />
               <ReminderForm today={toIsoDate(today)} contactId={contact.id} placeholder={`Ask ${contact.firstName} about…`} />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Memories</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-3">
+              {result.memories.length === 0 && <p className="text-sm text-muted-foreground">Trips, birthdays, nights out with {contact.firstName}.</p>}
+              {result.memories.map((m) => (
+                <MemoryCard key={m.id} memory={m} compact />
+              ))}
+              <div className="flex gap-4 text-sm">
+                <Link href={`/memories/new?person=${contact.id}`} className="font-medium underline-offset-4 hover:underline">
+                  Add a memory
+                </Link>
+                {result.memories.length > 0 && (
+                  <Link href={`/memories?person=${contact.id}`} className="text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
+                    See all
+                  </Link>
+                )}
+              </div>
             </CardContent>
           </Card>
           <FactsPanel

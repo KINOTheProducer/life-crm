@@ -3,6 +3,7 @@ import type { TimelineKind } from "@life-crm/db/schema";
 import {
   Cake,
   Heart,
+  Images,
   Lightbulb,
   Mail,
   MessageCircle,
@@ -18,12 +19,14 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import type { TimelineEntry } from "@/lib/data/timeline";
+import { thumbUrl } from "@/lib/immich-urls";
 import { cn } from "@/lib/utils";
 
 const filters: { label: string; kinds: TimelineKind[] }[] = [
   { label: "Everything", kinds: [] },
   { label: "Catch-ups", kinds: ["interaction"] },
   { label: "Notes", kinds: ["note", "voice"] },
+  { label: "Memories", kinds: ["memory"] },
   { label: "Facts & dates", kinds: ["fact", "date", "milestone"] },
 ];
 
@@ -51,12 +54,18 @@ function iconFor(entry: TimelineEntry): LucideIcon {
       return Cake;
     case "milestone":
       return Heart;
+    case "memory":
+      return Images;
     case "interaction":
       return interactionIcons[entry.title as InteractionType] ?? Users;
   }
 }
 
 function titleFor(entry: TimelineEntry, names: Record<string, string>) {
+  if (entry.kind === "memory") {
+    const others = ((entry.data as { with?: string[] } | null)?.with ?? []).map((id) => names[id]).filter(Boolean);
+    return others.length ? `${entry.title}, with ${others.join(", ")}` : entry.title;
+  }
   if (entry.kind !== "interaction") return entry.title;
   if ((entry.data as { dateNight?: boolean } | null)?.dateNight) return "Date night";
   const label = interactionTypeLabels[entry.title as InteractionType] ?? "Catch-up";
@@ -129,7 +138,8 @@ export function Timeline({
               const Icon = iconFor(entry);
               const learned = (entry.data as { learned?: string[] } | null)?.learned ?? [];
               const location = (entry.data as { location?: string | null } | null)?.location;
-              const day = (entry.kind === "interaction" ? dateOnlyFmt : dayFmt).format(entry.occurredAt);
+              const day = (entry.kind === "interaction" || entry.kind === "memory" ? dateOnlyFmt : dayFmt).format(entry.occurredAt);
+              const photos = entry.kind === "memory" ? ((entry.data as { photos?: string[] } | null)?.photos ?? []) : [];
               return (
                 <li key={entry.id} className="relative">
                   <span
@@ -148,6 +158,10 @@ export function Timeline({
                             <span className="text-muted-foreground">{entry.title}: </span>
                             {entry.body}
                           </>
+                        ) : entry.kind === "memory" && entry.refId ? (
+                          <Link href={`/memories/${entry.refId}`} className="hover:underline">
+                            {titleFor(entry, names)}
+                          </Link>
                         ) : (
                           titleFor(entry, names)
                         )}
@@ -156,6 +170,14 @@ export function Timeline({
                     </div>
                     {location && <p className="text-[13px] text-muted-foreground">{location}</p>}
                     {entry.body && entry.kind !== "fact" && <p className="whitespace-pre-line text-[15px] leading-relaxed">{entry.body}</p>}
+                    {photos.length > 0 && (
+                      <Link href={`/memories/${entry.refId}`} className="mt-1 grid grid-cols-4 gap-1.5">
+                        {photos.map((id) => (
+                          // eslint-disable-next-line @next/next/no-img-element -- proxied Immich thumbnail
+                          <img key={id} src={thumbUrl(id)} alt="" loading="lazy" className="aspect-square w-full rounded-lg object-cover" />
+                        ))}
+                      </Link>
+                    )}
                     {learned.length > 0 && (
                       <ul className="flex flex-wrap gap-1.5 pt-1">
                         {learned.map((l) => (

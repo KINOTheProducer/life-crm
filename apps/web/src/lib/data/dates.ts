@@ -23,3 +23,15 @@ export function toIsoDate(d: PlainDate): string {
 export function dateToInstant(d: PlainDate): Date {
   return new Date(Date.UTC(d.year, d.month - 1, d.day, 12));
 }
+
+const shortMonth = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** "March 10, 2025", "Mar 10 to 16, 2025", "Dec 28, 2024 to Jan 3, 2025". Takes ISO dates. */
+export function formatDateRange(start: string, end: string | null): string {
+  const a = parseIsoDate(start);
+  if (!end || end === start) return formatPartialDate(a);
+  const b = parseIsoDate(end);
+  if (a.year !== b.year) return `${shortMonth[a.month - 1]} ${a.day}, ${a.year} to ${shortMonth[b.month - 1]} ${b.day}, ${b.year}`;
+  if (a.month !== b.month) return `${shortMonth[a.month - 1]} ${a.day} to ${shortMonth[b.month - 1]} ${b.day}, ${a.year}`;
+  return `${shortMonth[a.month - 1]} ${a.day} to ${b.day}, ${a.year}`;
+}
