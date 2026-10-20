@@ -37,11 +37,16 @@ export function StorySection() {
   const [chapter, setChapter] = useState(0);
   const [active, setActive] = useState(false);
   const [mode, setMode] = useState<"pending" | "3d" | "static">("pending");
+  // Shadows-heavy postprocessing only on larger screens.
+  const [rich, setRich] = useState(false);
 
   useEffect(() => {
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     // Deferred so the decision isn't a synchronous state update inside the effect.
-    queueMicrotask(() => setMode(!reduce && supportsWebGL() ? "3d" : "static"));
+    queueMicrotask(() => {
+      setMode(!reduce && supportsWebGL() ? "3d" : "static");
+      setRich(window.innerWidth >= 900);
+    });
   }, []);
 
   useEffect(() => {
@@ -86,12 +91,9 @@ export function StorySection() {
   }
 
   return (
-    <section id="how" ref={section} className="relative h-[460vh] bg-foreground text-background">
+    <section id="how" ref={section} className="relative h-[460vh] bg-[#24170d] text-background">
       <div className="sticky top-0 grid h-screen overflow-hidden lg:grid-cols-[minmax(340px,0.8fr)_1.2fr]">
-        {/* Soft warm pool of light behind the diorama. */}
-        <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_55%_at_65%_55%,rgb(255_201_143/0.16),transparent_70%)]" />
-
-        <div className="relative z-10 flex flex-col justify-end self-end bg-gradient-to-t from-foreground via-foreground/85 to-transparent px-6 pt-24 pb-14 lg:justify-center lg:self-auto lg:bg-none lg:pt-0 lg:pb-0 lg:pl-16">
+        <div className="relative z-10 flex flex-col justify-end self-end bg-gradient-to-t from-[#24170d] via-[#24170d]/85 to-transparent px-6 pt-24 pb-14 lg:justify-center lg:self-auto lg:bg-none lg:pt-0 lg:pb-0 lg:pl-16">
           <p className="mb-6 font-mono text-xs text-background/50">
             {String(chapter + 1).padStart(2, "0")} / {String(chapters.length).padStart(2, "0")}
           </p>
@@ -119,9 +121,11 @@ export function StorySection() {
           </div>
         </div>
 
-        <div className="absolute inset-x-0 top-0 h-[62vh] lg:relative lg:h-auto">
-          <StoryScene progress={progress} active={active} />
+        <div className="absolute inset-x-0 top-0 h-[62vh] lg:inset-0 lg:h-auto">
+          <StoryScene progress={progress} active={active} rich={rich} />
         </div>
+        {/* Keeps the copy readable when the camera moves in close. */}
+        <div aria-hidden className="pointer-events-none absolute inset-y-0 left-0 hidden w-[52%] bg-gradient-to-r from-[#24170d] via-[#24170d]/75 to-transparent lg:block" />
       </div>
     </section>
   );
