@@ -59,7 +59,7 @@
 
 /*
  * Tokens. Warm off-white canvas, white cards, near-black ink, one coral for "now",
- * pastel blocks for groups. See docs/DESIGN.md.
+ * pastel blocks for groups.
  */
 :root {
   --canvas: #f2efe9;

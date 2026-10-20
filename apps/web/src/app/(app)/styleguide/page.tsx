@@ -37,7 +37,7 @@ export default function StyleguidePage() {
         meta="Design system"
         title="Warm canvas, ink, a little coral."
         aside="Pastels for people and groups."
-        description="Tokens and components used across Life CRM. Source of truth: docs/DESIGN.md and globals.css."
+        description="Tokens and components used across Life CRM. Source of truth: globals.css."
       />
 
       <Section label="Colour">

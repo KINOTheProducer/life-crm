@@ -1,6 +1,6 @@
 # life-crm
 
-Personal relationship manager for the people in your life. Self-host it next to Immich or run it as a hosted service. Product and technical plan: [docs/PLAN.md](docs/PLAN.md).
+Personal relationship manager for the people in your life. Self-host it next to Immich or run it as a hosted service.
 
 ## Status
 
