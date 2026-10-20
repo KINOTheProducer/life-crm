@@ -96,6 +96,8 @@ describe("client", () => {
             asset("b", "2025-03-16T21:00:00"),
             asset("trashed", "2025-03-12T10:00:00", { isTrashed: true }),
             asset("archived", "2025-03-12T10:00:00", { visibility: "archive" }),
+            asset("raw", "2025-03-12T10:00:00", { originalFileName: "DSC_0042.NEF" }),
+            asset("dng", "2025-03-12T10:00:00", { originalFileName: "photo", originalMimeType: "image/x-adobe-dng" }),
             asset("after", "2025-03-17T00:30:00"),
           ],
           nextPage: "2",
