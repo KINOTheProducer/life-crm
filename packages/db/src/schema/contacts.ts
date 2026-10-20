@@ -20,6 +20,8 @@ export const contacts = pgTable(
     howMet: text("how_met"),
     company: text("company"),
     jobTitle: text("job_title"),
+    /** UID a CardDAV client gave the contact, kept so its vCard round-trips. Defaults to our id. */
+    davUid: text("dav_uid"),
     /** What they are to the user, in the user's words: "Mom", "Brother", "Best friend". */
     relationship: text("relationship"),
     /** The user's own row, so the family tree has someone to start from. Hidden from people lists. */

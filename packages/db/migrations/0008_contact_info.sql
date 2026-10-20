@@ -29,6 +29,7 @@ CREATE TABLE "contact_methods" (
 ALTER TABLE "contact_methods" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 ALTER TABLE "contacts" ADD COLUMN "company" text;--> statement-breakpoint
 ALTER TABLE "contacts" ADD COLUMN "job_title" text;--> statement-breakpoint
+ALTER TABLE "contacts" ADD COLUMN "dav_uid" text;--> statement-breakpoint
 ALTER TABLE "addresses" ADD CONSTRAINT "addresses_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "addresses" ADD CONSTRAINT "addresses_contact_id_contacts_id_fk" FOREIGN KEY ("contact_id") REFERENCES "public"."contacts"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "contact_methods" ADD CONSTRAINT "contact_methods_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint

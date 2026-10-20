@@ -1,5 +1,5 @@
 {
-  "id": "6ab1a1be-6758-4227-a95e-a2ec87124184",
+  "id": "709d433f-7a9b-4adf-a807-583e1cf7819a",
   "prevId": "20b03c85-d148-4ca9-a62a-0bc8fb9d1728",
   "version": "7",
   "dialect": "postgresql",
@@ -832,6 +832,12 @@
         },
         "job_title": {
           "name": "job_title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "dav_uid": {
+          "name": "dav_uid",
           "type": "text",
           "primaryKey": false,
           "notNull": false
