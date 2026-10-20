@@ -11,6 +11,7 @@ import { Timeline } from "@/components/profile/timeline";
 import { MemoryCard } from "@/components/memories/memory-card";
 import { FacesCard, PersonPhotosPanel } from "@/components/faces/faces";
 import { FamilyCard } from "@/components/family/family-card";
+import { TrashPersonButton } from "@/components/people/trash-actions";
 import { ContactCard } from "@/components/profile/contact-card";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
@@ -215,6 +216,7 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
                   <p>Every {contact.keepInTouchDays} days</p>
                 </div>
               )}
+              {!contact.isSelf && <TrashPersonButton contactId={contact.id} firstName={contact.firstName} />}
             </CardContent>
           </Card>
           <Card>

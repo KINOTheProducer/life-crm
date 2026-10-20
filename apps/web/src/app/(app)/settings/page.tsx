@@ -6,6 +6,7 @@ import { CheckNow } from "@/components/settings/check-now";
 import { PushToggle } from "@/components/settings/push-toggle";
 import { RelationshipSettingsForm } from "@/components/settings/relationship-form";
 import { SettingsForm } from "@/components/settings/settings-form";
+import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SelfFace } from "@/components/faces/faces";
 import { ImmichForm } from "@/components/settings/immich-form";
@@ -61,6 +62,33 @@ export default async function SettingsPage() {
               </Link>
             </CardContent>
           )}
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Your data</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-4 text-sm">
+            <p className="text-muted-foreground">Everything you&apos;ve entered is yours. Take it anywhere, any time.</p>
+            <div className="flex flex-wrap gap-2">
+              <a href="/api/export/json" download className={buttonVariants({ variant: "outline", size: "sm" })}>
+                Everything (JSON)
+              </a>
+              <a href="/api/export/vcf" download className={buttonVariants({ variant: "outline", size: "sm" })}>
+                Contacts (vCard)
+              </a>
+              <a href="/api/export/csv" download className={buttonVariants({ variant: "outline", size: "sm" })}>
+                Contacts (CSV)
+              </a>
+            </div>
+            <div className="flex flex-wrap gap-4">
+              <Link href="/people/import" className="font-medium underline-offset-4 hover:underline">
+                Import contacts
+              </Link>
+              <Link href="/people/trash" className="font-medium underline-offset-4 hover:underline">
+                Trash
+              </Link>
+            </div>
+          </CardContent>
         </Card>
         <Card>
           <CardHeader>

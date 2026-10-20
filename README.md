@@ -61,3 +61,13 @@ docker compose up -d
 ```
 
 In self-hosted mode only the first sign-up is allowed.
+
+### Backups
+
+The `backup` service dumps the database to `./backups` every night and keeps 14 days (`BACKUP_KEEP_DAYS`). To restore one:
+
+```sh
+gunzip -c backups/life_crm-2026-10-20.sql.gz | docker compose exec -T postgres psql -U postgres -d life_crm
+```
+
+Settings also has exports (everything as JSON, contacts as vCard or CSV) and a trash: deleted people can be restored for 30 days, after which the worker removes them for good.
