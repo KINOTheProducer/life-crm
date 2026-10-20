@@ -22,6 +22,8 @@ export const contacts = pgTable(
     jobTitle: text("job_title"),
     /** UID a CardDAV client gave the contact, kept so its vCard round-trips. Defaults to our id. */
     davUid: text("dav_uid"),
+    /** CardDAV resource name ("<name>.vcf") when a client picked it. Defaults to our id. */
+    davName: text("dav_name"),
     /** What they are to the user, in the user's words: "Mom", "Brother", "Best friend". */
     relationship: text("relationship"),
     /** The user's own row, so the family tree has someone to start from. Hidden from people lists. */
@@ -42,6 +44,7 @@ export const contacts = pgTable(
       sql`(coalesce(${t.firstName}, '') || ' ' || coalesce(${t.lastName}, '') || ' ' || coalesce(${t.nickname}, '')) gin_trgm_ops`,
     ),
     uniqueIndex("contacts_self_idx").on(t.tenantId).where(sql`${t.isSelf}`),
+    uniqueIndex("contacts_dav_name_idx").on(t.tenantId, t.davName),
     tenantIsolation("contacts"),
   ],
 ).enableRLS();

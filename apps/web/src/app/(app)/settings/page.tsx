@@ -11,8 +11,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SelfFace } from "@/components/faces/faces";
 import { ImmichForm } from "@/components/settings/immich-form";
 import { AiSettingsForm } from "@/components/settings/ai-form";
+import { DavAccess } from "@/components/settings/dav-access";
 import { aiSettingsFor, describeServerAi } from "@/lib/ai";
 import { db } from "@/lib/db";
+import { env } from "@/lib/env";
 import { immichConnection } from "@/lib/immich";
 import { requireUser, tenantQuery } from "@/lib/session";
 
@@ -20,6 +22,11 @@ export default async function SettingsPage() {
   const me = await requireUser();
   const [u] = await db.select().from(schema.user).where(eq(schema.user.id, me.id));
   const timeZones = ["UTC", ...Intl.supportedValuesOf("timeZone")];
+  const davPasswords = await db
+    .select({ id: schema.davPasswords.id, name: schema.davPasswords.name, createdAt: schema.davPasswords.createdAt, lastUsedAt: schema.davPasswords.lastUsedAt })
+    .from(schema.davPasswords)
+    .where(eq(schema.davPasswords.userId, me.id))
+    .orderBy(schema.davPasswords.createdAt);
   const { immich, ai } = await tenantQuery(async (tx) => ({ immich: await immichConnection(tx, me.id), ai: await aiSettingsFor(tx, me.id) }));
 
   return (
@@ -118,6 +125,14 @@ export default async function SettingsPage() {
           </CardHeader>
           <CardContent>
             <PushToggle publicKey={process.env.VAPID_PUBLIC_KEY || null} />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Contacts sync</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <DavAccess server={`${env.BETTER_AUTH_URL.replace(/\/$/, "")}/dav/`} email={me.email} passwords={davPasswords} />
           </CardContent>
         </Card>
         <Card>

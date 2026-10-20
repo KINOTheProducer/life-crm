@@ -4,6 +4,9 @@ const nextConfig: NextConfig = {
   output: "standalone",
   cacheComponents: true,
   partialPrefetching: true,
+  // CardDAV collections end in a slash and clients expect them to stay that way. The proxy
+  // strips trailing slashes from everything else.
+  skipTrailingSlashRedirect: true,
   experimental: {
     // Business card photos; the browser shrinks them first, so this is a ceiling, not the norm.
     serverActions: { bodySizeLimit: "8mb" },
