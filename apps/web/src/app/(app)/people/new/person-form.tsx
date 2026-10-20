@@ -49,6 +49,17 @@ export function PersonForm() {
         </select>
       </div>
 
+      <div className="grid grid-cols-2 gap-4">
+        <div className="grid gap-2">
+          <Label htmlFor="phone">Phone</Label>
+          <Input id="phone" name="phone" type="tel" inputMode="tel" placeholder="416 555 0123" maxLength={40} />
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor="email">Email</Label>
+          <Input id="email" name="email" type="email" placeholder="name@example.com" maxLength={200} />
+        </div>
+      </div>
+
       <div className="grid gap-2">
         <Label htmlFor="howMet">How you met</Label>
         <textarea
