@@ -115,3 +115,30 @@ export const dismissedSuggestions = pgTable(
   },
   (t) => [primaryKey({ columns: [t.tenantId, t.key] }), tenantIsolation("dismissed_suggestions")],
 ).enableRLS();
+
+export const aiProviders = ["server", "anthropic", "openai_compatible", "off"] as const;
+export const sttProviders = ["server", "openai_compatible", "off"] as const;
+
+/**
+ * A user's AI choices. "server" means whatever the instance is configured with in its
+ * environment; keys are encrypted like the Immich one.
+ */
+export const aiSettings = pgTable(
+  "ai_settings",
+  {
+    tenantId: tenantId(),
+    userId: text("user_id")
+      .primaryKey()
+      .references(() => user.id, { onDelete: "cascade" }),
+    provider: text("provider", { enum: aiProviders }).notNull().default("server"),
+    model: text("model"),
+    baseUrl: text("base_url"),
+    apiKeyEnc: text("api_key_enc"),
+    sttProvider: text("stt_provider", { enum: sttProviders }).notNull().default("server"),
+    sttBaseUrl: text("stt_base_url"),
+    sttModel: text("stt_model"),
+    sttApiKeyEnc: text("stt_api_key_enc"),
+    ...timestamps,
+  },
+  () => [tenantIsolation("ai_settings")],
+).enableRLS();

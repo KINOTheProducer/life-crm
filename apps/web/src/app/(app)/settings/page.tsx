@@ -10,6 +10,8 @@ import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SelfFace } from "@/components/faces/faces";
 import { ImmichForm } from "@/components/settings/immich-form";
+import { AiSettingsForm } from "@/components/settings/ai-form";
+import { aiSettingsFor, describeServerAi } from "@/lib/ai";
 import { db } from "@/lib/db";
 import { immichConnection } from "@/lib/immich";
 import { requireUser, tenantQuery } from "@/lib/session";
@@ -18,7 +20,7 @@ export default async function SettingsPage() {
   const me = await requireUser();
   const [u] = await db.select().from(schema.user).where(eq(schema.user.id, me.id));
   const timeZones = ["UTC", ...Intl.supportedValuesOf("timeZone")];
-  const immich = await tenantQuery((tx) => immichConnection(tx, me.id));
+  const { immich, ai } = await tenantQuery(async (tx) => ({ immich: await immichConnection(tx, me.id), ai: await aiSettingsFor(tx, me.id) }));
 
   return (
     <>
@@ -62,6 +64,26 @@ export default async function SettingsPage() {
               </Link>
             </CardContent>
           )}
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>AI</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <AiSettingsForm
+              server={describeServerAi()}
+              values={{
+                provider: ai?.provider ?? "server",
+                model: ai?.model ?? "",
+                baseUrl: ai?.baseUrl ?? "",
+                hasKey: Boolean(ai?.apiKeyEnc),
+                sttProvider: ai?.sttProvider ?? "server",
+                sttBaseUrl: ai?.sttBaseUrl ?? "",
+                sttModel: ai?.sttModel ?? "",
+                hasSttKey: Boolean(ai?.sttApiKeyEnc),
+              }}
+            />
+          </CardContent>
         </Card>
         <Card>
           <CardHeader>

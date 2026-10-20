@@ -10,7 +10,7 @@ import {
 } from "@life-crm/core";
 import { and, eq, inArray, isNull, schema, sql, withTenant, type Tx } from "@life-crm/db";
 import { z } from "zod";
-import { getExtractor, getTranscriber } from "@/lib/ai";
+import { extractorForUser, transcriberForUser } from "@/lib/ai";
 import { db } from "@/lib/db";
 import { dateToInstant, formatPartialDate, parseIsoDate, toIsoDate } from "./dates";
 import { resolveCheckins } from "./reminders";
@@ -71,7 +71,8 @@ export async function processCapture(tenantId: string, captureId: string, timeZo
         return row;
       });
       if (!capture?.audio) throw new AiError("This capture has no audio.");
-      text = await getTranscriber().transcribe(capture.audio, capture.audioMime ?? "audio/webm");
+      const transcriber = await withTenant(db, tenantId, (tx) => transcriberForUser(tx, capture.userId));
+      text = await transcriber.transcribe(capture.audio, capture.audioMime ?? "audio/webm");
     }
     if (!text.trim()) throw new AiError("No speech was detected in the recording.");
 
@@ -82,10 +83,14 @@ export async function processCapture(tenantId: string, captureId: string, timeZo
         .where(eq(captures.id, captureId));
       const [capture] = await tx.select().from(captures).where(eq(captures.id, captureId));
       const people = await knownPeople(tx);
-      return { people, contextPerson: people.find((p) => p.id === capture?.contextContactId) ?? null };
+      return {
+        people,
+        contextPerson: people.find((p) => p.id === capture?.contextContactId) ?? null,
+        extractor: await extractorForUser(tx, capture!.userId),
+      };
     });
 
-    const extraction = await getExtractor().extract({
+    const extraction = await context.extractor.extract({
       transcript: text,
       today: toIsoDate(todayIn(timeZone)),
       timeZone,
