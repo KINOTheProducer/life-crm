@@ -194,7 +194,7 @@ export async function faceMatches(): Promise<{ rows: FaceMatchRow[]; people: { i
     const all = await tx
       .select({ id: contacts.id, firstName: contacts.firstName, lastName: contacts.lastName, nickname: contacts.nickname })
       .from(contacts)
-      .where(isNull(contacts.deletedAt));
+      .where(and(isNull(contacts.deletedAt), eq(contacts.isSelf, false)));
     const people = all
       .map((c) => ({ id: c.id, name: [c.firstName, c.lastName].filter(Boolean).join(" ") }))
       .sort((a, b) => a.name.localeCompare(b.name));

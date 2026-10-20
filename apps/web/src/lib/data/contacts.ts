@@ -23,7 +23,7 @@ export async function contactOptions(tx: Tx) {
     })
     .from(contacts)
     .leftJoin(importantDates, and(eq(importantDates.contactId, contacts.id), eq(importantDates.type, "birthday")))
-    .where(isNull(contacts.deletedAt))
+    .where(and(isNull(contacts.deletedAt), eq(contacts.isSelf, false)))
     .orderBy(asc(contacts.firstName), asc(contacts.lastName));
   return rows.map((r) => ({
     id: r.id,

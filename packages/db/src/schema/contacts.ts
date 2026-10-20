@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { index, integer, pgTable, smallint, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { boolean, index, integer, pgTable, smallint, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { tenantId, timestamps } from "./columns";
 import { tenantIsolation } from "./tenants";
 
@@ -19,6 +19,11 @@ export const contacts = pgTable(
     howMet: text("how_met"),
     /** What they are to the user, in the user's words: "Mom", "Brother", "Best friend". */
     relationship: text("relationship"),
+    /** The user's own row, so the family tree has someone to start from. Hidden from people lists. */
+    isSelf: boolean("is_self").notNull().default(false),
+    isDeceased: boolean("is_deceased").notNull().default(false),
+    /** Often all anyone remembers; a full date goes in important_dates as a memorial. */
+    deathYear: smallint("death_year"),
     /** Where the avatar comes from: "immich-person:<id>", or null for initials. */
     avatarRef: text("avatar_ref"),
     lastInteractionAt: timestamp("last_interaction_at", { withTimezone: true }),
@@ -31,6 +36,7 @@ export const contacts = pgTable(
       "gin",
       sql`(coalesce(${t.firstName}, '') || ' ' || coalesce(${t.lastName}, '') || ' ' || coalesce(${t.nickname}, '')) gin_trgm_ops`,
     ),
+    uniqueIndex("contacts_self_idx").on(t.tenantId).where(sql`${t.isSelf}`),
     tenantIsolation("contacts"),
   ],
 ).enableRLS();

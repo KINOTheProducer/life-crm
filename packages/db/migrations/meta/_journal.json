@@ -50,6 +50,13 @@
       "when": 1792521095082,
       "tag": "0006_suggestions",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1792522164857,
+      "tag": "0007_family_tree",
+      "breakpoints": true
     }
   ]
 }

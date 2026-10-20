@@ -11,18 +11,22 @@ import { ReminderForm } from "@/components/reminders/reminder-form";
 import { Timeline } from "@/components/profile/timeline";
 import { MemoryCard } from "@/components/memories/memory-card";
 import { FacesCard, PersonPhotosPanel } from "@/components/faces/faces";
+import { FamilyCard } from "@/components/family/family-card";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatPartialDate, toIsoDate } from "@/lib/data/dates";
 import { getProfile, parseKinds } from "@/lib/data/profile";
 import { facesFor } from "@/lib/data/faces";
+import { ensureSelf, loadFamily, relationsOf } from "@/lib/data/family";
 import { listMemories } from "@/lib/data/memories";
 import { immichConnection } from "@/lib/immich";
 import { avatarSrc } from "@/lib/immich-urls";
 import { listCustomReminders } from "@/lib/data/reminders";
 import { tenantQuery } from "@/lib/session";
 
+
+const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 function daysSince(date: Date) {
   return Math.floor((Date.now() - date.getTime()) / 86_400_000);
@@ -49,6 +53,7 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
     memories: await listMemories(tx, { contactId: id, limit: 3 }),
     faces: (await facesFor(tx, [id])).get(id) ?? [],
     immich: Boolean(await immichConnection(tx, user.id)),
+    family: relationsOf(await loadFamily(tx, await ensureSelf(tx, user)), id),
     timeZone: user.timeZone,
   }));
   if (!result.profile) notFound();
@@ -59,19 +64,21 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
   const today = todayIn(timeZone);
   const nextBirthday = profile.birthday ? upcoming(profile.birthday, today) : null;
   const overdue =
+    !contact.isDeceased &&
     contact.keepInTouchDays != null &&
     (contact.lastInteractionAt ? daysSince(contact.lastInteractionAt) : Infinity) > contact.keepInTouchDays;
 
   const tierName = { inner: "Inner circle", close: "Close friend", friend: "Friend", acquaintance: "Acquaintance" }[contact.closeness];
   const summary = [
-    isPartner ? null : (contact.relationship ?? tierName),
-    nextBirthday &&
+    isPartner ? null : (contact.relationship ?? (result.family.toYou && result.family.toYou !== "you" ? capitalize(result.family.toYou) : tierName)),
+    !contact.isDeceased &&
+      nextBirthday &&
       (nextBirthday.daysAway === 0
         ? "birthday today"
         : nextBirthday.daysAway <= 14
           ? `birthday in ${nextBirthday.daysAway} days${nextBirthday.turning ? `, turning ${nextBirthday.turning}` : ""}`
           : null),
-    lastTalked(contact.lastInteractionAt).toLowerCase(),
+    contact.isDeceased ? `passed away${contact.deathYear ? ` in ${contact.deathYear}` : ""}` : lastTalked(contact.lastInteractionAt).toLowerCase(),
   ].filter(Boolean);
 
   return (
@@ -189,6 +196,21 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
                   <p>Every {contact.keepInTouchDays} days</p>
                 </div>
               )}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Family</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <FamilyCard
+                contactId={contact.id}
+                firstName={contact.firstName}
+                relations={result.family.relations}
+                isSelf={contact.isSelf}
+                isDeceased={contact.isDeceased}
+                deathYear={contact.deathYear}
+              />
             </CardContent>
           </Card>
           <Card>

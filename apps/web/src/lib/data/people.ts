@@ -27,6 +27,7 @@ export async function listPeople(filter: { tier?: ClosenessTier; q?: string } = 
       .where(
         and(
           isNull(contacts.deletedAt),
+          eq(contacts.isSelf, false),
           filter.tier ? eq(contacts.closeness, filter.tier) : undefined,
           q
             ? sql`(${contacts.firstName} || ' ' || coalesce(${contacts.lastName}, '') || ' ' || coalesce(${contacts.nickname}, '')) ilike ${`%${q}%`}`
@@ -61,7 +62,7 @@ export async function upcomingBirthdays(days: number): Promise<UpcomingBirthday[
       })
       .from(importantDates)
       .innerJoin(contacts, eq(contacts.id, importantDates.contactId))
-      .where(and(eq(importantDates.type, "birthday"), isNull(contacts.deletedAt)));
+      .where(and(eq(importantDates.type, "birthday"), isNull(contacts.deletedAt), eq(contacts.isSelf, false), eq(contacts.isDeceased, false)));
 
     const today = todayIn(user.timeZone);
     return rows

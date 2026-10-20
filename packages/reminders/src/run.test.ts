@@ -40,6 +40,13 @@ describe.skipIf(!url)("runDueUsers", () => {
       await tx.insert(schema.importantDates).values({ tenantId, contactId: sarah!.id, type: "birthday", year: 1994, month: 10, day: 24 });
       await tx.insert(schema.reminders).values({ tenantId, userId, contactId: sarah!.id, title: "Call Sarah", dueOn: "2026-10-19", repeat: "weekly" });
       await tx.insert(schema.pushSubscriptions).values({ tenantId, userId, endpoint: ourEndpoint, p256dh: "k", auth: "a" });
+      // Your own row and people who have died get no birthday or catch-up reminders.
+      const [me] = await tx.insert(schema.contacts).values({ tenantId, firstName: "Kino", isSelf: true, keepInTouchDays: 7 }).returning();
+      const [rose] = await tx.insert(schema.contacts).values({ tenantId, firstName: "Rose", isDeceased: true, keepInTouchDays: 7 }).returning();
+      await tx.insert(schema.importantDates).values([
+        { tenantId, contactId: me!.id, type: "birthday", year: 1990, month: 10, day: 22 },
+        { tenantId, contactId: rose!.id, type: "birthday", year: 1938, month: 10, day: 22 },
+      ]);
     });
   });
 

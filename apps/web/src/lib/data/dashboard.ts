@@ -29,7 +29,7 @@ export async function drifting(tx: Tx, limit = 4): Promise<DriftingPerson[]> {
       createdAt: contacts.createdAt,
     })
     .from(contacts)
-    .where(and(isNull(contacts.deletedAt), sql`${contacts.keepInTouchDays} > 0`));
+    .where(and(isNull(contacts.deletedAt), eq(contacts.isSelf, false), eq(contacts.isDeceased, false), sql`${contacts.keepInTouchDays} > 0`));
 
   const now = Date.now();
   const overdue = rows
@@ -83,7 +83,7 @@ export async function closenessCounts(tx: Tx): Promise<Record<ClosenessTier, num
   const rows = await tx
     .select({ tier: contacts.closeness, n: sql<number>`count(*)::int` })
     .from(contacts)
-    .where(isNull(contacts.deletedAt))
+    .where(and(isNull(contacts.deletedAt), eq(contacts.isSelf, false)))
     .groupBy(contacts.closeness);
   const out: Record<ClosenessTier, number> = { inner: 0, close: 0, friend: 0, acquaintance: 0 };
   for (const r of rows) out[r.tier] = r.n;

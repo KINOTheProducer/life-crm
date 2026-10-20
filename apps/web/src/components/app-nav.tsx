@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, Home, Images, LogOut, Mic, Settings, Users } from "lucide-react";
+import { Bell, Home, Images, LogOut, Mic, Network, Settings, Users } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 const links = [
   { href: "/dashboard", label: "Home", icon: Home },
   { href: "/people", label: "People", icon: Users },
+  { href: "/family", label: "Family", icon: Network },
   { href: "/memories", label: "Memories", icon: Images },
   { href: "/reminders", label: "Reminders", icon: Bell },
   { href: "/capture/new", label: "Voice notes", icon: Mic },
