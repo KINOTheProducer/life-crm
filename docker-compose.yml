@@ -57,6 +57,28 @@ services:
     depends_on:
       migrate: { condition: service_completed_successfully }
 
+  # Nightly database backup to ./backups, keeping the last 14 days.
+  # Restore with: gunzip -c backups/life_crm-DATE.sql.gz | docker compose exec -T postgres psql -U postgres -d life_crm
+  backup:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
+    volumes:
+      - ./backups:/backups
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        while true; do
+          f=/backups/life_crm-$$(date +%F).sql.gz
+          pg_dump -h postgres -U postgres -d life_crm --clean --if-exists | gzip > "$$f.tmp" && mv "$$f.tmp" "$$f" && echo "backup: wrote $$f"
+          find /backups -name 'life_crm-*.sql.gz' -mtime +$$KEEP_DAYS -delete
+          sleep 86400
+        done
+    depends_on:
+      postgres: { condition: service_healthy }
+
   # Local speech-to-text with an OpenAI-compatible API. Remove it and set STT_BASE_URL
   # (e.g. https://api.openai.com/v1) to use a hosted service instead.
   whisper:

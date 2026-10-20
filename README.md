@@ -61,3 +61,21 @@ docker compose up -d
 ```
 
 In self-hosted mode only the first sign-up is allowed.
+
+### Backups
+
+The `backup` service dumps the database to `./backups` every night and keeps 14 days (`BACKUP_KEEP_DAYS`). To restore one:
+
+```sh
+gunzip -c backups/life_crm-2026-10-20.sql.gz | docker compose exec -T postgres psql -U postgres -d life_crm
+```
+
+Settings also has exports (everything as JSON, contacts as vCard or CSV) and a trash: deleted people can be restored for 30 days, after which the worker removes them for good.
+
+### Contacts sync (CardDAV)
+
+The app is a CardDAV server at `/dav/`, so the Contacts app on iPhone or Mac, DAVx⁵ on Android, or Thunderbird can sync with it. In Settings, make an app password per device and sign in with your email and that password. Use HTTPS; app passwords are sent with Basic auth.
+
+If a reverse proxy sits in front, pass `/dav/` and `/.well-known/carddav` through untouched, including the `PROPFIND` and `REPORT` methods. Clients that ask only for a server name find the address book through the well-known redirect.
+
+Your own entry, notes and timeline aren't synced; only the fields a vCard has. Deleting a contact on a phone moves it to the trash.

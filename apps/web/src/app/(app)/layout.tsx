@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { AppNav } from "@/components/app-nav";
+import { CommandPalette } from "@/components/palette/command-palette";
 
 // Every page here reads the session, so none can be fully prerendered.
 export const instant = false;
@@ -17,6 +18,7 @@ export default function AppLayout({ children }: LayoutProps<"/">) {
           <Suspense fallback={<p className="text-sm text-muted-foreground">Loading…</p>}>{children}</Suspense>
         </div>
       </main>
+      <CommandPalette />
     </div>
   );
 }

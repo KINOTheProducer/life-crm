@@ -1,7 +1,8 @@
 "use server";
 
-import { contactInputSchema } from "@life-crm/core";
+import { ContactInfoError, contactInputSchema, normalizeMethod } from "@life-crm/core";
 import { redirect } from "next/navigation";
+import { addMethods } from "@/lib/data/contact-info";
 import { insertContact } from "@/lib/data/contacts";
 import { dateProblemText, partialDateFrom, personName } from "@/lib/forms";
 import { tenantQuery } from "@/lib/session";
@@ -28,6 +29,23 @@ export async function createPerson(_prev: CreatePersonState, form: FormData): Pr
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
 
-  const contactId = await tenantQuery((tx, user) => insertContact(tx, user.tenantId, parsed.data));
+  const methods = [
+    { kind: "phone" as const, label: "mobile", value: String(form.get("phone") ?? "").trim() },
+    { kind: "email" as const, label: "personal", value: String(form.get("email") ?? "").trim() },
+  ].filter((m) => m.value);
+  for (const m of methods) {
+    try {
+      normalizeMethod(m.kind, m.label, m.value);
+    } catch (err) {
+      if (err instanceof ContactInfoError) return { error: err.message };
+      throw err;
+    }
+  }
+
+  const contactId = await tenantQuery(async (tx, user) => {
+    const id = await insertContact(tx, user.tenantId, parsed.data);
+    await addMethods(tx, user.tenantId, id, methods);
+    return id;
+  });
   redirect(`/people/${contactId}`);
 }

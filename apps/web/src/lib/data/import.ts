@@ -1,8 +1,7 @@
 import "server-only";
-import type { Extraction } from "@life-crm/ai";
+import type { Extraction, Extractor } from "@life-crm/ai";
 import { birthdayInText, type FactCategory, type PartialDate } from "@life-crm/core";
 import { and, eq, isNull, schema, type Tx } from "@life-crm/db";
-import { getExtractor } from "@/lib/ai";
 import {
   itemDuplicate,
   itemProblem,
@@ -157,15 +156,24 @@ export interface ImportPreview {
   sortedBy: "ai" | "rules";
 }
 
-export async function readImport(text: string, contact: { id: string; name: string; nickname: string | null }, today: string, timeZone: string): Promise<ImportPreview> {
-  try {
-    const known = { id: contact.id, name: contact.name, nickname: contact.nickname };
-    const extraction = await getExtractor().extract({ transcript: text, today, timeZone, knownPeople: [known], contextPerson: known });
-    const result = itemsFromExtraction(extraction, contact.id, today);
-    if (result.items.length > 0) return { ...result, sortedBy: "ai" };
-  } catch (error) {
-    // No AI configured, or it failed. Simple rules still get most structured notes right.
-    console.warn("Import extraction failed, using rules", error);
+/** `extractor` is null when AI is off for this user; the rules below still run. */
+export async function readImport(
+  text: string,
+  contact: { id: string; name: string; nickname: string | null },
+  today: string,
+  timeZone: string,
+  extractor: Extractor | null,
+): Promise<ImportPreview> {
+  if (extractor) {
+    try {
+      const known = { id: contact.id, name: contact.name, nickname: contact.nickname };
+      const extraction = await extractor.extract({ transcript: text, today, timeZone, knownPeople: [known], contextPerson: known });
+      const result = itemsFromExtraction(extraction, contact.id, today);
+      if (result.items.length > 0) return { ...result, sortedBy: "ai" };
+    } catch (error) {
+      // AI failed. Simple rules still get most structured notes right.
+      console.warn("Import extraction failed, using rules", error);
+    }
   }
   return { items: itemsFromRules(text, today), nameInFile: null, others: [], sortedBy: "rules" };
 }

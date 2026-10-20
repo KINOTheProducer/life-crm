@@ -1,5 +1,5 @@
 import { factCategoryLabels, todayIn, upcoming } from "@life-crm/core";
-import { ArrowLeft, FileUp, Heart, Mic, StickyNote } from "lucide-react";
+import { ArrowLeft, FileUp, Heart, Mail, MessageCircle, Mic, Phone, StickyNote } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Avatar } from "@/components/avatar";
@@ -12,11 +12,14 @@ import { Timeline } from "@/components/profile/timeline";
 import { MemoryCard } from "@/components/memories/memory-card";
 import { FacesCard, PersonPhotosPanel } from "@/components/faces/faces";
 import { FamilyCard } from "@/components/family/family-card";
+import { TrashPersonButton } from "@/components/people/trash-actions";
+import { ContactCard } from "@/components/profile/contact-card";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatPartialDate, toIsoDate } from "@/lib/data/dates";
 import { getProfile, parseKinds } from "@/lib/data/profile";
+import { contactInfoFor } from "@/lib/data/contact-info";
 import { facesFor } from "@/lib/data/faces";
 import { ensureSelf, loadFamily, relationsOf } from "@/lib/data/family";
 import { listMemories } from "@/lib/data/memories";
@@ -52,6 +55,7 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
     reminders: await listCustomReminders(tx, user.id, id),
     memories: await listMemories(tx, { contactId: id, limit: 3 }),
     faces: (await facesFor(tx, [id])).get(id) ?? [],
+    info: await contactInfoFor(tx, id),
     immich: Boolean(await immichConnection(tx, user.id)),
     family: relationsOf(await loadFamily(tx, await ensureSelf(tx, user)), id),
     timeZone: user.timeZone,
@@ -62,6 +66,8 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
   const isPartner = partnership?.status === "current";
 
   const today = todayIn(timeZone);
+  const phone = result.info.methods.find((m) => m.kind === "phone" && m.isPrimary);
+  const email = result.info.methods.find((m) => m.kind === "email" && m.isPrimary);
   const nextBirthday = profile.birthday ? upcoming(profile.birthday, today) : null;
   const overdue =
     !contact.isDeceased &&
@@ -114,6 +120,21 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {phone?.href && (
+            <a href={phone.href} className={buttonVariants({ variant: "outline", size: "icon" })} aria-label={`Call ${contact.firstName}`} title={`Call ${phone.display}`}>
+              <Phone />
+            </a>
+          )}
+          {phone && (
+            <a href={`sms:${phone.value}`} className={buttonVariants({ variant: "outline", size: "icon" })} aria-label={`Text ${contact.firstName}`} title={`Text ${phone.display}`}>
+              <MessageCircle />
+            </a>
+          )}
+          {email?.href && (
+            <a href={email.href} className={buttonVariants({ variant: "outline", size: "icon" })} aria-label={`Email ${contact.firstName}`} title={email.display}>
+              <Mail />
+            </a>
+          )}
           {isPartner && (
             <Link href={`/people/${contact.id}/partner`} className={buttonVariants({ variant: "outline" })}>
               <Heart />
@@ -156,6 +177,14 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
         <aside className="grid content-start gap-6">
           <Card>
             <CardHeader>
+              <CardTitle>Contact</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ContactCard contactId={contact.id} info={result.info} company={contact.company} jobTitle={contact.jobTitle} />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
               <CardTitle>Details</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-4 text-sm">
@@ -196,6 +225,7 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
                   <p>Every {contact.keepInTouchDays} days</p>
                 </div>
               )}
+              {!contact.isSelf && <TrashPersonButton contactId={contact.id} firstName={contact.firstName} />}
             </CardContent>
           </Card>
           <Card>

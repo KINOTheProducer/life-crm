@@ -9,6 +9,7 @@ COPY apps/web/package.json apps/web/
 COPY apps/worker/package.json apps/worker/
 COPY packages/ai/package.json packages/ai/
 COPY packages/core/package.json packages/core/
+COPY packages/dav/package.json packages/dav/
 COPY packages/db/package.json packages/db/
 COPY packages/immich/package.json packages/immich/
 COPY packages/reminders/package.json packages/reminders/
