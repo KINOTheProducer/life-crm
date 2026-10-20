@@ -7,7 +7,7 @@ import { z } from "zod";
 import { insertContact } from "@/lib/data/contacts";
 import { connectRelative, contactInTenant, disconnect, ensureSelf, loadFamily, type RelativeRole } from "@/lib/data/family";
 import { createPartnership, monogamyConflict, userPrefs } from "@/lib/data/partners";
-import { intOrNull, partialDateFrom } from "@/lib/forms";
+import { dateProblemText, intOrNull, partialDateFrom } from "@/lib/forms";
 import { tenantQuery } from "@/lib/session";
 
 export interface RelativeState {
@@ -76,7 +76,7 @@ export async function addRelative(anchorId: string, role: RelativeRole, _prev: R
     if (!parsed.success) return { error: parsed.error.issues[0]?.message };
     person = parsed.data;
     const b = partialDateFrom(form, "birthday");
-    if (b === "invalid") return { error: "That birthday isn't a real date" };
+    if (typeof b === "string") return { error: dateProblemText("Birthday", b) };
     birthday = b;
     if (deathYear != null && (deathYear < 1500 || deathYear > 2200)) return { error: "That year doesn't look right" };
   } else if (!uuid.safeParse(existing).success) return { error: "Pick someone" };
