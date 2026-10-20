@@ -5,6 +5,8 @@ const nextConfig: NextConfig = {
   cacheComponents: true,
   partialPrefetching: true,
   experimental: {
+    // Business card photos; the browser shrinks them first, so this is a ceiling, not the norm.
+    serverActions: { bodySizeLimit: "8mb" },
     // Every app page reads the session, so only validate pages that opt in with `instant`.
     instantInsights: { validationLevel: "manual-warning" },
   },
