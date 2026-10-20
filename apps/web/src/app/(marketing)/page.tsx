@@ -1,7 +1,8 @@
 import { ArrowRight, Bell, CalendarDays, Camera, Clock3, Lock, Mic } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { BirthdayCard, DriftingCard, ReviewCard, VoiceNoteCard } from "@/components/landing/product-cards";
+import { BirthdayCard, DriftingCard, VoiceNoteCard } from "@/components/landing/product-cards";
+import { StorySection } from "@/components/landing/story/story-section";
 import { buttonVariants } from "@/components/ui/button";
 import { APP_NAME } from "@/lib/brand";
 import { cn } from "@/lib/utils";
@@ -46,11 +47,6 @@ const features = [
   },
 ];
 
-const steps = [
-  { n: "1", title: "Say it", body: "Hit record after coffee with a friend and talk for thirty seconds.", card: <VoiceNoteCard className="shadow-none ring-1 ring-border" /> },
-  { n: "2", title: "Check it", body: "We pull out who, what and when. You untick anything that's wrong and save.", card: <ReviewCard /> },
-  { n: "3", title: "Remember it", body: "Birthdays, follow-ups and catch-ups come back to you right when they matter.", card: <BirthdayCard className="shadow-none ring-1 ring-border" /> },
-];
 
 export default function LandingPage() {
   return (
@@ -120,27 +116,11 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* How it works */}
-      <section id="how" className="mx-auto max-w-7xl px-6 py-24 lg:px-10">
-        <h2 className="type-display max-w-3xl text-5xl leading-[1.05]">
-          Thirty seconds after dinner. <em className="text-muted-foreground">Remembered for years.</em>
-        </h2>
-        <div className="mt-12 grid gap-4 lg:grid-cols-3">
-          {steps.map((s) => (
-            <div key={s.n} className="flex flex-col gap-5 rounded-3xl bg-card p-7">
-              <div className="flex items-baseline gap-3">
-                <span className="type-display text-4xl text-coral">{s.n}</span>
-                <h3 className="type-display text-3xl">{s.title}</h3>
-              </div>
-              <p className="text-muted-foreground">{s.body}</p>
-              <div className="mt-auto pt-2">{s.card}</div>
-            </div>
-          ))}
-        </div>
-      </section>
+      {/* How it works: scroll-driven 3D story */}
+      <StorySection />
 
       {/* Features */}
-      <section id="features" className="mx-auto max-w-7xl px-6 pb-24 lg:px-10">
+      <section id="features" className="mx-auto max-w-7xl px-6 py-24 lg:px-10">
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {features.map(({ icon: Icon, tone, title, body }) => (
             <div key={title} className="rounded-3xl bg-card p-7">
