@@ -10,9 +10,10 @@ import {
 import { Plus } from "lucide-react";
 import { useActionState, useEffect, useRef, useState } from "react";
 import { PartialDateFields } from "@/components/partial-date-fields";
+import { SelectWithOther } from "@/components/select-with-other";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { selectClass } from "@/lib/forms";
+import { nameInputProps, selectClass } from "@/lib/forms";
 import { cn } from "@/lib/utils";
 import { finishOnboarding, saveFamily, savePartner, savePeople, saveRelationship, saveYou, type StepState } from "./actions";
 import { submitKeepingValues } from "@/lib/submit";
@@ -53,7 +54,7 @@ export function YouForm({ name, timeZone, timeZones, suggestBrowserZone }: { nam
     <form onSubmit={submitKeepingValues(action)} className="grid gap-5">
       <label className="grid gap-2 text-sm font-medium">
         What should we call you?
-        <Input name="name" defaultValue={name} required maxLength={100} autoFocus />
+        <Input name="name" defaultValue={name} required maxLength={100} autoFocus {...nameInputProps} />
       </label>
       <label className="grid gap-2 text-sm font-medium">
         Time zone
@@ -120,22 +121,24 @@ export function PartnerForm({ polyamorous, married, hasPartners }: { polyamorous
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="grid gap-2 text-sm font-medium">
           First name
-          <Input name="firstName" required maxLength={100} autoFocus />
+          <Input name="firstName" required maxLength={100} autoFocus {...nameInputProps} />
         </label>
         <label className="grid gap-2 text-sm font-medium">
           Last name
-          <Input name="lastName" maxLength={100} />
+          <Input name="lastName" maxLength={100} {...nameInputProps} />
         </label>
       </div>
-      <label className="grid gap-2 text-sm font-medium">
-        What you call them
-        <Input name="label" list="onboarding-partner-labels" defaultValue={married ? "Spouse" : "Partner"} required maxLength={50} />
-        <datalist id="onboarding-partner-labels">
-          {partnerLabelSuggestions.map((l) => (
-            <option key={l} value={l} />
-          ))}
-        </datalist>
-      </label>
+      <Field label="What you call them">
+        <SelectWithOther
+          name="label"
+          label="What you call them"
+          options={partnerLabelSuggestions}
+          defaultValue={married ? "Spouse" : "Partner"}
+          otherPlaceholder="e.g. Boo"
+          maxLength={50}
+          required
+        />
+      </Field>
       <Field label="Their birthday">
         <PartialDateFields prefix="birthday" label="Birthday" />
       </Field>
@@ -168,27 +171,38 @@ export function PartnerForm({ polyamorous, married, hasPartners }: { polyamorous
 
 const familyLabels = ["Mom", "Dad", "Sister", "Brother", "Daughter", "Son", "Grandma", "Grandpa", "Aunt", "Uncle", "Cousin", "Stepmom", "Stepdad"];
 
+/** True when anything in the row other than `skip` has a value. */
+function rowHasValues(row: HTMLElement, skip: string) {
+  return Array.from(row.querySelectorAll<HTMLInputElement | HTMLSelectElement>("input[name], select[name]")).some(
+    (f) => f.name !== skip && f.value.trim() !== "",
+  );
+}
+
+function FamilyRow({ index }: { index: number }) {
+  // A first name is only required once the row has something else in it.
+  const [started, setStarted] = useState(false);
+  const firstName = `rows.${index}.firstName`;
+  return (
+    <div className="grid gap-2 rounded-2xl bg-secondary p-4" onChange={(e) => setStarted(rowHasValues(e.currentTarget, firstName))}>
+      <div className="grid items-start gap-2 sm:grid-cols-[1fr_1.2fr_1.2fr]">
+        <SelectWithOther name={`rows.${index}.relationship`} label="Who they are to you" options={familyLabels} placeholder="Who are they?" otherPlaceholder="e.g. Godmother" maxLength={50} />
+        <Input name={firstName} placeholder="First name" aria-label="First name" maxLength={100} required={started} {...nameInputProps} />
+        <Input name={`rows.${index}.lastName`} placeholder="Last name" aria-label="Last name" maxLength={100} {...nameInputProps} />
+      </div>
+      <PartialDateFields prefix={`rows.${index}.birthday`} label="Birthday" yearPlaceholder="Birth year" />
+    </div>
+  );
+}
+
 export function FamilyForm() {
   const [state, action, pending] = useActionState(saveFamily, {});
   const [rows, setRows] = useState(3);
   return (
     <form onSubmit={submitKeepingValues(action)} className="grid gap-5">
       <input type="hidden" name="rowCount" value={rows} />
-      <datalist id="family-labels">
-        {familyLabels.map((l) => (
-          <option key={l} value={l} />
-        ))}
-      </datalist>
       <div className="grid gap-4">
         {Array.from({ length: rows }, (_, i) => (
-          <div key={i} className="grid gap-2 rounded-2xl bg-secondary p-4">
-            <div className="grid gap-2 sm:grid-cols-[1fr_1.2fr_1.2fr]">
-              <Input name={`rows.${i}.relationship`} list="family-labels" placeholder="Mom, brother…" aria-label="Who they are to you" maxLength={50} />
-              <Input name={`rows.${i}.firstName`} placeholder="First name" aria-label="First name" maxLength={100} />
-              <Input name={`rows.${i}.lastName`} placeholder="Last name" aria-label="Last name" maxLength={100} />
-            </div>
-            <PartialDateFields prefix={`rows.${i}.birthday`} label="Birthday" yearPlaceholder="Birth year" />
-          </div>
+          <FamilyRow key={i} index={i} />
         ))}
       </div>
       {rows < 30 && (
@@ -219,7 +233,7 @@ export function PeopleForm() {
       <div className="grid gap-2">
         {Array.from({ length: 5 }, (_, i) => (
           <div key={i} className="grid grid-cols-[1.6fr_1fr] gap-2">
-            <Input name={`rows.${i}.name`} placeholder={["Your best friend", "Someone you miss", "An old roommate", "A work friend", "Anyone"][i]} aria-label={`Person ${i + 1}`} maxLength={200} />
+            <Input name={`rows.${i}.name`} placeholder={["Your best friend", "Someone you miss", "An old roommate", "A work friend", "Anyone"][i]} aria-label={`Person ${i + 1}`} maxLength={200} {...nameInputProps} />
             <select name={`rows.${i}.cadence`} defaultValue={30} aria-label={`How often for person ${i + 1}`} className={selectClass}>
               {cadences.map(([d, l]) => (
                 <option key={d} value={d}>

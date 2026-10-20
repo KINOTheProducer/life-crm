@@ -330,7 +330,7 @@ export function MilestoneForm({ contactId }: { contactId: string }) {
         </select>
         {kind === "custom" && <Input name="label" placeholder="e.g. First trip together" required maxLength={80} />}
       </div>
-      <PartialDateFields prefix="date" label="Milestone" />
+      <PartialDateFields prefix="date" label="Milestone" allowFuture />
       {/* Keyed so the default follows the milestone type. */}
       <label key={kind} className="flex items-center gap-2 text-sm">
         <input type="checkbox" name="anniversary" defaultChecked={defaultAnniversary[kind]} className="size-4 accent-foreground" />

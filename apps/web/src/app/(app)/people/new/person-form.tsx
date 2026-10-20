@@ -2,18 +2,12 @@
 
 import { closenessTiers } from "@life-crm/core";
 import { useActionState } from "react";
+import { PartialDateFields } from "@/components/partial-date-fields";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { nameInputProps, selectClass, textareaClass } from "@/lib/forms";
 import { createPerson } from "../actions";
-
-const months = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
-];
-
-const selectClass =
-  "h-10 w-full rounded-xl border border-input bg-card px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
 
 export function PersonForm() {
   const [state, action, pending] = useActionState(createPerson, {});
@@ -23,36 +17,25 @@ export function PersonForm() {
       <div className="grid grid-cols-2 gap-4">
         <div className="grid gap-2">
           <Label htmlFor="firstName">First name</Label>
-          <Input id="firstName" name="firstName" required autoFocus />
+          <Input id="firstName" name="firstName" required maxLength={100} autoFocus {...nameInputProps} />
         </div>
         <div className="grid gap-2">
           <Label htmlFor="lastName">Last name</Label>
-          <Input id="lastName" name="lastName" />
+          <Input id="lastName" name="lastName" maxLength={100} {...nameInputProps} />
         </div>
         <div className="grid gap-2">
           <Label htmlFor="nickname">Nickname</Label>
-          <Input id="nickname" name="nickname" />
+          <Input id="nickname" name="nickname" maxLength={100} {...nameInputProps} />
         </div>
         <div className="grid gap-2">
           <Label htmlFor="pronouns">Pronouns</Label>
-          <Input id="pronouns" name="pronouns" placeholder="e.g. she/her" />
+          <Input id="pronouns" name="pronouns" placeholder="e.g. she/her" maxLength={50} />
         </div>
       </div>
 
       <fieldset className="grid gap-2">
         <legend className="mb-2 text-sm font-medium">Birthday</legend>
-        <div className="grid grid-cols-[2fr_1fr_1fr] gap-2">
-          <select name="birthdayMonth" aria-label="Month" className={selectClass} defaultValue="">
-            <option value="">Month</option>
-            {months.map((m, i) => (
-              <option key={m} value={i + 1}>
-                {m}
-              </option>
-            ))}
-          </select>
-          <Input name="birthdayDay" type="number" min={1} max={31} placeholder="Day" aria-label="Day" />
-          <Input name="birthdayYear" type="number" min={1900} max={2100} placeholder="Year (opt.)" aria-label="Year" />
-        </div>
+        <PartialDateFields prefix="birthday" label="Birthday" />
       </fieldset>
 
       <div className="grid gap-2">
@@ -72,7 +55,8 @@ export function PersonForm() {
           id="howMet"
           name="howMet"
           rows={3}
-          className="w-full rounded-xl border border-input bg-card px-3.5 py-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+          maxLength={2000}
+          className={textareaClass}
         />
       </div>
 

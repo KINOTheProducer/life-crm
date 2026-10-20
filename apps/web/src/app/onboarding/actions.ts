@@ -13,7 +13,7 @@ import { z } from "zod";
 import { insertContact } from "@/lib/data/contacts";
 import { addMilestone, createPartnership, monogamyConflict, userPrefs } from "@/lib/data/partners";
 import { db } from "@/lib/db";
-import { partialDateFrom } from "@/lib/forms";
+import { dateProblemText, partialDateFrom, personName } from "@/lib/forms";
 import { requireUser, tenantQuery } from "@/lib/session";
 import { nextStep, type Step } from "./steps";
 
@@ -32,7 +32,7 @@ const name = (max: number) => z.string().trim().max(max);
 export async function saveYou(_prev: StepState, form: FormData): Promise<StepState> {
   const parsed = z
     .object({
-      name: name(100).min(1, "Add your name"),
+      name: personName(100).min(1, "Add your name"),
       timeZone: z.string().refine((tz) => tz === "UTC" || Intl.supportedValuesOf("timeZone").includes(tz), "Unknown time zone"),
     })
     .safeParse({ name: form.get("name"), timeZone: form.get("timeZone") });
@@ -60,8 +60,8 @@ export async function saveRelationship(_prev: StepState, form: FormData): Promis
 export async function savePartner(_prev: StepState, form: FormData): Promise<StepState> {
   const parsed = z
     .object({
-      firstName: name(100).min(1, "Add their first name"),
-      lastName: name(100).transform((v) => v || null),
+      firstName: personName(100).min(1, "Add their first name"),
+      lastName: personName(100).transform((v) => v || null),
       label: name(50).min(1, "Add what you call them"),
     })
     .safeParse({ firstName: form.get("firstName"), lastName: form.get("lastName") ?? "", label: form.get("label") });
@@ -74,7 +74,7 @@ export async function savePartner(_prev: StepState, form: FormData): Promise<Ste
     ["married", "Your wedding date"],
   ] as const) {
     const d = partialDateFrom(form, prefix);
-    if (d === "invalid") return { error: `${label} isn't a real date` };
+    if (typeof d === "string") return { error: dateProblemText(label, d) };
     dates[prefix] = d;
   }
 
@@ -109,8 +109,8 @@ export async function savePartner(_prev: StepState, form: FormData): Promise<Ste
 
 const familyRow = z.object({
   relationship: name(50),
-  firstName: name(100),
-  lastName: name(100),
+  firstName: personName(100),
+  lastName: personName(100),
 });
 
 /** Rows named like `rows.0.firstName`, `rows.0.birthdayMonth`. Empty rows are skipped. */
@@ -126,10 +126,13 @@ export async function saveFamily(_prev: StepState, form: FormData): Promise<Step
   const people: { relationship: string | null; firstName: string; lastName: string | null; birthday: PartialDate | null }[] = [];
   for (const row of readRows(form, count)) {
     const parsed = familyRow.safeParse({ relationship: row.get("relationship"), firstName: row.get("firstName"), lastName: row.get("lastName") });
-    if (!parsed.success) return { error: "A name is too long" };
-    if (!parsed.data.firstName) continue;
+    if (!parsed.success) return { error: parsed.error.issues[0]?.message };
     const birthday = partialDateFrom(form, `rows.${row.index}.birthday`);
-    if (birthday === "invalid") return { error: `${parsed.data.firstName}'s birthday isn't a real date` };
+    if (!parsed.data.firstName) {
+      if (!parsed.data.relationship && !parsed.data.lastName && !birthday) continue;
+      return { error: parsed.data.relationship ? `Add your ${parsed.data.relationship.toLowerCase()}'s first name` : "Add a first name for everyone you filled in" };
+    }
+    if (typeof birthday === "string") return { error: dateProblemText(`${parsed.data.firstName}'s birthday`, birthday) };
     people.push({
       relationship: parsed.data.relationship || null,
       firstName: parsed.data.firstName,
@@ -152,7 +155,8 @@ export async function savePeople(_prev: StepState, form: FormData): Promise<Step
   for (const row of readRows(form, 5)) {
     const full = row.get("name").trim();
     if (!full) continue;
-    if (full.length > 200) return { error: "A name is too long" };
+    const valid = personName(200).safeParse(full);
+    if (!valid.success) return { error: valid.error.issues[0]?.message };
     const [firstName, ...rest] = full.split(/\s+/);
     const cadence = Number(row.get("cadence"));
     if (!(cadence in cadenceTier)) return { error: "Pick how often for each person" };
