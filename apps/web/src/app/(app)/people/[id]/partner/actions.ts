@@ -15,7 +15,7 @@ import {
 } from "@/lib/data/partners";
 import { resolveCheckins } from "@/lib/data/reminders";
 import { recordTimeline } from "@/lib/data/timeline";
-import { partialDateFrom } from "@/lib/forms";
+import { dateProblemText, partialDateFrom } from "@/lib/forms";
 import { tenantQuery } from "@/lib/session";
 
 export interface FormState {
@@ -107,9 +107,9 @@ export async function addMilestone(contactId: string, _prev: FormState, form: Fo
   const label = optional(80).safeParse(form.get("label") ?? "");
   if (!label.success) return { error: "Label is too long" };
   if (kind.data === "custom" && !label.data) return { error: "Name the milestone" };
-  const date = partialDateFrom(form, "date");
+  const date = partialDateFrom(form, "date", { allowFuture: true });
   if (!date) return { error: "Add at least the month and day" };
-  if (date === "invalid") return { error: "That date doesn't exist" };
+  if (typeof date === "string") return { error: dateProblemText("That date", date) };
 
   const error = await tenantQuery(async (tx, user) => {
     const p = await partnershipFor(tx, contactId);

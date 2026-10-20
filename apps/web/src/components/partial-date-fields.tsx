@@ -1,22 +1,72 @@
-import type { PartialDate } from "@life-crm/core";
-import { Input } from "@/components/ui/input";
+"use client";
+
+import { daysInMonth, type PartialDate } from "@life-crm/core";
+import { useEffect, useRef, useState } from "react";
 import { monthNames, selectClass } from "@/lib/forms";
 
-/** Month, day and optional year inputs named `${prefix}Month`, `${prefix}Day`, `${prefix}Year`. Read with partialDateFrom(). */
+const earliestYear = 1900;
+
+/**
+ * Month, day and optional year dropdowns named `${prefix}Month`, `${prefix}Day`, `${prefix}Year`.
+ * Read with partialDateFrom(). Days follow the picked month, and years stop at this one unless `allowFuture`.
+ */
 export function PartialDateFields({
   prefix,
   label,
   defaultValue,
   yearPlaceholder = "Year (opt.)",
+  allowFuture = false,
 }: {
   prefix: string;
   label: string;
   defaultValue?: PartialDate | null;
   yearPlaceholder?: string;
+  allowFuture?: boolean;
 }) {
+  const [initial] = useState(() => ({
+    month: String(defaultValue?.month ?? ""),
+    day: String(defaultValue?.day ?? ""),
+    year: String(defaultValue?.year ?? ""),
+  }));
+  const [value, setValue] = useState(initial);
+  const root = useRef<HTMLDivElement>(null);
+
+  // form.reset() only resets uncontrolled fields, so follow it here.
+  useEffect(() => {
+    const form = root.current?.closest("form");
+    if (!form) return;
+    const reset = () => setValue(initial);
+    form.addEventListener("reset", reset);
+    return () => form.removeEventListener("reset", reset);
+  }, [initial]);
+
+  const maxDay = value.month ? daysInMonth(value.year ? Number(value.year) : 2000, Number(value.month)) : 31;
+  const thisYear = new Date().getFullYear();
+  const lastYear = allowFuture ? thisYear + 10 : thisYear;
+  const years = Array.from({ length: lastYear - earliestYear + 1 }, (_, i) => lastYear - i);
+
+  function change(field: "month" | "day" | "year", v: string) {
+    setValue((prev) => {
+      const next = { ...prev, [field]: v };
+      // Drop a day the new month or year doesn't have, like Feb 30.
+      const max = next.month ? daysInMonth(next.year ? Number(next.year) : 2000, Number(next.month)) : 31;
+      if (Number(next.day) > max) next.day = "";
+      return next;
+    });
+  }
+
+  const anySet = value.month !== "" || value.day !== "" || value.year !== "";
+
   return (
-    <div className="grid grid-cols-[2fr_1fr_1.2fr] gap-2">
-      <select name={`${prefix}Month`} aria-label={`${label} month`} className={selectClass} defaultValue={defaultValue?.month ?? ""}>
+    <div ref={root} className="grid grid-cols-[2fr_1fr_1.2fr] gap-2">
+      <select
+        name={`${prefix}Month`}
+        aria-label={`${label} month`}
+        className={selectClass}
+        value={value.month}
+        onChange={(e) => change("month", e.target.value)}
+        required={anySet}
+      >
         <option value="">Month</option>
         {monthNames.map((m, i) => (
           <option key={m} value={i + 1}>
@@ -24,16 +74,29 @@ export function PartialDateFields({
           </option>
         ))}
       </select>
-      <Input name={`${prefix}Day`} type="number" min={1} max={31} placeholder="Day" aria-label={`${label} day`} defaultValue={defaultValue?.day ?? ""} />
-      <Input
-        name={`${prefix}Year`}
-        type="number"
-        min={1900}
-        max={2100}
-        placeholder={yearPlaceholder}
-        aria-label={`${label} year`}
-        defaultValue={defaultValue?.year ?? ""}
-      />
+      <select
+        name={`${prefix}Day`}
+        aria-label={`${label} day`}
+        className={selectClass}
+        value={value.day}
+        onChange={(e) => change("day", e.target.value)}
+        required={anySet}
+      >
+        <option value="">Day</option>
+        {Array.from({ length: maxDay }, (_, i) => (
+          <option key={i + 1} value={i + 1}>
+            {i + 1}
+          </option>
+        ))}
+      </select>
+      <select name={`${prefix}Year`} aria-label={`${label} year`} className={selectClass} value={value.year} onChange={(e) => change("year", e.target.value)}>
+        <option value="">{yearPlaceholder}</option>
+        {years.map((y) => (
+          <option key={y} value={y}>
+            {y}
+          </option>
+        ))}
+      </select>
     </div>
   );
 }
