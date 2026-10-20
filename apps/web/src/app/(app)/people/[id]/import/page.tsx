@@ -1,0 +1,31 @@
+import { todayIn } from "@life-crm/core";
+import { ArrowLeft } from "lucide-react";
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { PageHeader } from "@/components/page-header";
+import { ImportReview } from "@/components/profile/import-review";
+import { toIsoDate } from "@/lib/data/dates";
+import { existingProfile } from "@/lib/data/import";
+import { tenantQuery } from "@/lib/session";
+
+export default async function ImportPage({ params }: PageProps<"/people/[id]/import">) {
+  const { id } = await params;
+  if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
+  const data = await tenantQuery(async (tx, user) => ({ existing: await existingProfile(tx, id), today: toIsoDate(todayIn(user.timeZone)) }));
+  if (!data.existing) notFound();
+
+  return (
+    <>
+      <Link href={`/people/${id}`} className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+        <ArrowLeft className="size-3.5" />
+        {data.existing.firstName}
+      </Link>
+      <PageHeader
+        title="Import notes"
+        aside={`about ${data.existing.firstName}.`}
+        description="A text or Markdown file with anything you know about them. You'll see where each part goes, and can move it, before anything is saved."
+      />
+      <ImportReview contactId={id} firstName={data.existing.firstName} existing={data.existing} today={data.today} />
+    </>
+  );
+}

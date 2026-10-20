@@ -1,8 +1,9 @@
 import { factCategoryLabels, todayIn, upcoming } from "@life-crm/core";
-import { ArrowLeft, Heart, Mic } from "lucide-react";
+import { ArrowLeft, FileUp, Heart, Mic, StickyNote } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Avatar } from "@/components/avatar";
+import { BirthdayField } from "@/components/profile/birthday-field";
 import { Composer } from "@/components/profile/composer";
 import { FactsPanel } from "@/components/profile/facts-panel";
 import { CustomReminderList } from "@/components/reminders/custom-reminder-list";
@@ -112,16 +113,25 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {isPartner && (
             <Link href={`/people/${contact.id}/partner`} className={buttonVariants({ variant: "outline" })}>
               <Heart />
               Partner profile
             </Link>
           )}
-          <Link href="#compose" className={buttonVariants({ variant: "outline" })}>
-            Log catch-up
+          <Link href={`/people/${contact.id}/import`} className={buttonVariants({ variant: "ghost" })}>
+            <FileUp />
+            Import
           </Link>
+          {/* Plain anchors: these open the composer through hashchange, which next/link doesn't fire. */}
+          <a href="#note" className={buttonVariants({ variant: "outline" })}>
+            <StickyNote />
+            Add note
+          </a>
+          <a href="#catch-up" className={buttonVariants({ variant: "outline" })}>
+            Log catch-up
+          </a>
           <Link href={`/capture/new?contact=${contact.id}`} className={buttonVariants()}>
             <Mic />
             Voice note
@@ -149,8 +159,7 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
               <CardTitle>Details</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-4 text-sm">
-              <div className="grid gap-1">
-                <p className="text-[13px] text-muted-foreground">Birthday</p>
+              <BirthdayField contactId={contact.id} birthday={profile.birthday}>
                 {profile.birthday && nextBirthday ? (
                   <p>
                     {formatPartialDate(profile.birthday)}
@@ -163,7 +172,7 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
                 ) : (
                   <p className="text-muted-foreground">Unknown</p>
                 )}
-              </div>
+              </BirthdayField>
               {contact.howMet && (
                 <div className="grid gap-1">
                   <p className="text-[13px] text-muted-foreground">How you met</p>
