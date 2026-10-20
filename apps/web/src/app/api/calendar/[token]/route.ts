@@ -42,7 +42,7 @@ export async function GET(_request: Request, { params }: RouteContext<"/api/cale
       })
       .from(importantDates)
       .innerJoin(contacts, eq(contacts.id, importantDates.contactId))
-      .where(isNull(contacts.deletedAt));
+      .where(and(isNull(contacts.deletedAt), eq(contacts.isSelf, false)));
     const custom = await tx
       .select()
       .from(reminders)

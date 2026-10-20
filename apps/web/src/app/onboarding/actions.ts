@@ -3,6 +3,7 @@
 import {
   partneredStatuses,
   relationshipStatuses,
+  roleFromLabel,
   type ClosenessTier,
   type MilestoneKind,
   type PartialDate,
@@ -11,6 +12,7 @@ import { eq, schema } from "@life-crm/db";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { insertContact } from "@/lib/data/contacts";
+import { connectRelative, ensureSelf } from "@/lib/data/family";
 import { addMilestone, createPartnership, monogamyConflict, userPrefs } from "@/lib/data/partners";
 import { db } from "@/lib/db";
 import { dateProblemText, partialDateFrom, personName } from "@/lib/forms";
@@ -142,7 +144,20 @@ export async function saveFamily(_prev: StepState, form: FormData): Promise<Step
   }
   if (people.length) {
     await tenantQuery(async (tx, me) => {
-      for (const p of people) await insertContact(tx, me.tenantId, { ...p, closeness: "inner" });
+      const selfId = await ensureSelf(tx, me);
+      // Parents first, so siblings land in the same family as you.
+      const placed = people
+        .map((p) => ({ ...p, role: roleFromLabel(p.relationship) }))
+        .sort((a, b) => Number(a.role?.role !== "parent") - Number(b.role?.role !== "parent"));
+      for (const { role, ...p } of placed) {
+        const id = await insertContact(tx, me.tenantId, {
+          ...p,
+          closeness: "inner",
+          pronouns: role?.gender === "female" ? "she/her" : role?.gender === "male" ? "he/him" : null,
+        });
+        // "Mom", "Brother", "Son" go straight into the family tree; anything else waits to be placed.
+        if (role && role.role !== "partner") await connectRelative(tx, me.tenantId, { anchorId: selfId, personId: id, role: role.role, kind: role.kind });
+      }
     });
   }
   go("family");

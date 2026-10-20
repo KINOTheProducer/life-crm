@@ -9,7 +9,7 @@ import {
   type DateSource,
   type ImportantDateType,
 } from "@life-crm/core";
-import { and, eq, inArray, isNull, lte, ne, schema, sql, withTenant, type Db, type Tx } from "@life-crm/db";
+import { and, eq, inArray, isNull, lte, ne, or, schema, sql, withTenant, type Db, type Tx } from "@life-crm/db";
 import { digestEmail } from "./email-template";
 import type { Mailer } from "./mailer";
 import type { PushSender } from "./push";
@@ -59,7 +59,14 @@ async function loadSources(tx: Tx, userId: string, timeZone: string) {
     .from(importantDates)
     .innerJoin(contacts, eq(contacts.id, importantDates.contactId))
     .leftJoin(partnershipMilestones, eq(partnershipMilestones.importantDateId, importantDates.id))
-    .where(isNull(contacts.deletedAt));
+    // No reminders about your own dates, or birthdays of people who have died (memorials still come up).
+    .where(
+      and(
+        isNull(contacts.deletedAt),
+        eq(contacts.isSelf, false),
+        or(eq(contacts.isDeceased, false), ne(importantDates.type, "birthday")),
+      ),
+    );
 
   const people = await tx
     .select({
@@ -71,7 +78,7 @@ async function loadSources(tx: Tx, userId: string, timeZone: string) {
       createdAt: contacts.createdAt,
     })
     .from(contacts)
-    .where(isNull(contacts.deletedAt));
+    .where(and(isNull(contacts.deletedAt), eq(contacts.isSelf, false), eq(contacts.isDeceased, false)));
   const nameById = new Map(people.map((p) => [p.id, fullName(p)]));
 
   const custom = await tx
