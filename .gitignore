@@ -1,0 +1,13 @@
+node_modules
+.next
+dist
+.turbo
+coverage
+.env
+.env.*
+!.env.example
+*.tsbuildinfo
+next-env.d.ts
+
+# private notes
+.notes/

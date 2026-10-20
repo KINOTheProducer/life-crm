@@ -1,0 +1,11 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "globalEnv": ["DATABASE_URL", "MIGRATION_DATABASE_URL", "BETTER_AUTH_SECRET", "BETTER_AUTH_URL", "DEPLOY_MODE"],
+  "tasks": {
+    "build": { "dependsOn": ["^build"], "outputs": [".next/**", "!.next/cache/**", "dist/**"] },
+    "lint": {},
+    "typecheck": {},
+    "test": { "cache": false },
+    "dev": { "cache": false, "persistent": true }
+  }
+}
