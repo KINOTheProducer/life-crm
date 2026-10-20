@@ -40,9 +40,9 @@ export default async function NewCapturePage({ searchParams }: PageProps<"/captu
   return (
     <>
       <PageHeader
-        eyebrow="Capture"
-        title="Talk it through"
-        description="Just met someone, or caught up with an old friend? Say what you want to remember."
+        title="Voice note."
+        aside="Say what you want to remember."
+        description="Just met someone, or caught up with an old friend? Names, birthdays, what you did, what to ask about next time."
       />
       <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
         <Card>
@@ -52,7 +52,6 @@ export default async function NewCapturePage({ searchParams }: PageProps<"/captu
         </Card>
         <Card className="h-fit">
           <CardHeader>
-            <p className="type-label text-muted-foreground">Recent</p>
             <CardTitle>Voice notes</CardTitle>
           </CardHeader>
           <CardContent>
@@ -64,7 +63,7 @@ export default async function NewCapturePage({ searchParams }: PageProps<"/captu
                   <li key={c.id}>
                     <Link href={`/capture/${c.id}`} className="grid gap-1 py-3 hover:opacity-80">
                       <span className="flex items-center justify-between gap-2">
-                        <span className="type-label text-muted-foreground">{when.format(c.createdAt)}</span>
+                        <span className="font-mono text-xs text-muted-foreground">{when.format(c.createdAt)}</span>
                         <Badge variant={c.status === "ready" ? "accent" : c.status === "failed" ? "destructive" : "outline"}>
                           {statusLabel[c.status]}
                         </Badge>

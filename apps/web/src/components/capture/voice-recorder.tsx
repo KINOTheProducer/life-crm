@@ -109,7 +109,7 @@ export function VoiceRecorder({ contextContactId, contextName }: { contextContac
 
   return (
     <div className="grid justify-items-center gap-8 py-6 text-center">
-      <p className="type-label text-muted-foreground">
+      <p className="type-meta text-muted-foreground">
         {phase === "uploading" ? "Uploading…" : recording ? formatElapsed(elapsed) : contextName ? `About ${contextName}` : "New voice note"}
       </p>
 

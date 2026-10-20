@@ -29,7 +29,7 @@ export function CalendarFeed({ enabled }: { enabled: boolean }) {
       )}
       <div className="flex gap-2">
         <Button
-          variant={enabled ? "outline" : "accent"}
+          variant={enabled ? "outline" : "default"}
           size="sm"
           disabled={pending}
           onClick={() => start(async () => setUrl(await rotateCalendarFeed()))}

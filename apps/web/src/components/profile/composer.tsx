@@ -44,7 +44,7 @@ export function Composer({ contactId, firstName, today }: { contactId: string; f
               aria-selected={tab === key}
               onClick={() => setTab(key)}
               className={cn(
-                "type-label rounded-full px-3 py-1.5 text-muted-foreground transition-colors hover:text-foreground",
+                "rounded-full px-3.5 py-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground",
                 tab === key && "bg-secondary text-foreground",
               )}
             >
@@ -63,7 +63,7 @@ export function Composer({ contactId, firstName, today }: { contactId: string; f
               className={fieldClass}
             />
             {noteState.error && <p className="text-sm text-destructive">{noteState.error}</p>}
-            <Button type="submit" variant="accent" className="justify-self-start" disabled={notePending}>
+            <Button type="submit" className="justify-self-start" disabled={notePending}>
               {notePending ? "Saving…" : "Add note"}
             </Button>
           </form>
@@ -82,7 +82,7 @@ export function Composer({ contactId, firstName, today }: { contactId: string; f
             </div>
             <textarea name="summary" rows={2} required placeholder="What did you get up to?" className={fieldClass} />
             {ixState.error && <p className="text-sm text-destructive">{ixState.error}</p>}
-            <Button type="submit" variant="accent" className="justify-self-start" disabled={ixPending}>
+            <Button type="submit" className="justify-self-start" disabled={ixPending}>
               {ixPending ? "Saving…" : "Log catch-up"}
             </Button>
           </form>

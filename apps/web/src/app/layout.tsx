@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
+import { Geist, Geist_Mono, Newsreader } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
+import { APP_NAME } from "@/lib/brand";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -13,16 +14,16 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const displaySerif = Instrument_Serif({
+const displaySerif = Newsreader({
   variable: "--font-display-serif",
   subsets: ["latin"],
-  weight: "400",
   style: ["normal", "italic"],
+  axes: ["opsz"],
 });
 
 export const metadata: Metadata = {
-  title: "Life CRM",
-  description: "Remember what matters about the people in your life.",
+  title: { default: `${APP_NAME}: a personal CRM for friends and family`, template: `%s · ${APP_NAME}` },
+  description: "Birthday reminders, voice notes and a timeline for everyone you care about. Self-host it or use the hosted version.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

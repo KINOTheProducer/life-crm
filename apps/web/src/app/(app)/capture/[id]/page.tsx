@@ -17,9 +17,9 @@ export default async function CapturePage({ params }: PageProps<"/capture/[id]">
   return (
     <>
       <PageHeader
-        eyebrow="Voice note"
-        title="Check what I heard"
-        description="Untick anything that's wrong, fix names, then save. Nothing is added until you do."
+        title="Review your note."
+        aside="Nothing is saved until you say so."
+        description="Untick anything that's wrong and fix names, then save."
       />
       {/* Remount on status change so drafts reset from the fresh extraction. */}
       <CaptureReview

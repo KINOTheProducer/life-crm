@@ -7,22 +7,24 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 const swatches = [
-  ["--paper-50", "Card"],
-  ["--paper-100", "Page"],
-  ["--paper-200", "Sidebar / muted"],
-  ["--paper-300", "Rule"],
-  ["--espresso-700", "Ink"],
-  ["--espresso-500", "Muted ink"],
-  ["--espresso-900", "Dark page"],
-  ["--terracotta-500", "Accent"],
-  ["--terracotta-300", "Accent on dark"],
-  ["--raspberry-600", "Destructive"],
+  ["--canvas", "Canvas"],
+  ["--white", "Card"],
+  ["--ink", "Ink"],
+  ["--muted-ink", "Muted ink"],
+  ["--line", "Line"],
+  ["--coral", "Now"],
+  ["--peach", "Peach"],
+  ["--sage", "Sage"],
+  ["--lilac", "Lilac"],
+  ["--sky", "Sky"],
+  ["--butter", "Butter"],
+  ["--rose", "Rose"],
 ] as const;
 
 function Section({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <section className="grid gap-5 border-t border-border py-10">
-      <p className="type-label text-muted-foreground">{label}</p>
+      <p className="type-meta text-muted-foreground">{label}</p>
       {children}
     </section>
   );
@@ -32,21 +34,18 @@ export default function StyleguidePage() {
   return (
     <>
       <PageHeader
-        eyebrow="Design system"
-        title={
-          <>
-            Light paper, espresso ink, <em className="text-accent-ink">terracotta</em>
-          </>
-        }
+        meta="Design system"
+        title="Warm canvas, ink, a little coral."
+        aside="Pastels for people and groups."
         description="Tokens and components used across Life CRM. Source of truth: docs/DESIGN.md and globals.css."
       />
 
       <Section label="Colour">
-        <div className="grid grid-cols-3 gap-3 lg:grid-cols-10">
+        <div className="grid grid-cols-3 gap-3 lg:grid-cols-6">
           {swatches.map(([token, name]) => (
             <div key={token} className="grid gap-2">
               <div className="h-20 rounded-2xl ring-1 ring-foreground/10" style={{ background: `var(${token})` }} />
-              <p className="type-label">{name}</p>
+              <p className="type-meta">{name}</p>
               <p className="font-mono text-xs text-muted-foreground">{token}</p>
             </div>
           ))}
@@ -55,13 +54,13 @@ export default function StyleguidePage() {
 
       <Section label="Type">
         <div className="grid gap-4">
-          <p className="type-display text-7xl">Display 72</p>
+          <p className="type-display text-7xl">Display <em className="text-muted-foreground">72</em></p>
           <p className="type-display text-5xl">Page title 48</p>
           <p className="type-display text-2xl">Card title 24</p>
           <p className="max-w-xl text-lg">Lead 18. Sarah mentioned she&apos;s training for the Toronto Waterfront marathon in October.</p>
           <p className="max-w-xl">Body 16. Met at Jay&apos;s wedding, works as a nurse at Sunnybrook, dog named Biscuit.</p>
           <p className="text-sm text-muted-foreground">Small muted 14. Last talked 23 days ago.</p>
-          <p className="type-label">Label mono 12 · uppercase</p>
+          <p className="type-meta">Label mono 12 · uppercase</p>
         </div>
       </Section>
 
@@ -98,7 +97,7 @@ export default function StyleguidePage() {
         <div className="grid gap-6 lg:grid-cols-2">
           <Card>
             <CardHeader>
-              <p className="type-label text-muted-foreground">Next 30 days</p>
+              <p className="type-meta text-muted-foreground">Next 30 days</p>
               <CardTitle>Birthdays</CardTitle>
               <CardDescription>Cards use a 32px radius on paper, never a drop shadow.</CardDescription>
             </CardHeader>
@@ -113,7 +112,7 @@ export default function StyleguidePage() {
             </CardContent>
           </Card>
           <div className="dark flex flex-col justify-between gap-8 rounded-[2rem] bg-background p-8 text-foreground">
-            <p className="type-label text-muted-foreground">Dark surface</p>
+            <p className="type-meta text-muted-foreground">Dark surface</p>
             <p className="type-display text-4xl">
               You haven&apos;t talked to <em className="text-accent-ink">Mike</em> in 47 days.
             </p>

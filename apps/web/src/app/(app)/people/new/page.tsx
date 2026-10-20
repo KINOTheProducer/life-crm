@@ -5,7 +5,7 @@ import { PersonForm } from "./person-form";
 export default function NewPersonPage() {
   return (
     <>
-      <PageHeader eyebrow="People" title="Add someone" description="Start with a name. Everything else can come later." />
+      <PageHeader title="Add someone." aside="Start with a name, the rest can come later." />
       <Card className="max-w-2xl">
         <CardContent>
           <PersonForm />

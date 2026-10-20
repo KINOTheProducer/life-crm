@@ -34,13 +34,12 @@ export function FactsPanel({ contactId, firstName, facts }: { contactId: string;
   return (
     <Card>
       <CardHeader>
-        <p className="type-label text-muted-foreground">Things to know</p>
         <CardTitle>About {firstName}</CardTitle>
       </CardHeader>
       <CardContent className="grid gap-5">
         {followUps && (
-          <div className="grid gap-2 rounded-2xl bg-secondary p-4">
-            <p className="type-label text-accent-ink">Ask them about</p>
+          <div className="grid gap-2 rounded-2xl bg-butter p-4">
+            <p className="text-[13px] font-medium text-accent-ink">Ask them about</p>
             <ul className="grid gap-1.5">
               {followUps.items.map((f) => (
                 <li key={f.id} className="group flex items-start justify-between gap-2 text-sm">
@@ -58,7 +57,7 @@ export function FactsPanel({ contactId, firstName, facts }: { contactId: string;
 
         {rest.map((g) => (
           <div key={g.category} className="grid gap-1.5">
-            <p className="type-label text-muted-foreground">{factCategoryLabels[g.category]}</p>
+            <p className="text-[13px] text-muted-foreground">{factCategoryLabels[g.category]}</p>
             <ul className="grid gap-1">
               {g.items.map((f) => (
                 <li key={f.id} className="group flex items-start justify-between gap-2 text-sm">
@@ -86,7 +85,7 @@ export function FactsPanel({ contactId, firstName, facts }: { contactId: string;
             <Input name="value" placeholder="e.g. Biscuit, golden retriever" required />
             {state.error && <p className="text-sm text-destructive">{state.error}</p>}
             <div className="flex gap-2">
-              <Button type="submit" size="sm" variant="accent" disabled={pending}>
+              <Button type="submit" size="sm" disabled={pending}>
                 Save
               </Button>
               <Button type="button" size="sm" variant="ghost" onClick={() => setAdding(false)}>

@@ -23,8 +23,8 @@ export default async function RemindersPage() {
   return (
     <>
       <PageHeader
-        eyebrow="Reminders"
-        title={now.length ? `${now.length} for today` : "You're all caught up"}
+        title="Reminders."
+        aside={now.length ? `${now.length} for today.` : "You're all caught up."}
         description={
           <>
             New reminders show up at your daily time.{" "}

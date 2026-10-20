@@ -105,8 +105,8 @@ export function Timeline({
               scroll={false}
               aria-current={active ? "true" : undefined}
               className={cn(
-                "type-label rounded-full border px-3 py-1.5 transition-colors",
-                active ? "border-foreground bg-foreground text-background" : "border-foreground/25 hover:border-foreground/60",
+                "rounded-full px-3.5 py-2 text-sm transition-colors",
+                active ? "bg-primary text-primary-foreground" : "bg-card hover:bg-secondary",
               )}
             >
               {f.label}
@@ -119,7 +119,7 @@ export function Timeline({
 
       {groups.map((g) => (
         <div key={g.month} className="grid gap-4">
-          <p className="type-label sticky top-0 z-10 bg-background/90 py-2 text-muted-foreground backdrop-blur">{g.month}</p>
+          <p className="type-display sticky top-0 z-10 bg-background/90 py-2 text-xl italic backdrop-blur">{g.month}</p>
           <ol className="relative grid gap-5 border-l border-border pl-8">
             {g.items.map((entry) => {
               const Icon = iconFor(entry);
@@ -136,7 +136,7 @@ export function Timeline({
                   >
                     <Icon className="size-4" />
                   </span>
-                  <div className="grid gap-1.5 rounded-2xl bg-card p-4 ring-1 ring-foreground/8">
+                  <div className="grid gap-1.5 rounded-2xl bg-card p-4">
                     <div className="flex items-baseline justify-between gap-4">
                       <p className="font-medium">
                         {entry.kind === "fact" ? (
@@ -148,14 +148,14 @@ export function Timeline({
                           titleFor(entry, names)
                         )}
                       </p>
-                      <p className="type-label shrink-0 text-muted-foreground">{day}</p>
+                      <p className="shrink-0 font-mono text-xs text-muted-foreground">{day}</p>
                     </div>
-                    {location && <p className="type-label text-muted-foreground">{location}</p>}
+                    {location && <p className="text-[13px] text-muted-foreground">{location}</p>}
                     {entry.body && entry.kind !== "fact" && <p className="whitespace-pre-line text-[15px] leading-relaxed">{entry.body}</p>}
                     {learned.length > 0 && (
                       <ul className="flex flex-wrap gap-1.5 pt-1">
                         {learned.map((l) => (
-                          <li key={l} className="rounded-full border border-foreground/20 px-2.5 py-1 text-xs">
+                          <li key={l} className="rounded-full bg-secondary px-2.5 py-1 text-xs">
                             {l}
                           </li>
                         ))}
@@ -173,7 +173,7 @@ export function Timeline({
         <Link
           href={`${base}?${kindParam}before=${entries.at(-1)!.id}`}
           scroll={false}
-          className="type-label justify-self-center rounded-full border border-foreground/25 px-4 py-2 hover:border-foreground/60"
+          className="justify-self-center rounded-full bg-card px-4 py-2 text-sm hover:bg-secondary"
         >
           Older
         </Link>

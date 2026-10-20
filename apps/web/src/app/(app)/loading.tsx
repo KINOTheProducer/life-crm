@@ -1,3 +1,3 @@
 export default function Loading() {
-  return <p className="type-label text-muted-foreground">Loading…</p>;
+  return <p className="text-sm text-muted-foreground">Loading…</p>;
 }

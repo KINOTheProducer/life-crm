@@ -94,7 +94,7 @@ export function SettingsForm({
 
       {state.error && <p className="text-sm text-destructive">{state.error}</p>}
       {state.ok && !pending && <p className="text-sm text-muted-foreground">Saved.</p>}
-      <Button type="submit" variant="accent" className="justify-self-start" disabled={pending}>
+      <Button type="submit" className="justify-self-start" disabled={pending}>
         {pending ? "Saving…" : "Save"}
       </Button>
     </form>

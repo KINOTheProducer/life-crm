@@ -104,7 +104,7 @@ function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: 
       onClick={() => onChange(!checked)}
       className={cn(
         "grid size-5 shrink-0 place-items-center rounded-md border transition-colors",
-        checked ? "border-accent bg-accent text-accent-foreground" : "border-input bg-card",
+        checked ? "border-foreground bg-foreground text-background" : "border-input bg-card",
       )}
     >
       {checked && <Check className="size-3.5" strokeWidth={3} />}
@@ -129,7 +129,7 @@ function Row({
         <Toggle checked={checked} onChange={onToggle} label={`Include ${label}`} />
       </div>
       <div className="grid min-w-0 flex-1 gap-1">
-        <p className="type-label text-muted-foreground">{label}</p>
+        <p className="text-[13px] text-muted-foreground">{label}</p>
         {children}
       </div>
     </div>
@@ -216,7 +216,7 @@ export function CaptureReview({ capture, contacts }: { capture: CaptureView; con
           <p className="type-display text-3xl">
             {capture.status === "transcribing" ? "Listening back to your note…" : "Picking out the details…"}
           </p>
-          <p className="type-label text-muted-foreground">
+          <p className="type-meta text-muted-foreground">
             {capture.status === "transcribing" ? "Step 1 of 2 · Transcribing" : "Step 2 of 2 · Extracting"}
           </p>
         </CardContent>
@@ -231,7 +231,7 @@ export function CaptureReview({ capture, contacts }: { capture: CaptureView; con
           <p className="type-display text-3xl">That didn&apos;t work</p>
           <p className="text-destructive">{capture.error}</p>
           <div className="flex gap-2">
-            <Button variant="accent" disabled={pending} onClick={() => startTransition(() => retryCapture(capture.id).then(() => router.refresh()))}>
+            <Button disabled={pending} onClick={() => startTransition(() => retryCapture(capture.id).then(() => router.refresh()))}>
               <RotateCcw />
               Try again
             </Button>
@@ -277,7 +277,7 @@ export function CaptureReview({ capture, contacts }: { capture: CaptureView; con
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
                     <Toggle checked={p.include} onChange={(v) => updatePerson(p.ref, { include: v })} label={`Include ${p.firstName}`} />
-                    <Badge variant={matched ? "secondary" : "accent"}>{matched ? "Existing person" : "New person"}</Badge>
+                    <Badge variant="secondary" className={matched ? undefined : "bg-peach"}>{matched ? "Existing person" : "New person"}</Badge>
                   </div>
                   <select
                     aria-label="Save to"
@@ -350,7 +350,7 @@ export function CaptureReview({ capture, contacts }: { capture: CaptureView; con
                   onChange={(v) => updateInteraction({ include: v })}
                   label="Include interaction"
                 />
-                <p className="type-label text-muted-foreground">Log a catch-up</p>
+                <p className="text-sm text-muted-foreground">Log a catch-up</p>
               </div>
               <CardTitle className="pt-2">
                 With {drafts.people.filter((p) => drafts.interaction!.participantRefs.includes(p.ref)).map((p) => p.firstName).join(", ")}
@@ -380,7 +380,7 @@ export function CaptureReview({ capture, contacts }: { capture: CaptureView; con
 
         {error && <p className="text-sm text-destructive">{error}</p>}
         <div className="flex gap-2">
-          <Button variant="accent" size="lg" disabled={pending || !drafts?.people.some((p) => p.include)} onClick={save}>
+          <Button size="lg" disabled={pending || !drafts?.people.some((p) => p.include)} onClick={save}>
             {pending ? "Saving…" : "Save to timeline"}
           </Button>
           <Button variant="outline" size="lg" disabled={pending} onClick={() => startTransition(() => discardCapture(capture.id))}>
@@ -391,7 +391,6 @@ export function CaptureReview({ capture, contacts }: { capture: CaptureView; con
 
       <Card className="h-fit lg:sticky lg:top-12">
         <CardHeader>
-          <p className="type-label text-muted-foreground">What you said</p>
           <CardTitle>Transcript</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-3">

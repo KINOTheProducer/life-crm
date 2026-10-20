@@ -15,7 +15,7 @@ export default async function SettingsPage() {
 
   return (
     <>
-      <PageHeader eyebrow="Settings" title="Reminders" description="When and how you hear about birthdays, check-ins and the reminders you set." />
+      <PageHeader title="Settings." aside="When and how we remind you." />
       <div className="grid max-w-3xl gap-6">
         <Card>
           <CardHeader>

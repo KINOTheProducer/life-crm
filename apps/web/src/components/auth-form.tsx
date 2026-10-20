@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { authClient } from "@/lib/auth-client";
@@ -42,48 +41,46 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-xl">{isSignUp ? "Create your account" : "Welcome back"}</CardTitle>
-        <CardDescription>
-          {isSignUp ? "Start keeping track of the people who matter." : "Sign in to your Life CRM."}
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={onSubmit} className="grid gap-4">
-          {isSignUp && (
-            <div className="grid gap-2">
-              <Label htmlFor="name">Name</Label>
-              <Input id="name" name="name" required autoComplete="name" />
-            </div>
-          )}
+    <div className="grid gap-6">
+      <div className="grid gap-2">
+        <h1 className="type-display text-[2.5rem] leading-none">{isSignUp ? "Create your account." : "Welcome back."}</h1>
+        <p className="text-muted-foreground">
+          {isSignUp ? "Start keeping track of the people who matter." : "Sign in to see your people."}
+        </p>
+      </div>
+      <form onSubmit={onSubmit} className="grid gap-4">
+        {isSignUp && (
           <div className="grid gap-2">
-            <Label htmlFor="email">Email</Label>
-            <Input id="email" name="email" type="email" required autoComplete="email" />
+            <Label htmlFor="name">Name</Label>
+            <Input id="name" name="name" required autoComplete="name" />
           </div>
-          <div className="grid gap-2">
-            <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              name="password"
-              type="password"
-              required
-              minLength={10}
-              autoComplete={isSignUp ? "new-password" : "current-password"}
-            />
-          </div>
-          {error && <p className="text-sm text-destructive">{error}</p>}
-          <Button type="submit" disabled={pending}>
-            {pending ? "Please wait…" : isSignUp ? "Create account" : "Sign in"}
-          </Button>
-          <p className="text-center text-sm text-muted-foreground">
-            {isSignUp ? "Already have an account? " : "New here? "}
-            <Link href={isSignUp ? "/sign-in" : "/sign-up"} className="underline underline-offset-4">
-              {isSignUp ? "Sign in" : "Create an account"}
-            </Link>
-          </p>
-        </form>
-      </CardContent>
-    </Card>
+        )}
+        <div className="grid gap-2">
+          <Label htmlFor="email">Email</Label>
+          <Input id="email" name="email" type="email" required autoComplete="email" />
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor="password">Password</Label>
+          <Input
+            id="password"
+            name="password"
+            type="password"
+            required
+            minLength={10}
+            autoComplete={isSignUp ? "new-password" : "current-password"}
+          />
+        </div>
+        {error && <p className="text-sm text-destructive">{error}</p>}
+        <Button type="submit" size="lg" disabled={pending}>
+          {pending ? "Please wait…" : isSignUp ? "Create account" : "Sign in"}
+        </Button>
+        <p className="text-center text-sm text-muted-foreground">
+          {isSignUp ? "Already have an account? " : "New here? "}
+          <Link href={isSignUp ? "/sign-in" : "/sign-up"} className="text-foreground underline underline-offset-4">
+            {isSignUp ? "Sign in" : "Create an account"}
+          </Link>
+        </p>
+      </form>
+    </div>
   );
 }

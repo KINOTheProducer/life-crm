@@ -78,7 +78,7 @@ export function PersonForm() {
 
       {state.error && <p className="text-sm text-destructive">{state.error}</p>}
       <div>
-        <Button type="submit" variant="accent" size="lg" disabled={pending}>
+        <Button type="submit" size="lg" disabled={pending}>
           {pending ? "Saving…" : "Save person"}
         </Button>
       </div>
