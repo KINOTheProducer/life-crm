@@ -27,9 +27,10 @@ export async function connectImmich(_prev: ImmichState, form: FormData): Promise
 
   try {
     if (env.DEPLOY_MODE === "cloud") await assertPublicHost(baseUrl);
-    const me = await createImmichClient({ baseUrl, apiKey }).me();
+    const { accountName, missing } = await createImmichClient({ baseUrl, apiKey }).checkKey();
+    if (missing.length) return { error: `The API key is missing ${missing.join(", ")}. Edit the key in Immich and tick ${missing.length === 1 ? "it" : "them"}.` };
     await tenantQuery(async (tx, user) => {
-      const values = { baseUrl, apiKeyEnc: encryptSecret(apiKey), accountName: me.name || me.email };
+      const values = { baseUrl, apiKeyEnc: encryptSecret(apiKey), accountName };
       await tx
         .insert(immichConnections)
         .values({ tenantId: user.tenantId, userId: user.id, ...values })

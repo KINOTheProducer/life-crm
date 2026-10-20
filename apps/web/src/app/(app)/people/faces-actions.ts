@@ -98,7 +98,7 @@ export async function linkFacesTo(contactId: string, personIds: string[], rename
       try {
         for (const p of unnamed) await immich.renamePerson(p.id, name);
       } catch {
-        warning = "Linked, but Immich didn't let us name the face. The API key needs permission to update people.";
+        warning = "Linked, but Immich didn't let us name the face. The API key needs the person.update permission.";
       }
     }
     return { error: warning };

@@ -9,6 +9,8 @@ export class ImmichError extends Error {
   constructor(
     message: string,
     readonly status: number | null,
+    /** The scope Immich said the key is missing, like "asset.view". */
+    readonly permission: string | null = null,
   ) {
     super(message);
     this.name = "ImmichError";
@@ -38,6 +40,16 @@ export interface ImmichPerson {
   /** "1990-04-12" when set in Immich. */
   birthDate: string | null;
   isHidden: boolean;
+}
+
+/** API key scopes we use. Names match the checkboxes in Immich's "New API key" dialog. */
+export const requiredPermissions = ["asset.read", "asset.view", "person.read"] as const;
+export const optionalPermissions = ["user.read", "person.update"] as const;
+
+export interface KeyCheck {
+  accountName: string | null;
+  /** Required scopes the key doesn't have. Empty means it's good to use. */
+  missing: string[];
 }
 
 export interface SearchPage {
@@ -137,7 +149,16 @@ export function createImmichClient(config: ImmichConfig) {
       const timedOut = err instanceof Error && err.name === "TimeoutError";
       throw new ImmichError(timedOut ? "Immich took too long to answer" : "Couldn't reach Immich at that address", null);
     }
-    if (res.status === 401 || res.status === 403) throw new ImmichError("Immich rejected the API key", res.status);
+    if (res.status === 401) throw new ImmichError("Immich rejected the API key", 401);
+    if (res.status === 403) {
+      // Immich answers "Missing required permission: asset.view" for a key without that scope.
+      const message = await res
+        .json()
+        .then((b: unknown) => String((b as { message?: unknown } | null)?.message ?? ""))
+        .catch(() => "");
+      const permission = /permission: ([\w.]+)/.exec(message)?.[1] ?? null;
+      throw new ImmichError(permission ? `The API key needs the ${permission} permission` : "Immich rejected the API key", 403, permission);
+    }
     if (res.status === 404) throw new ImmichError("Not found on Immich", 404);
     if (!res.ok) throw new ImmichError(`Immich returned ${res.status}`, res.status);
     return res;
@@ -197,15 +218,47 @@ export function createImmichClient(config: ImmichConfig) {
     return toPage(await post("/search/metadata", { personIds, page: opts.page ?? 1, size: opts.size ?? 50, order: "desc", withExif: true }));
   }
 
+  /** Who the key belongs to. Needs user.read. */
+  async function me(): Promise<{ id: string; name: string; email: string }> {
+    const parsed = z.object({ id: z.string(), name: z.string(), email: z.string() }).safeParse(await json("/users/me"));
+    if (!parsed.success) throw new ImmichError("That doesn't look like an Immich server", null);
+    return parsed.data;
+  }
+
+  /** Raw image response for a thumbnail ("thumbnail", ~250px) or preview (~1440px). */
+  async function thumbnail(id: string, size: "thumbnail" | "preview" = "thumbnail"): Promise<Response> {
+    return request(`/assets/${encodeURIComponent(id)}/thumbnail?size=${size}`, { headers: { accept: "image/*" } });
+  }
+
   return {
     baseUrl: base,
     withPeople,
 
-    /** Who the key belongs to. Used to test a connection. */
-    async me(): Promise<{ id: string; name: string; email: string }> {
-      const parsed = z.object({ id: z.string(), name: z.string(), email: z.string() }).safeParse(await json("/users/me"));
-      if (!parsed.success) throw new ImmichError("That doesn't look like an Immich server", null);
-      return parsed.data;
+    me,
+
+    /**
+     * Try the key against everything we use and report what it can't do. A bad key or an
+     * unreachable server throws instead.
+     */
+    async checkKey(): Promise<KeyCheck> {
+      const missing: string[] = [];
+      const lacks = (permission: string) => (err: unknown) => {
+        if (err instanceof ImmichError && err.status === 403) missing.push(err.permission ?? permission);
+        else throw err;
+        return null;
+      };
+      const [page, user] = await Promise.all([
+        post("/search/metadata", { page: 1, size: 1 }).then(toPage, lacks("asset.read")),
+        me().catch((err) => (err instanceof ImmichError && err.status === 403 ? null : Promise.reject(err))),
+        json("/people?withHidden=false&page=1&size=1").catch(lacks("person.read")),
+      ]);
+      // Thumbnails need their own scope; only testable once there's a photo to ask for.
+      const first = page?.assets[0];
+      if (first) {
+        const res = await thumbnail(first.id).catch(lacks("asset.view"));
+        await res?.body?.cancel();
+      }
+      return { accountName: user ? user.name || user.email : null, missing: [...new Set(missing)] };
     },
 
     takenBetween,
@@ -247,10 +300,7 @@ export function createImmichClient(config: ImmichConfig) {
       return request(`/people/${encodeURIComponent(id)}/thumbnail`, { headers: { accept: "image/*" } });
     },
 
-    /** Raw image response for a thumbnail ("thumbnail", ~250px) or preview (~1440px). */
-    async thumbnail(id: string, size: "thumbnail" | "preview" = "thumbnail"): Promise<Response> {
-      return request(`/assets/${encodeURIComponent(id)}/thumbnail?size=${size}`, { headers: { accept: "image/*" } });
-    },
+    thumbnail,
   };
 }
 
