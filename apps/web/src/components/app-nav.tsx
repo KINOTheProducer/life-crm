@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, Home, Images, LogOut, Mic, Network, Settings, Users } from "lucide-react";
+import { Bell, Home, Images, LogOut, Mic, Network, Search, Settings, Users } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
@@ -43,6 +43,15 @@ export function AppNav() {
       <Link href="/dashboard" aria-label="Home" className="type-display mb-5 text-[1.75rem] italic">
         {APP_NAME.charAt(0).toLowerCase()}
       </Link>
+      <button
+        type="button"
+        aria-label="Search and commands (Ctrl or ⌘ K)"
+        title="Search and commands (⌘K)"
+        onClick={() => window.dispatchEvent(new Event("open-palette"))}
+        className="grid size-11 place-items-center rounded-2xl text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
+      >
+        <Search className="size-[18px]" strokeWidth={1.8} />
+      </button>
       {links.map(({ href, label, icon: Icon }) => (
         <RailLink key={href} href={href} label={label} active={pathname.startsWith(href.replace("/new", ""))}>
           <Icon className="size-[18px]" strokeWidth={1.8} />
