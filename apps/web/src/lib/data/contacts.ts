@@ -69,3 +69,31 @@ export async function insertContact(tx: Tx, tenantId: string, input: NewContact)
   }
   return contact!.id;
 }
+
+export async function birthdayOf(tx: Tx, contactId: string) {
+  const [row] = await tx
+    .select({ id: importantDates.id, year: importantDates.year, month: importantDates.month, day: importantDates.day })
+    .from(importantDates)
+    .where(and(eq(importantDates.contactId, contactId), eq(importantDates.type, "birthday")));
+  return row ?? null;
+}
+
+/** Add, change or clear someone's birthday, with a timeline entry when it changes. Returns whether anything changed. */
+export async function setBirthday(tx: Tx, tenantId: string, contactId: string, birthday: PartialDate | null): Promise<boolean> {
+  const existing = await birthdayOf(tx, contactId);
+  const now = new Date();
+  if (!birthday) {
+    if (!existing) return false;
+    await tx.delete(importantDates).where(eq(importantDates.id, existing.id));
+    await recordTimeline(tx, [{ tenantId, contactId, kind: "date", occurredAt: now, title: "Birthday removed", body: formatPartialDate(existing) }]);
+    return true;
+  }
+  const value = { year: birthday.year ?? null, month: birthday.month, day: birthday.day };
+  if (existing && existing.year === value.year && existing.month === value.month && existing.day === value.day) return false;
+  if (existing) await tx.update(importantDates).set(value).where(eq(importantDates.id, existing.id));
+  else await tx.insert(importantDates).values({ tenantId, contactId, type: "birthday", ...value });
+  await recordTimeline(tx, [
+    { tenantId, contactId, kind: "date", occurredAt: now, title: existing ? "Birthday changed" : "Birthday added", body: formatPartialDate(birthday) },
+  ]);
+  return true;
+}

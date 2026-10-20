@@ -40,7 +40,7 @@ export function ReminderItem({ item, compact = false }: { item: ReminderItemData
         {!compact && (
           <div className="flex flex-wrap gap-1.5 pt-2">
             {item.kind === "checkin" && item.contactId ? (
-              <Link href={`/people/${item.contactId}#compose`} className={buttonVariants({ size: "sm" })}>
+              <Link href={`/people/${item.contactId}#catch-up`} className={buttonVariants({ size: "sm" })}>
                 Log catch-up
               </Link>
             ) : (

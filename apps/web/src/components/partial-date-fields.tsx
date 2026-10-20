@@ -16,12 +16,15 @@ export function PartialDateFields({
   defaultValue,
   yearPlaceholder = "Year (opt.)",
   allowFuture = false,
+  onChange,
 }: {
   prefix: string;
   label: string;
   defaultValue?: PartialDate | null;
   yearPlaceholder?: string;
   allowFuture?: boolean;
+  /** Called with the date once month and day are both picked, otherwise null. */
+  onChange?: (value: PartialDate | null) => void;
 }) {
   const [initial] = useState(() => ({
     month: String(defaultValue?.month ?? ""),
@@ -46,13 +49,12 @@ export function PartialDateFields({
   const years = Array.from({ length: lastYear - earliestYear + 1 }, (_, i) => lastYear - i);
 
   function change(field: "month" | "day" | "year", v: string) {
-    setValue((prev) => {
-      const next = { ...prev, [field]: v };
-      // Drop a day the new month or year doesn't have, like Feb 30.
-      const max = next.month ? daysInMonth(next.year ? Number(next.year) : 2000, Number(next.month)) : 31;
-      if (Number(next.day) > max) next.day = "";
-      return next;
-    });
+    const next = { ...value, [field]: v };
+    // Drop a day the new month or year doesn't have, like Feb 30.
+    const max = next.month ? daysInMonth(next.year ? Number(next.year) : 2000, Number(next.month)) : 31;
+    if (Number(next.day) > max) next.day = "";
+    setValue(next);
+    onChange?.(next.month && next.day ? { month: Number(next.month), day: Number(next.day), year: next.year ? Number(next.year) : null } : null);
   }
 
   const anySet = value.month !== "" || value.day !== "" || value.year !== "";

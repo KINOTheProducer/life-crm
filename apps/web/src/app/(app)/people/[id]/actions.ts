@@ -1,20 +1,22 @@
 "use server";
 
-import { factCategories, interactionTypes, todayIn } from "@life-crm/core";
-import { and, eq, isNull, schema, sql } from "@life-crm/db";
+import { birthdayInText, factCategories, interactionTypes, todayIn } from "@life-crm/core";
+import { and, eq, isNull, schema } from "@life-crm/db";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { dateToInstant, parseIsoDate, toIsoDate } from "@/lib/data/dates";
-import { resolveCheckins } from "@/lib/data/reminders";
-import { recordTimeline } from "@/lib/data/timeline";
+import { birthdayOf, setBirthday } from "@/lib/data/contacts";
+import { formatPartialDate, toIsoDate } from "@/lib/data/dates";
+import { insertFact, insertInteraction, insertNote } from "@/lib/data/entries";
+import { dateProblemText, partialDateFrom } from "@/lib/forms";
 import { requireUser, tenantQuery } from "@/lib/session";
 
 export interface FormState {
   error?: string;
   ok?: number;
+  message?: string;
 }
 
-const { contacts, facts, interactionPeople, interactions, notes } = schema;
+const { contacts, facts } = schema;
 const uuid = z.uuid();
 
 async function contactExists(contactId: string) {
@@ -33,15 +35,30 @@ export async function addNote(contactId: string, _prev: FormState, form: FormDat
   if (!body.success) return { error: body.error.issues[0]?.message };
   if (!(await contactExists(contactId))) return { error: "Person not found" };
 
-  await tenantQuery(async (tx, user) => {
-    const [note] = await tx
-      .insert(notes)
-      .values({ tenantId: user.tenantId, contactId, body: body.data })
-      .returning({ id: notes.id, createdAt: notes.createdAt });
-    await recordTimeline(tx, [
-      { tenantId: user.tenantId, contactId, kind: "note", occurredAt: note!.createdAt, title: "Note", body: body.data, refId: note!.id },
-    ]);
+  // "Birthday: August 8, 1995" in a note fills in the birthday, but never quietly replaces a different one.
+  const mentioned = birthdayInText(body.data);
+  const message = await tenantQuery(async (tx, user) => {
+    await insertNote(tx, user.tenantId, contactId, body.data);
+    if (!mentioned) return undefined;
+    const current = await birthdayOf(tx, contactId);
+    if (!current) {
+      await setBirthday(tx, user.tenantId, contactId, mentioned);
+      return `Saved their birthday as ${formatPartialDate(mentioned)}`;
+    }
+    const same = current.month === mentioned.month && current.day === mentioned.day && (current.year ?? null) === (mentioned.year ?? null);
+    return same
+      ? undefined
+      : `This note says ${formatPartialDate(mentioned)}, but their saved birthday is ${formatPartialDate(current)}. Change it under Details if it's wrong.`;
   });
+  revalidatePath(`/people/${contactId}`);
+  return { ok: Date.now(), message };
+}
+
+export async function updateBirthday(contactId: string, _prev: FormState, form: FormData): Promise<FormState> {
+  const birthday = form.get("remove") === "1" ? null : partialDateFrom(form, "birthday");
+  if (typeof birthday === "string") return { error: dateProblemText("Birthday", birthday) };
+  if (!(await contactExists(contactId))) return { error: "Person not found" };
+  await tenantQuery((tx, user) => setBirthday(tx, user.tenantId, contactId, birthday));
   revalidatePath(`/people/${contactId}`);
   return { ok: Date.now() };
 }
@@ -64,31 +81,7 @@ export async function logInteraction(contactId: string, _prev: FormState, form: 
   if (parsed.data.date > toIsoDate(todayIn(user.timeZone))) return { error: "That date is in the future" };
   if (!(await contactExists(contactId))) return { error: "Person not found" };
 
-  const occurredAt = dateToInstant(parseIsoDate(parsed.data.date));
-  await tenantQuery(async (tx) => {
-    const [row] = await tx
-      .insert(interactions)
-      .values({ tenantId: user.tenantId, ...parsed.data, occurredAt })
-      .returning({ id: interactions.id });
-    await tx.insert(interactionPeople).values({ tenantId: user.tenantId, interactionId: row!.id, contactId });
-    await tx
-      .update(contacts)
-      .set({ lastInteractionAt: sql`greatest(${contacts.lastInteractionAt}, ${occurredAt.toISOString()}::timestamptz)` })
-      .where(eq(contacts.id, contactId));
-    await resolveCheckins(tx, [contactId]);
-    await recordTimeline(tx, [
-      {
-        tenantId: user.tenantId,
-        contactId,
-        kind: "interaction",
-        occurredAt,
-        title: parsed.data.type,
-        body: parsed.data.summary,
-        refId: row!.id,
-        data: { location: parsed.data.location, with: [] },
-      },
-    ]);
-  });
+  await tenantQuery((tx) => insertInteraction(tx, user.tenantId, contactId, parsed.data));
   revalidatePath(`/people/${contactId}`);
   return { ok: Date.now() };
 }
@@ -104,24 +97,7 @@ export async function addFact(contactId: string, _prev: FormState, form: FormDat
   if (!parsed.success) return { error: parsed.error.issues[0]?.message };
   if (!(await contactExists(contactId))) return { error: "Person not found" };
 
-  await tenantQuery(async (tx, user) => {
-    const [fact] = await tx
-      .insert(facts)
-      .values({ tenantId: user.tenantId, contactId, ...parsed.data })
-      .returning({ id: facts.id, createdAt: facts.createdAt });
-    await recordTimeline(tx, [
-      {
-        tenantId: user.tenantId,
-        contactId,
-        kind: "fact",
-        occurredAt: fact!.createdAt,
-        title: parsed.data.label,
-        body: parsed.data.value,
-        refId: fact!.id,
-        data: { category: parsed.data.category },
-      },
-    ]);
-  });
+  await tenantQuery((tx, user) => insertFact(tx, user.tenantId, contactId, parsed.data));
   revalidatePath(`/people/${contactId}`);
   return { ok: Date.now() };
 }
