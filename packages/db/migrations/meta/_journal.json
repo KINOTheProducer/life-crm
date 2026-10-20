@@ -43,6 +43,13 @@
       "when": 1792519809622,
       "tag": "0005_faces",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792521095082,
+      "tag": "0006_suggestions",
+      "breakpoints": true
     }
   ]
 }

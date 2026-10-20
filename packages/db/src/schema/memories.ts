@@ -104,3 +104,14 @@ export const contactFaces = pgTable(
     tenantIsolation("contact_faces"),
   ],
 ).enableRLS();
+
+/** Memory suggestions the user said no to, keyed by date range, so they don't come back. */
+export const dismissedSuggestions = pgTable(
+  "dismissed_suggestions",
+  {
+    tenantId: tenantId(),
+    key: text("key").notNull(),
+    dismissedAt: timestamps.createdAt,
+  },
+  (t) => [primaryKey({ columns: [t.tenantId, t.key] }), tenantIsolation("dismissed_suggestions")],
+).enableRLS();
