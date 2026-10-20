@@ -1,5 +1,5 @@
 import { factCategoryLabels, todayIn, upcoming } from "@life-crm/core";
-import { ArrowLeft, Mic } from "lucide-react";
+import { ArrowLeft, Heart, Mic } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Avatar } from "@/components/avatar";
@@ -43,7 +43,8 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
   }));
   if (!result.profile) notFound();
   const { profile, timeZone } = result;
-  const { contact } = profile;
+  const { contact, partnership } = profile;
+  const isPartner = partnership?.status === "current";
 
   const today = todayIn(timeZone);
   const nextBirthday = profile.birthday ? upcoming(profile.birthday, today) : null;
@@ -53,7 +54,7 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
 
   const tierName = { inner: "Inner circle", close: "Close friend", friend: "Friend", acquaintance: "Acquaintance" }[contact.closeness];
   const summary = [
-    tierName,
+    isPartner ? null : (contact.relationship ?? tierName),
     nextBirthday &&
       (nextBirthday.daysAway === 0
         ? "birthday today"
@@ -78,6 +79,12 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
               {contact.nickname && <em className="text-muted-foreground"> “{contact.nickname}”</em>}
             </h1>
             <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[15px] text-muted-foreground">
+              {isPartner && (
+                <Badge variant="accent">
+                  <Heart className="fill-current" />
+                  {partnership.label}
+                </Badge>
+              )}
               {summary.map((s, i) => (
                 <span key={i}>
                   {i > 0 && <span className="mr-2">·</span>}
@@ -90,6 +97,12 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {isPartner && (
+            <Link href={`/people/${contact.id}/partner`} className={buttonVariants({ variant: "outline" })}>
+              <Heart />
+              Partner profile
+            </Link>
+          )}
           <Link href="#compose" className={buttonVariants({ variant: "outline" })}>
             Log catch-up
           </Link>
@@ -139,6 +152,17 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
                   <p className="text-[13px] text-muted-foreground">How you met</p>
                   <p>{contact.howMet}</p>
                 </div>
+              )}
+              {contact.relationship && (
+                <div className="grid gap-1">
+                  <p className="text-[13px] text-muted-foreground">To you</p>
+                  <p>{contact.relationship}</p>
+                </div>
+              )}
+              {!isPartner && (
+                <Link href={`/people/${contact.id}/partner`} className="text-[13px] text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
+                  {partnership ? "Past partner" : "Mark as partner"}
+                </Link>
               )}
               {contact.keepInTouchDays && (
                 <div className="grid gap-1">

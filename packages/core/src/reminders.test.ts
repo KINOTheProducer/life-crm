@@ -33,6 +33,14 @@ describe("date reminders", () => {
     expect(onDay).toMatchObject({ key: "date:d1:2026-10-24:0", title: "Sarah's birthday is today" });
   });
 
+  it("says \"your\" for anniversaries of the user's own relationship", () => {
+    const wedding: DateSource = { ...sarahBirthday, id: "d2", type: "anniversary", label: "wedding anniversary", withYou: true, date: { year: 2019, month: 10, day: 22 } };
+    expect(dueReminders(today, { ...none, dates: [wedding] })[0]).toMatchObject({
+      title: "Your wedding anniversary with Sarah is in 3 days",
+      body: "Thursday, October 22 · 7 years",
+    });
+  });
+
   it("is silent outside every tier", () => {
     expect(dueReminders({ year: 2026, month: 9, day: 1 }, { ...none, dates: [sarahBirthday] })).toEqual([]);
   });

@@ -2,6 +2,7 @@ import { interactionTypeLabels, type InteractionType } from "@life-crm/core";
 import type { TimelineKind } from "@life-crm/db/schema";
 import {
   Cake,
+  Heart,
   Lightbulb,
   Mail,
   MessageCircle,
@@ -23,7 +24,7 @@ const filters: { label: string; kinds: TimelineKind[] }[] = [
   { label: "Everything", kinds: [] },
   { label: "Catch-ups", kinds: ["interaction"] },
   { label: "Notes", kinds: ["note", "voice"] },
-  { label: "Facts & dates", kinds: ["fact", "date"] },
+  { label: "Facts & dates", kinds: ["fact", "date", "milestone"] },
 ];
 
 const interactionIcons: Record<InteractionType, LucideIcon> = {
@@ -48,6 +49,8 @@ function iconFor(entry: TimelineEntry): LucideIcon {
       return Lightbulb;
     case "date":
       return Cake;
+    case "milestone":
+      return Heart;
     case "interaction":
       return interactionIcons[entry.title as InteractionType] ?? Users;
   }
@@ -55,6 +58,7 @@ function iconFor(entry: TimelineEntry): LucideIcon {
 
 function titleFor(entry: TimelineEntry, names: Record<string, string>) {
   if (entry.kind !== "interaction") return entry.title;
+  if ((entry.data as { dateNight?: boolean } | null)?.dateNight) return "Date night";
   const label = interactionTypeLabels[entry.title as InteractionType] ?? "Catch-up";
   const others = ((entry.data as { with?: string[] } | null)?.with ?? []).map((id) => names[id]).filter(Boolean);
   return others.length ? `${label} with ${others.join(", ")}` : label;

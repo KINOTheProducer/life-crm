@@ -3,6 +3,7 @@ import { PageHeader } from "@/components/page-header";
 import { CalendarFeed } from "@/components/settings/calendar-feed";
 import { CheckNow } from "@/components/settings/check-now";
 import { PushToggle } from "@/components/settings/push-toggle";
+import { RelationshipSettingsForm } from "@/components/settings/relationship-form";
 import { SettingsForm } from "@/components/settings/settings-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { db } from "@/lib/db";
@@ -15,7 +16,7 @@ export default async function SettingsPage() {
 
   return (
     <>
-      <PageHeader title="Settings." aside="When and how we remind you." />
+      <PageHeader title="Settings." aside="You, and how we remind you." />
       <div className="grid max-w-3xl gap-6">
         <Card>
           <CardHeader>
@@ -30,6 +31,14 @@ export default async function SettingsPage() {
               leadDays={u!.reminderLeadDays}
               emailConfigured={Boolean(process.env.SMTP_URL)}
             />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Relationship</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <RelationshipSettingsForm status={u!.relationshipStatus} style={u!.relationshipStyle} />
           </CardContent>
         </Card>
         <Card>

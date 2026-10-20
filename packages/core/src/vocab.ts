@@ -10,6 +10,10 @@ export const factCategories = [
   "dietary",
   "health",
   "follow_up",
+  "love",
+  "favourites",
+  "sizes",
+  "wishlist",
   "other",
 ] as const;
 export type FactCategory = (typeof factCategories)[number];
@@ -24,6 +28,10 @@ export const factCategoryLabels: Record<FactCategory, string> = {
   dietary: "Food & allergies",
   health: "Health",
   follow_up: "Ask them about",
+  love: "How they like to be loved",
+  favourites: "Favourites",
+  sizes: "Sizes",
+  wishlist: "Gift ideas",
   other: "Other",
 };
 

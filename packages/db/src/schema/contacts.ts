@@ -17,6 +17,8 @@ export const contacts = pgTable(
       .default("friend"),
     keepInTouchDays: integer("keep_in_touch_days"),
     howMet: text("how_met"),
+    /** What they are to the user, in the user's words: "Mom", "Brother", "Best friend". */
+    relationship: text("relationship"),
     lastInteractionAt: timestamp("last_interaction_at", { withTimezone: true }),
     ...timestamps,
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
