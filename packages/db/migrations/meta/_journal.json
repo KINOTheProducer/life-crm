@@ -36,6 +36,13 @@
       "when": 1792517081837,
       "tag": "0004_memories",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792519809622,
+      "tag": "0005_faces",
+      "breakpoints": true
     }
   ]
 }

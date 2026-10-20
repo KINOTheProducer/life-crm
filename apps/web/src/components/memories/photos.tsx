@@ -1,9 +1,10 @@
 "use client";
 
-import { Check, ChevronLeft, ChevronRight, ImageIcon, Play, Search, Star, Trash2, X } from "lucide-react";
+import { Check, ImageIcon, Play, Search, Star, Trash2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState, useTransition } from "react";
 import { attachPhotos, detachPhoto, findPhotos, setCover, type PhotoResult } from "@/app/(app)/memories/actions";
+import { Lightbox } from "@/components/lightbox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { thumbUrl } from "@/lib/immich-urls";
@@ -21,24 +22,27 @@ export function PhotoPicker({ memoryId, attached, onClose }: { memoryId: string;
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [picked, setPicked] = useState<Map<string, Found>>(new Map());
+  const [onlyTagged, setOnlyTagged] = useState(true);
+  const [taggedWithFaces, setTaggedWithFaces] = useState<string[]>([]);
   const [saving, startSaving] = useTransition();
 
   const load = useCallback(
     async (q: string, page: number) => {
       setLoading(true);
-      const res = await findPhotos(memoryId, q, page);
+      const res = await findPhotos(memoryId, q, page, onlyTagged);
       setError(res.error ?? null);
       setResults((prev) => (page === 1 ? res.assets : [...prev, ...res.assets]));
       setNextPage(res.nextPage);
       setLoading(false);
     },
-    [memoryId],
+    [memoryId, onlyTagged],
   );
 
   useEffect(() => {
     let cancelled = false;
-    findPhotos(memoryId, submitted, 1).then((res) => {
+    findPhotos(memoryId, submitted, 1, onlyTagged).then((res) => {
       if (cancelled) return;
+      setTaggedWithFaces(res.taggedWithFaces);
       setError(res.error ?? null);
       setResults(res.assets);
       setNextPage(res.nextPage);
@@ -47,7 +51,7 @@ export function PhotoPicker({ memoryId, attached, onClose }: { memoryId: string;
     return () => {
       cancelled = true;
     };
-  }, [memoryId, submitted]);
+  }, [memoryId, submitted, onlyTagged]);
 
   const toggle = (a: Found) =>
     setPicked((m) => {
@@ -104,10 +108,28 @@ export function PhotoPicker({ memoryId, attached, onClose }: { memoryId: string;
         )}
       </form>
 
+      {!submitted && taggedWithFaces.length > 0 && (
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={onlyTagged}
+            onChange={(e) => {
+              setLoading(true);
+              setOnlyTagged(e.target.checked);
+            }}
+            className="size-4 accent-foreground"
+          />
+          Only photos with {taggedWithFaces.length <= 2 ? taggedWithFaces.join(" or ") : `${taggedWithFaces.slice(0, -1).join(", ")} or ${taggedWithFaces.at(-1)}`}
+        </label>
+      )}
       {error && <p className="text-sm text-destructive">{error}</p>}
       {!error && !loading && results.length === 0 && (
         <p className="text-sm text-muted-foreground">
-          {submitted ? "Nothing matched." : "No photos in Immich from those dates. Try a search instead."}
+          {submitted
+            ? "Nothing matched."
+            : onlyTagged && taggedWithFaces.length
+              ? "No photos with them from those dates. Untick the filter to see everything."
+              : "No photos in Immich from those dates. Try a search instead."}
         </p>
       )}
 
@@ -207,18 +229,6 @@ export function Gallery({
   const [pending, start] = useTransition();
   const router = useRouter();
 
-  useEffect(() => {
-    if (open == null) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(null);
-      if (e.key === "ArrowRight") setOpen((i) => (i == null ? i : Math.min(i + 1, assets.length - 1)));
-      if (e.key === "ArrowLeft") setOpen((i) => (i == null ? i : Math.max(i - 1, 0)));
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, assets.length]);
-
-  const current = open != null ? assets[open] : null;
 
   return (
     <section className="grid gap-4">
@@ -272,30 +282,7 @@ export function Gallery({
         </ul>
       )}
 
-      {current && (
-        <div role="dialog" aria-modal aria-label="Photo" className="fixed inset-0 z-50 grid place-items-center bg-black/90 p-6" onClick={() => setOpen(null)}>
-          {/* eslint-disable-next-line @next/next/no-img-element -- proxied Immich preview */}
-          <img
-            src={thumbUrl(current.assetId, "preview")}
-            alt=""
-            className="max-h-full max-w-full rounded-lg object-contain"
-            onClick={(e) => e.stopPropagation()}
-          />
-          <button type="button" aria-label="Close" className="absolute top-5 right-5 rounded-full p-2 text-white/80 hover:text-white" onClick={() => setOpen(null)}>
-            <X className="size-6" />
-          </button>
-          {open! > 0 && (
-            <button type="button" aria-label="Previous" className="absolute left-4 rounded-full p-2 text-white/80 hover:text-white" onClick={(e) => { e.stopPropagation(); setOpen(open! - 1); }}>
-              <ChevronLeft className="size-8" />
-            </button>
-          )}
-          {open! < assets.length - 1 && (
-            <button type="button" aria-label="Next" className="absolute right-4 rounded-full p-2 text-white/80 hover:text-white" onClick={(e) => { e.stopPropagation(); setOpen(open! + 1); }}>
-              <ChevronRight className="size-8" />
-            </button>
-          )}
-        </div>
-      )}
+      <Lightbox assetIds={assets.map((a) => a.assetId)} index={open} onChange={setOpen} />
     </section>
   );
 }

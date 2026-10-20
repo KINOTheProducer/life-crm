@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Avatar, toneFor } from "@/components/avatar";
 import { formatDateRange } from "@/lib/data/dates";
 import type { MemorySummary } from "@/lib/data/memories";
-import { thumbUrl } from "@/lib/immich-urls";
+import { avatarSrc, thumbUrl } from "@/lib/immich-urls";
 import { cn } from "@/lib/utils";
 
 export function MemoryCard({ memory: m, compact = false }: { memory: MemorySummary; compact?: boolean }) {
@@ -27,7 +27,7 @@ export function MemoryCard({ memory: m, compact = false }: { memory: MemorySumma
           <div className="mt-2 flex items-center gap-2">
             <div className="flex -space-x-2">
               {m.people.slice(0, 5).map((p) => (
-                <Avatar key={p.id} id={p.id} name={p.name} size={28} className="ring-2 ring-card" />
+                <Avatar key={p.id} id={p.id} name={p.name} src={avatarSrc(p.avatarRef)} size={28} className="ring-2 ring-card" />
               ))}
             </div>
             <span className="truncate text-[13px] text-muted-foreground">

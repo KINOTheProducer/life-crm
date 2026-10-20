@@ -32,6 +32,14 @@ export interface ImmichAsset {
   country: string | null;
 }
 
+export interface ImmichPerson {
+  id: string;
+  name: string;
+  /** "1990-04-12" when set in Immich. */
+  birthDate: string | null;
+  isHidden: boolean;
+}
+
 export interface SearchPage {
   assets: ImmichAsset[];
   nextPage: number | null;
@@ -66,6 +74,17 @@ const searchSchema = z.object({
     items: z.array(assetSchema),
     nextPage: z.union([z.string(), z.number()]).nullish(),
   }),
+});
+
+const personSchema = z
+  .object({ id: z.string(), name: z.string().nullish(), birthDate: z.string().nullish(), isHidden: z.boolean().optional() })
+  .loose();
+
+const toPerson = (p: z.infer<typeof personSchema>): ImmichPerson => ({
+  id: p.id,
+  name: p.name ?? "",
+  birthDate: p.birthDate ? p.birthDate.slice(0, 10) : null,
+  isHidden: p.isHidden ?? false,
 });
 
 const hidden = new Set(["archive", "hidden", "locked"]);
@@ -140,11 +159,16 @@ export function createImmichClient(config: ImmichConfig) {
    * Photos and videos taken between two calendar dates (inclusive), by the camera's local date.
    * Immich filters in UTC, so ask for a day either side and trim locally.
    */
-  async function takenBetween(from: string, to: string, opts: { page?: number; size?: number } = {}): Promise<SearchPage> {
+  async function takenBetween(
+    from: string,
+    to: string,
+    opts: { page?: number; size?: number; personIds?: string[] } = {},
+  ): Promise<SearchPage> {
     const page = toPage(
       await post("/search/metadata", {
         takenAfter: addDays(from, -1),
         takenBefore: addDays(to, 2),
+        ...(opts.personIds?.length ? { personIds: opts.personIds } : {}),
         page: opts.page ?? 1,
         size: opts.size ?? 100,
         order: "asc",
@@ -165,8 +189,17 @@ export function createImmichClient(config: ImmichConfig) {
     return toPage(await post("/search/smart", { query, page: opts.page ?? 1, size: opts.size ?? 100, withExif: true }));
   }
 
+  /**
+   * Photos with every one of these people in them, newest first. One id is "photos of them";
+   * their id plus yours is "photos together".
+   */
+  async function withPeople(personIds: string[], opts: { page?: number; size?: number } = {}): Promise<SearchPage> {
+    return toPage(await post("/search/metadata", { personIds, page: opts.page ?? 1, size: opts.size ?? 50, order: "desc", withExif: true }));
+  }
+
   return {
     baseUrl: base,
+    withPeople,
 
     /** Who the key belongs to. Used to test a connection. */
     async me(): Promise<{ id: string; name: string; email: string }> {
@@ -180,6 +213,38 @@ export function createImmichClient(config: ImmichConfig) {
 
     async asset(id: string): Promise<ImmichAsset | null> {
       return toAsset(assetSchema.parse(await json(`/assets/${encodeURIComponent(id)}`)));
+    },
+
+    /** Face clusters Immich has found, most photographed first. Hidden people are left out. */
+    async people(opts: { page?: number; size?: number } = {}): Promise<{ people: ImmichPerson[]; hasNextPage: boolean }> {
+      const parsed = z
+        .object({ people: z.array(personSchema), hasNextPage: z.boolean().optional() })
+        .safeParse(await json(`/people?withHidden=false&page=${opts.page ?? 1}&size=${opts.size ?? 500}`));
+      if (!parsed.success) throw new ImmichError("Unexpected response from Immich", null);
+      return { people: parsed.data.people.map(toPerson).filter((p) => !p.isHidden), hasNextPage: parsed.data.hasNextPage ?? false };
+    },
+
+    async person(id: string): Promise<ImmichPerson> {
+      return toPerson(personSchema.parse(await json(`/people/${encodeURIComponent(id)}`)));
+    },
+
+    /** How many photos and videos a person appears in. */
+    async personAssetCount(id: string): Promise<number> {
+      const parsed = z.object({ assets: z.number() }).safeParse(await json(`/people/${encodeURIComponent(id)}/statistics`));
+      return parsed.success ? parsed.data.assets : 0;
+    },
+
+    /** Name a face in Immich. Needs the key to allow updating people. */
+    async renamePerson(id: string, name: string): Promise<void> {
+      await request(`/people/${encodeURIComponent(id)}`, {
+        method: "PUT",
+        body: JSON.stringify({ name }),
+        headers: { "content-type": "application/json" },
+      });
+    },
+
+    async personThumbnail(id: string): Promise<Response> {
+      return request(`/people/${encodeURIComponent(id)}/thumbnail`, { headers: { accept: "image/*" } });
     },
 
     /** Raw image response for a thumbnail ("thumbnail", ~250px) or preview (~1440px). */

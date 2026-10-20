@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/page-header";
 import { buttonVariants } from "@/components/ui/button";
 import { listPeople } from "@/lib/data/people";
 import { cn } from "@/lib/utils";
+import { avatarSrc } from "@/lib/immich-urls";
 
 const tierLabel: Record<ClosenessTier, string> = {
   inner: "Inner circle",
@@ -98,7 +99,7 @@ export default async function PeoplePage({ searchParams }: PageProps<"/people">)
                 <li key={p.id}>
                   <Link href={`/people/${p.id}`} className="grid grid-cols-[1fr_160px_160px_140px] items-center gap-4 px-6 py-3 transition-colors hover:bg-secondary/50">
                     <span className="flex min-w-0 items-center gap-3">
-                      <Avatar id={p.id} name={name} size={36} />
+                      <Avatar id={p.id} name={name} src={avatarSrc(p.avatarRef)} size={36} />
                       <span className="truncate font-medium">{name}</span>
                       {p.nickname && <span className="truncate text-sm text-muted-foreground">“{p.nickname}”</span>}
                     </span>

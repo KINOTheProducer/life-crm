@@ -15,6 +15,7 @@ export async function listPeople(filter: { tier?: ClosenessTier; q?: string } = 
         firstName: contacts.firstName,
         lastName: contacts.lastName,
         nickname: contacts.nickname,
+        avatarRef: contacts.avatarRef,
         closeness: contacts.closeness,
         lastInteractionAt: contacts.lastInteractionAt,
         year: importantDates.year,

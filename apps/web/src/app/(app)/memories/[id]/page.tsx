@@ -9,7 +9,7 @@ import { contactOptions } from "@/lib/data/contacts";
 import { formatDateRange, toIsoDate } from "@/lib/data/dates";
 import { getMemory } from "@/lib/data/memories";
 import { immichConnection } from "@/lib/immich";
-import { thumbUrl } from "@/lib/immich-urls";
+import { avatarSrc, thumbUrl } from "@/lib/immich-urls";
 import { tenantQuery } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
@@ -83,7 +83,7 @@ export default async function MemoryPage({ params }: PageProps<"/memories/[id]">
                     {people.map((p) => (
                       <li key={p.id}>
                         <Link href={`/people/${p.id}`} className="flex items-center gap-3 rounded-2xl py-1.5 hover:opacity-80">
-                          <Avatar id={p.id} name={p.name} size={32} />
+                          <Avatar id={p.id} name={p.name} src={avatarSrc(p.avatarRef)} size={32} />
                           <span className="font-medium">{p.name}</span>
                         </Link>
                       </li>

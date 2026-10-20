@@ -9,15 +9,21 @@ const { contacts, memories, memoryAssets, memoryPeople, timelineEntries } = sche
 export type Memory = typeof memories.$inferSelect;
 
 async function peopleFor(tx: Tx, memoryIds: string[]) {
-  if (memoryIds.length === 0) return new Map<string, { id: string; name: string }[]>();
+  if (memoryIds.length === 0) return new Map<string, { id: string; name: string; avatarRef: string | null }[]>();
   const rows = await tx
-    .select({ memoryId: memoryPeople.memoryId, id: contacts.id, firstName: contacts.firstName, lastName: contacts.lastName })
+    .select({
+      memoryId: memoryPeople.memoryId,
+      id: contacts.id,
+      firstName: contacts.firstName,
+      lastName: contacts.lastName,
+      avatarRef: contacts.avatarRef,
+    })
     .from(memoryPeople)
     .innerJoin(contacts, eq(contacts.id, memoryPeople.contactId))
     .where(and(inArray(memoryPeople.memoryId, memoryIds), isNull(contacts.deletedAt)))
     .orderBy(asc(contacts.firstName));
-  const out = new Map<string, { id: string; name: string }[]>();
-  for (const r of rows) out.set(r.memoryId, [...(out.get(r.memoryId) ?? []), { id: r.id, name: fullName(r) }]);
+  const out = new Map<string, { id: string; name: string; avatarRef: string | null }[]>();
+  for (const r of rows) out.set(r.memoryId, [...(out.get(r.memoryId) ?? []), { id: r.id, name: fullName(r), avatarRef: r.avatarRef }]);
   return out;
 }
 
