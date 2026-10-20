@@ -30,6 +30,16 @@ FROM builder AS worker
 ENV NODE_ENV=production
 CMD ["pnpm", "--filter", "@life-crm/worker", "start"]
 
+# Everything in one container: runs migrations, the worker and the web app.
+# Meant for Unraid and quick self-host installs; compose uses the separate targets.
+FROM builder AS allinone
+ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
+RUN cp -r apps/web/.next/static apps/web/.next/standalone/apps/web/.next/static \
+ && mkdir -p apps/web/.next/standalone/apps/web/public \
+ && cp -r apps/web/public/. apps/web/.next/standalone/apps/web/public/
+EXPOSE 3000
+CMD ["sh", "-c", "pnpm --filter @life-crm/db migrate && (pnpm --filter @life-crm/worker start &) && exec node apps/web/.next/standalone/apps/web/server.js"]
+
 FROM node:22-alpine AS web
 WORKDIR /app
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0

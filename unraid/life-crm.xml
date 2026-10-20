@@ -1,0 +1,34 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>life-crm</Name>
+  <Repository>ghcr.io/kinotheproducer/life-crm:latest</Repository>
+  <Registry>https://github.com/KINOTheProducer/life-crm/pkgs/container/life-crm</Registry>
+  <Network>bridge</Network>
+  <Shell>sh</Shell>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/KINOTheProducer/life-crm/issues</Support>
+  <Project>https://github.com/KINOTheProducer/life-crm</Project>
+  <Overview>Personal CRM for friends and family: birthdays, reminders, voice notes and a timeline per person. Needs a PostgreSQL 16 database (e.g. the pgvector/pgvector:pg16 container) with an empty database created for it. Runs migrations, the reminder worker and the web app in one container.</Overview>
+  <Category>Productivity: Tools:</Category>
+  <WebUI>http://[IP]:[PORT:3000]/</WebUI>
+  <Icon>https://raw.githubusercontent.com/KINOTheProducer/life-crm/main/apps/web/src/app/favicon.ico</Icon>
+  <Config Name="Web UI port" Target="3000" Default="3000" Mode="tcp" Description="Port for the web app" Type="Port" Display="always" Required="true" Mask="false">3000</Config>
+  <Config Name="DATABASE_URL" Target="DATABASE_URL" Default="postgres://life_crm:CHANGE_ME@192.168.1.10:5432/life_crm" Mode="" Description="Postgres connection string. Use a non-superuser role so row-level security applies." Type="Variable" Display="always" Required="true" Mask="true">postgres://life_crm:CHANGE_ME@192.168.1.10:5432/life_crm</Config>
+  <Config Name="BETTER_AUTH_SECRET" Target="BETTER_AUTH_SECRET" Default="" Mode="" Description="Random secret, at least 32 characters. Generate with: openssl rand -base64 32" Type="Variable" Display="always" Required="true" Mask="true"></Config>
+  <Config Name="BETTER_AUTH_URL" Target="BETTER_AUTH_URL" Default="http://192.168.1.10:3000" Mode="" Description="The URL you open the app at (used for links in emails and the calendar feed)" Type="Variable" Display="always" Required="true" Mask="false">http://192.168.1.10:3000</Config>
+  <Config Name="APP_URL" Target="APP_URL" Default="http://192.168.1.10:3000" Mode="" Description="Same as BETTER_AUTH_URL" Type="Variable" Display="advanced" Required="false" Mask="false">http://192.168.1.10:3000</Config>
+  <Config Name="DEPLOY_MODE" Target="DEPLOY_MODE" Default="self-hosted" Mode="" Description="self-hosted allows one sign-up" Type="Variable" Display="advanced" Required="true" Mask="false">self-hosted</Config>
+  <Config Name="ANTHROPIC_API_KEY" Target="ANTHROPIC_API_KEY" Default="" Mode="" Description="For voice note extraction with Claude. Leave empty if using a local model." Type="Variable" Display="always" Required="false" Mask="true"></Config>
+  <Config Name="AI_PROVIDER" Target="AI_PROVIDER" Default="anthropic" Mode="" Description="anthropic or openai_compatible" Type="Variable" Display="advanced" Required="false" Mask="false">anthropic</Config>
+  <Config Name="AI_BASE_URL" Target="AI_BASE_URL" Default="" Mode="" Description="For openai_compatible, e.g. http://192.168.1.10:11434/v1 for Ollama" Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+  <Config Name="AI_MODEL" Target="AI_MODEL" Default="" Mode="" Description="Model name for openai_compatible (or override the Claude model)" Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+  <Config Name="AI_API_KEY" Target="AI_API_KEY" Default="" Mode="" Description="API key for openai_compatible, if needed" Type="Variable" Display="advanced" Required="false" Mask="true"></Config>
+  <Config Name="STT_BASE_URL" Target="STT_BASE_URL" Default="" Mode="" Description="Speech to text, any OpenAI-compatible /audio/transcriptions endpoint, e.g. a speaches container at http://192.168.1.10:8000/v1" Type="Variable" Display="always" Required="false" Mask="false"></Config>
+  <Config Name="STT_MODEL" Target="STT_MODEL" Default="Systran/faster-whisper-small" Mode="" Description="Speech to text model" Type="Variable" Display="advanced" Required="false" Mask="false">Systran/faster-whisper-small</Config>
+  <Config Name="STT_API_KEY" Target="STT_API_KEY" Default="" Mode="" Description="Speech to text API key, if needed" Type="Variable" Display="advanced" Required="false" Mask="true"></Config>
+  <Config Name="SMTP_URL" Target="SMTP_URL" Default="" Mode="" Description="For reminder emails: smtp://user:pass@host:587" Type="Variable" Display="advanced" Required="false" Mask="true"></Config>
+  <Config Name="EMAIL_FROM" Target="EMAIL_FROM" Default="" Mode="" Description="From address for reminder emails" Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+  <Config Name="VAPID_PUBLIC_KEY" Target="VAPID_PUBLIC_KEY" Default="" Mode="" Description="Browser push. Generate with: npx web-push generate-vapid-keys" Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+  <Config Name="VAPID_PRIVATE_KEY" Target="VAPID_PRIVATE_KEY" Default="" Mode="" Description="Browser push private key" Type="Variable" Display="advanced" Required="false" Mask="true"></Config>
+  <Config Name="TZ" Target="TZ" Default="America/Toronto" Mode="" Description="Container time zone" Type="Variable" Display="advanced" Required="false" Mask="false">America/Toronto</Config>
+</Container>
