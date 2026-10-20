@@ -15,6 +15,7 @@ apps/worker     Background jobs (daily reminder pass, digests, push)
 packages/ai     Speech to text and AI extraction (Claude, or any OpenAI-compatible server)
 packages/core   Domain logic and Zod schemas (date math, reminders)
 packages/db     Drizzle schema, migrations, tenant-scoped query helper
+packages/immich Immich API client (search, thumbnails)
 packages/reminders  Daily reminder pass, email digest, web push, calendar feed
 docker/         Dockerfile and Postgres init
 ```
