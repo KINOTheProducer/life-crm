@@ -42,7 +42,21 @@ export function ImmichForm({ connected }: { connected: { baseUrl: string; accoun
             <Input ref={key} name="apiKey" type="password" required autoComplete="off" placeholder={connected ? "Paste a new key to replace it" : ""} />
           </label>
         </div>
-        <p className="text-[13px] text-muted-foreground">In Immich: Account settings, API keys, New API key. It needs read access to assets and search.</p>
+        <div className="grid gap-1 text-[13px] text-muted-foreground">
+          <p>In Immich: Account settings, API keys, New API key. Tick these permissions:</p>
+          <ul className="grid gap-0.5 pl-4">
+            <li>
+              <code className="font-mono text-foreground">asset.read</code>, <code className="font-mono text-foreground">asset.view</code> and{" "}
+              <code className="font-mono text-foreground">person.read</code> (required)
+            </li>
+            <li>
+              <code className="font-mono text-foreground">person.update</code> to name faces in Immich from here (optional)
+            </li>
+            <li>
+              <code className="font-mono text-foreground">user.read</code> to show which account is connected (optional)
+            </li>
+          </ul>
+        </div>
         {state.error && <p className="text-sm text-destructive">{state.error}</p>}
         {state.ok && <p className="text-sm text-muted-foreground">Connected</p>}
         <Button type="submit" className="justify-self-start" disabled={pending}>
