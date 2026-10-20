@@ -7,7 +7,7 @@ import { z } from "zod";
 import { insertContact } from "@/lib/data/contacts";
 import { connectRelative, contactInTenant, disconnect, ensureSelf, loadFamily, type RelativeRole } from "@/lib/data/family";
 import { createPartnership, monogamyConflict, userPrefs } from "@/lib/data/partners";
-import { dateProblemText, intOrNull, partialDateFrom } from "@/lib/forms";
+import { dateProblemText, intOrNull, partialDateFrom, personName } from "@/lib/forms";
 import { tenantQuery } from "@/lib/session";
 
 export interface RelativeState {
@@ -42,12 +42,8 @@ async function labelFromTree(tx: Tx, selfId: string, ids: string[]) {
 }
 
 const newPersonSchema = z.object({
-  firstName: z.string().trim().min(1, "Add their first name").max(100),
-  lastName: z
-    .string()
-    .trim()
-    .max(100)
-    .transform((v) => v || null),
+  firstName: personName(100).refine((v) => v !== "", "Add their first name"),
+  lastName: personName(100).transform((v) => v || null),
   pronouns: z.enum(["", "she/her", "he/him", "they/them"]).transform((v) => v || null),
 });
 

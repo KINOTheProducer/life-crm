@@ -109,3 +109,33 @@ export function parseIsoDate(s: string): PlainDate {
   const [year, month, day] = s.split("-").map(Number);
   return { year: year!, month: month!, day: day! };
 }
+
+const monthIndex: Record<string, number> = {
+  jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, sept: 9, oct: 10, nov: 11, dec: 12,
+};
+const monthWord = "(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sept?(?:ember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)";
+const dayWord = "(\\d{1,2})(?:st|nd|rd|th)?";
+const yearWord = "(\\d{4})";
+
+/**
+ * A birthday stated in free text, like "Birthday: August 8, 1995", "bday is 8 Aug" or "born 1995-08-08".
+ * Null unless the text mentions a birthday and holds exactly one real date. Numeric dates other than
+ * ISO are skipped since 08/09 reads differently depending on who wrote it.
+ */
+export function birthdayInText(text: string): PartialDate | null {
+  if (!/\b(birthday|b-?day|born)\b/i.test(text)) return null;
+  const found: PartialDate[] = [];
+  const patterns: [RegExp, (m: RegExpExecArray) => PartialDate][] = [
+    [new RegExp(`\\b${monthWord}\\.?\\s+${dayWord}\\b(?:,?\\s+${yearWord}\\b)?`, "gi"), (m) => ({ month: monthIndex[m[1]!.slice(0, 3).toLowerCase()]!, day: Number(m[2]), year: m[3] ? Number(m[3]) : null })],
+    [new RegExp(`\\b${dayWord}\\s+(?:of\\s+)?${monthWord}\\b\\.?(?:,?\\s+${yearWord}\\b)?`, "gi"), (m) => ({ month: monthIndex[m[2]!.slice(0, 3).toLowerCase()]!, day: Number(m[1]), year: m[3] ? Number(m[3]) : null })],
+    [/\b(\d{4})-(\d{2})-(\d{2})\b/g, (m) => ({ year: Number(m[1]), month: Number(m[2]), day: Number(m[3]) })],
+  ];
+  for (const [re, toDate] of patterns) {
+    for (const m of text.matchAll(re)) {
+      const d = toDate(m);
+      if (isValidPartialDate(d) && (d.year == null || (d.year >= 1900 && d.year <= 2200))) found.push(d);
+    }
+  }
+  const unique = new Set(found.map((d) => `${d.year ?? ""}-${d.month}-${d.day}`));
+  return unique.size === 1 ? found[0]! : null;
+}

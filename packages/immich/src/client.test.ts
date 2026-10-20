@@ -42,6 +42,47 @@ describe("client", () => {
     await expect(createImmichClient({ baseUrl: "https://p.example.com", apiKey: "k", fetch: f }).me()).rejects.toThrow("rejected the API key");
   });
 
+  it("names the permission a scoped key is missing", async () => {
+    const f = fakeFetch(() => Response.json({ message: "Missing required permission: user.read" }, { status: 403 }));
+    const err = await createImmichClient({ baseUrl: "https://p.example.com", apiKey: "k", fetch: f }).me().catch((e) => e);
+    expect(err).toBeInstanceOf(ImmichError);
+    expect(err.permission).toBe("user.read");
+    expect(err.message).toBe("The API key needs the user.read permission");
+  });
+
+  describe("checkKey", () => {
+    const scoped = (granted: string[]) =>
+      fakeFetch((url) => {
+        const need = url.includes("/users/me")
+          ? "user.read"
+          : url.includes("/thumbnail")
+            ? "asset.view"
+            : url.includes("/people")
+              ? "person.read"
+              : "asset.read";
+        if (!granted.includes(need)) return Response.json({ message: `Missing required permission: ${need}` }, { status: 403 });
+        if (url.includes("/users/me")) return Response.json({ id: "u1", name: "Anthony", email: "a@example.com" });
+        if (url.includes("/thumbnail")) return new Response("img");
+        if (url.includes("/people")) return Response.json({ people: [] });
+        return Response.json({ assets: { items: [asset("a", "2025-03-10T08:00:00")], nextPage: null } });
+      });
+
+    it("passes a key with the required scopes, without user.read", async () => {
+      const c = createImmichClient({ baseUrl: "https://p.example.com", apiKey: "k", fetch: scoped(["asset.read", "asset.view", "person.read"]) });
+      await expect(c.checkKey()).resolves.toEqual({ accountName: null, missing: [] });
+    });
+
+    it("lists what's missing", async () => {
+      const c = createImmichClient({ baseUrl: "https://p.example.com", apiKey: "k", fetch: scoped(["asset.read", "user.read"]) });
+      await expect(c.checkKey()).resolves.toEqual({ accountName: "Anthony", missing: ["person.read", "asset.view"] });
+    });
+
+    it("still throws for a bad key", async () => {
+      const c = createImmichClient({ baseUrl: "https://p.example.com", apiKey: "k", fetch: fakeFetch(() => new Response("no", { status: 401 })) });
+      await expect(c.checkKey()).rejects.toThrow("rejected the API key");
+    });
+  });
+
   it("finds photos by local date, widening the UTC window and trimming back", async () => {
     let body: Record<string, unknown> = {};
     const f = fakeFetch((url, init) => {

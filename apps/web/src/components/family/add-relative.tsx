@@ -7,7 +7,7 @@ import { PartialDateFields } from "@/components/partial-date-fields";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { RelativeRole } from "@/lib/data/family";
-import { selectClass } from "@/lib/forms";
+import { nameInputProps, selectClass } from "@/lib/forms";
 import { submitKeepingValues } from "@/lib/submit";
 import { cn } from "@/lib/utils";
 
@@ -88,8 +88,8 @@ export function AddRelativeForm({
       {mode === "new" ? (
         <div className="grid gap-3">
           <div className="grid grid-cols-2 gap-2">
-            <Input name="firstName" placeholder="First name" aria-label="First name" required maxLength={100} autoFocus />
-            <Input name="lastName" placeholder="Last name" aria-label="Last name" maxLength={100} />
+            <Input name="firstName" placeholder="First name" aria-label="First name" required maxLength={100} autoFocus {...nameInputProps} />
+            <Input name="lastName" placeholder="Last name" aria-label="Last name" maxLength={100} {...nameInputProps} />
           </div>
           <select name="pronouns" aria-label="Pronouns" defaultValue="" className={selectClass}>
             <option value="">Pronouns (for words like aunt or uncle)</option>

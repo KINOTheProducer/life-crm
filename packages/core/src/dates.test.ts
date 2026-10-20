@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addDays, ageOn, daysBetween, isValidPartialDate, nextOccurrence, todayIn, upcoming } from "./dates";
+import { addDays, ageOn, birthdayInText, daysBetween, isValidPartialDate, nextOccurrence, todayIn, upcoming } from "./dates";
 
 describe("nextOccurrence", () => {
   it("returns this year when still ahead", () => {
@@ -96,5 +96,23 @@ describe("isValidPartialDate", () => {
     expect(isValidPartialDate({ month: 2, day: 29 })).toBe(true);
     expect(isValidPartialDate({ year: 2026, month: 2, day: 29 })).toBe(false);
     expect(isValidPartialDate({ month: 13, day: 1 })).toBe(false);
+  });
+});
+
+describe("birthdayInText", () => {
+  it("reads common ways of writing a birthday", () => {
+    expect(birthdayInText("Birthday: August 8, 1995")).toEqual({ month: 8, day: 8, year: 1995 });
+    expect(birthdayInText("his bday is Aug 8th")).toEqual({ month: 8, day: 8, year: null });
+    expect(birthdayInText("birthday on the 8th of August 1995")).toEqual({ month: 8, day: 8, year: 1995 });
+    expect(birthdayInText("born 1995-08-08")).toEqual({ month: 8, day: 8, year: 1995 });
+    expect(birthdayInText("Birthday Sept. 3")).toEqual({ month: 9, day: 3, year: null });
+  });
+
+  it("ignores text that isn't about a birthday, or is unclear", () => {
+    expect(birthdayInText("Dinner on August 8")).toBeNull();
+    expect(birthdayInText("birthday 08/08/1995")).toBeNull();
+    expect(birthdayInText("birthday is Feb 30")).toBeNull();
+    expect(birthdayInText("birthday is March 3 or maybe March 4")).toBeNull();
+    expect(birthdayInText("May was fun, birthday party soon")).toBeNull();
   });
 });
