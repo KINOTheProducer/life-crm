@@ -13,6 +13,7 @@
     "@base-ui/react": "^1.9.0",
     "@life-crm/ai": "workspace:*",
     "@life-crm/core": "workspace:*",
+    "@life-crm/dav": "workspace:*",
     "@life-crm/db": "workspace:*",
     "@life-crm/immich": "workspace:*",
     "@life-crm/reminders": "workspace:*",

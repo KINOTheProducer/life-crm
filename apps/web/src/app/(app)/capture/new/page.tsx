@@ -44,6 +44,12 @@ export default async function NewCapturePage({ searchParams }: PageProps<"/captu
         aside="Say what you want to remember."
         description="Just met someone, or caught up with an old friend? Names, birthdays, what you did, what to ask about next time."
       />
+      <p className="-mt-4 mb-6 text-sm text-muted-foreground">
+        Got their business card?{" "}
+        <Link href="/capture/card" className="font-medium text-foreground underline underline-offset-4">
+          Scan it instead
+        </Link>
+      </p>
       <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
         <Card>
           <CardContent>

@@ -5,6 +5,7 @@ import { and, eq, isNull, schema } from "@life-crm/db";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { extractorForUser } from "@/lib/ai";
 import { fullName } from "@/lib/data/contacts";
 import { toIsoDate } from "@/lib/data/dates";
 import { commitImport, existingProfile, importProblem, MAX_IMPORT_CHARS, readImport, type ImportPreview } from "@/lib/data/import";
@@ -19,15 +20,15 @@ export async function previewImport(contactId: string, text: string): Promise<Im
   if (typeof text !== "string" || !text.trim()) return { error: "That file is empty" };
   if (text.length > MAX_IMPORT_CHARS) return { error: "That file is too long. Split it up and import the parts." };
   const user = await requireUser();
-  const contact = await tenantQuery(async (tx) => {
+  const { contact, extractor } = await tenantQuery(async (tx) => {
     const [row] = await tx
       .select({ id: schema.contacts.id, firstName: schema.contacts.firstName, lastName: schema.contacts.lastName, nickname: schema.contacts.nickname })
       .from(schema.contacts)
       .where(and(eq(schema.contacts.id, contactId), isNull(schema.contacts.deletedAt)));
-    return row;
+    return { contact: row, extractor: await extractorForUser(tx, user.id).catch(() => null) };
   });
   if (!contact) return { error: "Person not found" };
-  return readImport(text, { id: contact.id, name: fullName(contact), nickname: contact.nickname }, toIsoDate(todayIn(user.timeZone)), user.timeZone);
+  return readImport(text, { id: contact.id, name: fullName(contact), nickname: contact.nickname }, toIsoDate(todayIn(user.timeZone)), user.timeZone, extractor);
 }
 
 export async function saveImport(contactId: string, raw: ImportItem[]): Promise<{ error: string }> {

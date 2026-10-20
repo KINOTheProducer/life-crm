@@ -1,3 +1,4 @@
+export * from "./contact-info";
 export * from "./dates";
 export * from "./family-layout";
 export * from "./kinship";
