@@ -14,7 +14,7 @@ import { digestEmail } from "./email-template";
 import type { Mailer } from "./mailer";
 import type { PushSender } from "./push";
 
-const { contacts, importantDates, notifications, pushSubscriptions, reminders, user } = schema;
+const { contacts, importantDates, notifications, partnershipMilestones, pushSubscriptions, reminders, user } = schema;
 
 export interface RunDeps {
   mailer: Mailer | null;
@@ -54,9 +54,11 @@ async function loadSources(tx: Tx, userId: string, timeZone: string) {
       contactId: contacts.id,
       firstName: contacts.firstName,
       lastName: contacts.lastName,
+      milestoneId: partnershipMilestones.id,
     })
     .from(importantDates)
     .innerJoin(contacts, eq(contacts.id, importantDates.contactId))
+    .leftJoin(partnershipMilestones, eq(partnershipMilestones.importantDateId, importantDates.id))
     .where(isNull(contacts.deletedAt));
 
   const people = await tx
@@ -84,6 +86,7 @@ async function loadSources(tx: Tx, userId: string, timeZone: string) {
     type: r.type as ImportantDateType,
     label: r.label,
     date: { year: r.year, month: r.month, day: r.day },
+    withYou: r.milestoneId != null,
   }));
   const checkins: CheckinSource[] = people
     .filter((p) => p.keepInTouchDays && p.keepInTouchDays > 0)

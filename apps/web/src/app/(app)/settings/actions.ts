@@ -1,5 +1,6 @@
 "use server";
 
+import { partneredStatuses, relationshipStatuses } from "@life-crm/core";
 import { eq, schema } from "@life-crm/db";
 import { loadUser, mailerFromEnv, pushSenderFromEnv, runForUser } from "@life-crm/reminders";
 import { revalidatePath } from "next/cache";
@@ -75,4 +76,21 @@ export async function checkRemindersNow(): Promise<{ created: number }> {
   revalidatePath("/reminders");
   revalidatePath("/dashboard");
   return { created };
+}
+
+export async function saveRelationshipSettings(_prev: SettingsState, form: FormData): Promise<SettingsState> {
+  const raw = form.get("status");
+  const status = raw ? z.enum(relationshipStatuses).safeParse(raw) : { success: true as const, data: null };
+  if (!status.success) return { error: "Unknown status" };
+  const partnered = status.data != null && partneredStatuses.includes(status.data);
+  const me = await requireUser();
+  await db
+    .update(user)
+    .set({
+      relationshipStatus: status.data,
+      relationshipStyle: partnered && form.get("polyamorous") === "on" ? "polyamorous" : "monogamous",
+    })
+    .where(eq(user.id, me.id));
+  revalidatePath("/settings");
+  return { ok: Date.now() };
 }

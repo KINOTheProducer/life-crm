@@ -1,19 +1,13 @@
 "use server";
 
-import { contactInputSchema, defaultCadenceDays } from "@life-crm/core";
-import { schema } from "@life-crm/db";
+import { contactInputSchema } from "@life-crm/core";
 import { redirect } from "next/navigation";
-import { formatPartialDate } from "@/lib/data/dates";
-import { recordTimeline } from "@/lib/data/timeline";
+import { insertContact } from "@/lib/data/contacts";
+import { intOrNull } from "@/lib/forms";
 import { tenantQuery } from "@/lib/session";
 
 export interface CreatePersonState {
   error?: string;
-}
-
-function intOrNull(value: FormDataEntryValue | null): number | null {
-  const s = String(value ?? "").trim();
-  return s === "" ? null : Number(s);
 }
 
 export async function createPerson(_prev: CreatePersonState, form: FormData): Promise<CreatePersonState> {
@@ -30,36 +24,6 @@ export async function createPerson(_prev: CreatePersonState, form: FormData): Pr
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
 
-  const { birthday, ...input } = parsed.data;
-  const contactId = await tenantQuery(async (tx, user) => {
-    const [contact] = await tx
-      .insert(schema.contacts)
-      .values({ ...input, tenantId: user.tenantId, keepInTouchDays: defaultCadenceDays[input.closeness] })
-      .returning({ id: schema.contacts.id, createdAt: schema.contacts.createdAt });
-    await recordTimeline(tx, [
-      { tenantId: user.tenantId, contactId: contact!.id, kind: "created", occurredAt: contact!.createdAt, title: "Added", body: input.howMet },
-    ]);
-    if (birthday) {
-      await tx.insert(schema.importantDates).values({
-        tenantId: user.tenantId,
-        contactId: contact!.id,
-        type: "birthday",
-        year: birthday.year ?? null,
-        month: birthday.month,
-        day: birthday.day,
-      });
-      await recordTimeline(tx, [
-        {
-          tenantId: user.tenantId,
-          contactId: contact!.id,
-          kind: "date",
-          occurredAt: contact!.createdAt,
-          title: "Birthday added",
-          body: formatPartialDate(birthday),
-        },
-      ]);
-    }
-    return contact!.id;
-  });
+  const contactId = await tenantQuery((tx, user) => insertContact(tx, user.tenantId, parsed.data));
   redirect(`/people/${contactId}`);
 }

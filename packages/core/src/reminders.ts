@@ -29,6 +29,8 @@ export interface DateSource {
   type: ImportantDateType;
   label: string | null;
   date: PartialDate;
+  /** Set for anniversaries of the user's own relationship, so the reminder says "your". */
+  withYou?: boolean;
 }
 
 export interface CheckinSource {
@@ -91,6 +93,7 @@ function whenPhrase(daysAway: number) {
 
 function dateTitle(src: DateSource, daysAway: number, turning: number | null) {
   const when = whenPhrase(daysAway);
+  if (src.withYou) return `Your ${src.label ?? "anniversary"} with ${src.contactName} is ${when}`;
   switch (src.type) {
     case "birthday":
       return `${possessive(src.contactName)} birthday is ${when}`;

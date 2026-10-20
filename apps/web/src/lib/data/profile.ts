@@ -4,7 +4,7 @@ import { and, asc, eq, inArray, isNull, schema, type Tx } from "@life-crm/db";
 import { fullName } from "./contacts";
 import { listTimeline } from "./timeline";
 
-const { contacts, facts, importantDates } = schema;
+const { contacts, facts, importantDates, partnerships } = schema;
 
 export function parseKinds(value: string | string[] | undefined): TimelineKind[] {
   const raw = typeof value === "string" ? value.split(",") : [];
@@ -29,6 +29,11 @@ export async function getProfile(tx: Tx, contactId: string, options: { kinds: Ti
     .where(and(eq(facts.contactId, contactId), isNull(facts.archivedAt)))
     .orderBy(asc(facts.createdAt));
 
+  const [partnership] = await tx
+    .select({ label: partnerships.label, status: partnerships.status })
+    .from(partnerships)
+    .where(eq(partnerships.contactId, contactId));
+
   const timeline = await listTimeline(tx, contactId, options);
 
   // Names of other people mentioned in interaction entries.
@@ -49,6 +54,7 @@ export async function getProfile(tx: Tx, contactId: string, options: { kinds: Ti
     name: fullName(contact),
     birthday: birthday ?? null,
     facts: knownFacts,
+    partnership: partnership ?? null,
     timeline,
     names: Object.fromEntries(others.map((o) => [o.id, fullName(o)])) as Record<string, string>,
   };

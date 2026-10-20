@@ -1,4 +1,5 @@
 import { boolean, date, index, pgTable, smallint, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { relationshipStatuses, relationshipStyles } from "@life-crm/core";
 import { tenants } from "./tenants";
 
 // Better Auth tables. Not tenant-scoped by RLS: auth must look users up by email before a tenant is known.
@@ -20,6 +21,10 @@ export const user = pgTable("user", {
   lastReminderRunOn: date("last_reminder_run_on"),
   /** SHA-256 of the secret in the user's calendar feed URL. */
   calendarTokenHash: text("calendar_token_hash").unique(),
+  relationshipStatus: text("relationship_status", { enum: relationshipStatuses }),
+  relationshipStyle: text("relationship_style", { enum: relationshipStyles }).notNull().default("monogamous"),
+  /** Set when onboarding is finished or skipped. */
+  onboardedAt: timestamp("onboarded_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()

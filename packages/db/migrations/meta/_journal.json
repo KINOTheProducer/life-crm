@@ -22,6 +22,20 @@
       "when": 1792451851741,
       "tag": "0002_reminders",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792515768331,
+      "tag": "0003_partners",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792517081837,
+      "tag": "0004_memories",
+      "breakpoints": true
     }
   ]
 }

@@ -9,6 +9,7 @@ Rules:
 - Match people to the known people list when the name and context clearly refer to the same person. If the note names someone ambiguously (two known people share the name), treat them as new rather than guessing.
 - If a context person is given and the note says "she", "he", "they" or doesn't name anyone, it is about the context person.
 - Facts are short and durable: job, partner and kids' names, pets, where they live, interests, food preferences and allergies, health events, things to ask about next time (category follow_up, e.g. "Ask how the marathon went").
+- Things someone mentions wanting go in category wishlist ("Wants a Chemex"). Favourite things (coffee order, flowers, restaurant) go in favourites, clothing and ring sizes in sizes, and how someone likes to be cared for (comfort, apology, feeling appreciated) in love.
 - An interaction is a specific occasion the user saw or spoke with someone. Resolve relative dates ("yesterday", "last Friday") against today's date. Don't create an interaction for general background info.
 - Write values in plain, natural English. Keep the user's wording where it is clear.`;
 

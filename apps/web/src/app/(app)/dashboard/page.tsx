@@ -1,12 +1,15 @@
 
-import { ArrowUpRight } from "lucide-react";
+import { anniversaryName } from "@life-crm/core";
+import { ArrowUpRight, Heart } from "lucide-react";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Avatar, initials, toneFor } from "@/components/avatar";
 import { YearChart } from "@/components/dashboard/year-chart";
 import { PageHeader } from "@/components/page-header";
 import { ReminderItem } from "@/components/reminders/reminder-item";
 import { buttonVariants } from "@/components/ui/button";
 import { closenessCounts, drifting, factsFor, yearOfCatchups } from "@/lib/data/dashboard";
+import { partnerCards, userPrefs } from "@/lib/data/partners";
 import { upcomingBirthdays } from "@/lib/data/people";
 import { listInbox } from "@/lib/data/reminders";
 import { tenantQuery } from "@/lib/session";
@@ -33,11 +36,14 @@ function countWord(n: number) {
 }
 
 export default async function DashboardPage() {
+  const prefs = await tenantQuery((tx, user) => userPrefs(tx, user.id));
+  if (!prefs.onboardedAt) redirect("/onboarding");
   const birthdays = await upcomingBirthdays(30);
   const data = await tenantQuery(async (tx, user) => {
     const next = birthdays[0];
     return {
       user,
+      partners: await partnerCards(tx, user.timeZone),
       inbox: await listInbox(tx, user.id, user.timeZone, 5),
       drifting: await drifting(tx),
       tiers: await closenessCounts(tx),
@@ -75,6 +81,14 @@ export default async function DashboardPage() {
           </>
         }
       />
+
+      {data.partners.length > 0 && (
+        <div className={cn("mb-3.5 grid gap-3.5", data.partners.length > 1 && "lg:grid-cols-2")}>
+          {data.partners.map((p) => (
+            <PartnerCard key={p.contactId} partner={p} />
+          ))}
+        </div>
+      )}
 
       <div className="grid gap-3.5 lg:grid-cols-[1.2fr_1fr_1fr]">
         {/* Next birthday */}
@@ -200,5 +214,56 @@ export default async function DashboardPage() {
         </section>
       )}
     </>
+  );
+}
+
+type Partner = Awaited<ReturnType<typeof partnerCards>>[number];
+
+/** Your partner, pinned: next anniversary, time since the last date, and what to ask or get them. */
+function PartnerCard({ partner: p }: { partner: Partner }) {
+  const anniversary = p.nextAnniversary;
+  const soon = anniversary != null && anniversary.daysAway <= 21;
+  const lastDate =
+    p.dateNight.daysSince == null ? "No date nights logged yet" : p.dateNight.daysSince === 0 ? "Date night today" : `Last date night ${p.dateNight.daysSince} days ago`;
+  return (
+    <section className="flex flex-wrap items-center gap-6 rounded-3xl bg-card p-6">
+      <Avatar id={p.contactId} name={p.name} size={64} className="text-2xl" />
+      <div className="grid min-w-48 flex-1 gap-1">
+        <p className="flex flex-wrap items-center gap-x-1.5 text-sm text-muted-foreground">
+          <Heart className="size-3.5 fill-coral text-coral" />
+          {p.label}
+          {p.together && <span className="whitespace-nowrap">· together {p.together}</span>}
+        </p>
+        <Link href={`/people/${p.contactId}/partner`} className="type-display text-[1.875rem] leading-tight hover:underline">
+          {p.name}
+        </Link>
+        <p className={cn("text-[15px]", p.dateNight.due ? "text-accent-ink" : "text-muted-foreground")}>
+          {lastDate}
+          {p.dateNight.due && ", time for one"}
+        </p>
+      </div>
+      <dl className="grid min-w-56 flex-1 gap-2 text-[15px]">
+        {(p.followUp || p.wish) && (
+          <div className="grid gap-0.5">
+            <dt className="text-[13px] text-muted-foreground">{p.followUp ? "Ask about" : "Gift idea"}</dt>
+            <dd>{p.followUp ?? p.wish}</dd>
+          </div>
+        )}
+        {!p.followUp && !p.wish && !anniversary && (
+          <dd className="text-muted-foreground">
+            <Link href={`/people/${p.contactId}/partner`} className="underline underline-offset-4">
+              Add your anniversary and their love languages
+            </Link>
+          </dd>
+        )}
+      </dl>
+      {anniversary && (
+        <div className={cn("grid rounded-2xl px-5 py-3 text-center leading-none", soon ? "bg-coral text-white" : "bg-secondary")}>
+          <span className="type-display text-[2.25rem]">{anniversary.daysAway}</span>
+          <span className="type-meta mt-1">{anniversary.daysAway === 1 ? "day" : "days"}</span>
+          <span className="mt-1.5 text-xs">to your {anniversaryName(anniversary.milestone)}</span>
+        </div>
+      )}
+    </section>
   );
 }

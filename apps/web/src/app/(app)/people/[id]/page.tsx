@@ -1,5 +1,5 @@
 import { factCategoryLabels, todayIn, upcoming } from "@life-crm/core";
-import { ArrowLeft, Mic } from "lucide-react";
+import { ArrowLeft, Heart, Mic } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Avatar } from "@/components/avatar";
@@ -8,11 +8,13 @@ import { FactsPanel } from "@/components/profile/facts-panel";
 import { CustomReminderList } from "@/components/reminders/custom-reminder-list";
 import { ReminderForm } from "@/components/reminders/reminder-form";
 import { Timeline } from "@/components/profile/timeline";
+import { MemoryCard } from "@/components/memories/memory-card";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatPartialDate, toIsoDate } from "@/lib/data/dates";
 import { getProfile, parseKinds } from "@/lib/data/profile";
+import { listMemories } from "@/lib/data/memories";
 import { listCustomReminders } from "@/lib/data/reminders";
 import { tenantQuery } from "@/lib/session";
 
@@ -39,11 +41,13 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
   const result = await tenantQuery(async (tx, user) => ({
     profile: await getProfile(tx, id, { kinds, before: cursor }),
     reminders: await listCustomReminders(tx, user.id, id),
+    memories: await listMemories(tx, { contactId: id, limit: 3 }),
     timeZone: user.timeZone,
   }));
   if (!result.profile) notFound();
   const { profile, timeZone } = result;
-  const { contact } = profile;
+  const { contact, partnership } = profile;
+  const isPartner = partnership?.status === "current";
 
   const today = todayIn(timeZone);
   const nextBirthday = profile.birthday ? upcoming(profile.birthday, today) : null;
@@ -53,7 +57,7 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
 
   const tierName = { inner: "Inner circle", close: "Close friend", friend: "Friend", acquaintance: "Acquaintance" }[contact.closeness];
   const summary = [
-    tierName,
+    isPartner ? null : (contact.relationship ?? tierName),
     nextBirthday &&
       (nextBirthday.daysAway === 0
         ? "birthday today"
@@ -78,6 +82,12 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
               {contact.nickname && <em className="text-muted-foreground"> “{contact.nickname}”</em>}
             </h1>
             <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[15px] text-muted-foreground">
+              {isPartner && (
+                <Badge variant="accent">
+                  <Heart className="fill-current" />
+                  {partnership.label}
+                </Badge>
+              )}
               {summary.map((s, i) => (
                 <span key={i}>
                   {i > 0 && <span className="mr-2">·</span>}
@@ -90,6 +100,12 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {isPartner && (
+            <Link href={`/people/${contact.id}/partner`} className={buttonVariants({ variant: "outline" })}>
+              <Heart />
+              Partner profile
+            </Link>
+          )}
           <Link href="#compose" className={buttonVariants({ variant: "outline" })}>
             Log catch-up
           </Link>
@@ -140,6 +156,17 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
                   <p>{contact.howMet}</p>
                 </div>
               )}
+              {contact.relationship && (
+                <div className="grid gap-1">
+                  <p className="text-[13px] text-muted-foreground">To you</p>
+                  <p>{contact.relationship}</p>
+                </div>
+              )}
+              {!isPartner && (
+                <Link href={`/people/${contact.id}/partner`} className="text-[13px] text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
+                  {partnership ? "Past partner" : "Mark as partner"}
+                </Link>
+              )}
               {contact.keepInTouchDays && (
                 <div className="grid gap-1">
                   <p className="text-[13px] text-muted-foreground">Keep in touch</p>
@@ -155,6 +182,27 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
             <CardContent className="grid gap-4">
               <CustomReminderList items={result.reminders} />
               <ReminderForm today={toIsoDate(today)} contactId={contact.id} placeholder={`Ask ${contact.firstName} about…`} />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Memories</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-3">
+              {result.memories.length === 0 && <p className="text-sm text-muted-foreground">Trips, birthdays, nights out with {contact.firstName}.</p>}
+              {result.memories.map((m) => (
+                <MemoryCard key={m.id} memory={m} compact />
+              ))}
+              <div className="flex gap-4 text-sm">
+                <Link href={`/memories/new?person=${contact.id}`} className="font-medium underline-offset-4 hover:underline">
+                  Add a memory
+                </Link>
+                {result.memories.length > 0 && (
+                  <Link href={`/memories?person=${contact.id}`} className="text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
+                    See all
+                  </Link>
+                )}
+              </div>
             </CardContent>
           </Card>
           <FactsPanel
