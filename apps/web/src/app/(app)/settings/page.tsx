@@ -108,6 +108,9 @@ export default async function SettingsPage() {
               <a href="/api/export/csv" download className={buttonVariants({ variant: "outline", size: "sm" })}>
                 Contacts (CSV)
               </a>
+              <a href="/api/export/ged" download className={buttonVariants({ variant: "outline", size: "sm" })}>
+                Family tree (GEDCOM)
+              </a>
             </div>
             <div className="flex flex-wrap gap-4">
               <Link href="/people/import" className="font-medium underline-offset-4 hover:underline">

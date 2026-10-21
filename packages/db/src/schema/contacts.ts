@@ -18,6 +18,11 @@ export const contacts = pgTable(
       .default("friend"),
     keepInTouchDays: integer("keep_in_touch_days"),
     howMet: text("how_met"),
+    /** When you met, as precisely as anyone remembers. Drives the start of their bar on the life timeline. */
+    metYear: smallint("met_year"),
+    metMonth: smallint("met_month"),
+    /** The year you drifted apart for good, if you did. Ends their bar. */
+    lostTouchYear: smallint("lost_touch_year"),
     company: text("company"),
     jobTitle: text("job_title"),
     /** UID a CardDAV client gave the contact, kept so its vCard round-trips. Defaults to our id. */

@@ -3,8 +3,16 @@
 import { Check, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Avatar } from "@/components/avatar";
+import { avatarSrc } from "@/lib/immich-urls";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+
+export interface PickerPerson {
+  id: string;
+  name: string;
+  nickname?: string | null;
+  avatarRef?: string | null;
+}
 
 /**
  * Tap people to pick them. Submits one hidden `name` input per picked person, so it drops into
@@ -17,7 +25,7 @@ export function PeoplePicker({
   legend,
   empty = "Add people first, then pick them here.",
 }: {
-  people: { id: string; name: string }[];
+  people: PickerPerson[];
   initial?: string[];
   name?: string;
   legend: string;
@@ -28,7 +36,7 @@ export function PeoplePicker({
 
   const shown = useMemo(() => {
     const q = filter.trim().toLowerCase();
-    const matches = q ? people.filter((p) => p.name.toLowerCase().includes(q)) : people;
+    const matches = q ? people.filter((p) => p.name.toLowerCase().includes(q) || p.nickname?.toLowerCase().includes(q)) : people;
     // Picked people first so they stay visible while filtering a long list.
     return [...matches].sort((a, b) => Number(selected.has(b.id)) - Number(selected.has(a.id)));
   }, [people, filter, selected]);
@@ -69,8 +77,11 @@ export function PeoplePicker({
                   onClick={() => toggle(p.id)}
                   className={cn("flex w-full items-center gap-3 rounded-2xl px-2.5 py-2 text-left text-sm hover:bg-muted", on && "bg-secondary")}
                 >
-                  <Avatar id={p.id} name={p.name} size={30} />
-                  <span className="flex-1 truncate">{p.name}</span>
+                  <Avatar id={p.id} name={p.name} src={avatarSrc(p.avatarRef)} size={30} />
+                  <span className="flex-1 truncate">
+                    {p.name}
+                    {p.nickname && <span className="text-muted-foreground"> “{p.nickname}”</span>}
+                  </span>
                   {on && <Check className="size-4" />}
                 </button>
               </li>

@@ -21,7 +21,7 @@ export default async function MemoryPage({ params }: PageProps<"/memories/[id]">
     if (!found) return null;
     return {
       ...found,
-      options: (await contactOptions(tx)).map(({ id, name }) => ({ id, name })),
+      options: (await contactOptions(tx)).map(({ id, name, nickname, avatarRef }) => ({ id, name, nickname, avatarRef })),
       immich: Boolean(await immichConnection(tx, user.id)),
       today: toIsoDate(todayIn(user.timeZone)),
     };

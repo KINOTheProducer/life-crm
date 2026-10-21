@@ -3,7 +3,7 @@
 import { memoryKindLabels, memoryKinds, type MemoryKind } from "@life-crm/core";
 import { useActionState, useState } from "react";
 import { saveMemory } from "@/app/(app)/memories/actions";
-import { PeoplePicker } from "@/components/people-picker";
+import { PeoplePicker, type PickerPerson } from "@/components/people-picker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { selectClass, textareaClass } from "@/lib/forms";
@@ -29,7 +29,7 @@ export function MemoryForm({
 }: {
   memoryId: string | null;
   values?: MemoryFormValues;
-  people: { id: string; name: string }[];
+  people: PickerPerson[];
   today: string;
   onDone?: () => void;
 }) {

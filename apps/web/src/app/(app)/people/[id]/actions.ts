@@ -197,3 +197,40 @@ export async function archiveFact(contactId: string, factId: string) {
   );
   revalidatePath(`/people/${contactId}`);
 }
+
+const spanYear = z.union([
+  z.literal("").transform(() => null),
+  z.coerce.number().int("Use a whole year").min(1900, "That's before 1900").max(2100, "That's too far ahead"),
+]);
+
+/** When you met (year, optionally month) and the year you lost touch, for the life timeline. */
+export async function updateSpan(contactId: string, _prev: FormState, form: FormData): Promise<FormState> {
+  const parsed = z
+    .object({
+      metYear: spanYear,
+      metMonth: z.union([z.literal("").transform(() => null), z.coerce.number().int().min(1).max(12)]),
+      lostTouchYear: spanYear,
+    })
+    .safeParse({
+      metYear: String(form.get("metYear") ?? "").trim(),
+      metMonth: String(form.get("metMonth") ?? "").trim(),
+      lostTouchYear: String(form.get("lostTouchYear") ?? "").trim(),
+    });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message };
+  const { metYear, metMonth, lostTouchYear } = parsed.data;
+  const user = await requireUser();
+  const thisYear = todayIn(user.timeZone).year;
+  if (metYear != null && metYear > thisYear) return { error: "You can't have met in the future" };
+  if (lostTouchYear != null && lostTouchYear > thisYear) return { error: "That year hasn't happened yet" };
+  if (metYear != null && lostTouchYear != null && lostTouchYear < metYear) return { error: "You lost touch before you met" };
+  if (!(await contactExists(contactId))) return { error: "Person not found" };
+  await tenantQuery((tx) =>
+    tx
+      .update(contacts)
+      .set({ metYear, metMonth: metYear == null ? null : metMonth, lostTouchYear })
+      .where(eq(contacts.id, contactId)),
+  );
+  revalidatePath(`/people/${contactId}`);
+  revalidatePath("/people/timeline");
+  return { ok: Date.now() };
+}

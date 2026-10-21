@@ -8,10 +8,11 @@ import {
   type FamilyStatus,
   type PartialDate,
 } from "@life-crm/core";
-import { and, asc, eq, inArray, isNull, or, schema, sql, type Tx } from "@life-crm/db";
+import { and, asc, eq, inArray, isNotNull, isNull, or, schema, sql, type Tx } from "@life-crm/db";
+import { immichAvatarRef } from "@/lib/immich-urls";
 import { fullName, insertContact } from "./contacts";
 
-const { connections, contacts, families, familyChildren, importantDates, partnerships } = schema;
+const { connections, contactFaces, contacts, families, familyChildren, immichConnections, importantDates, partnerships } = schema;
 
 /** The user's own contact row, created the first time the tree needs it. */
 export async function ensureSelf(tx: Tx, user: { tenantId: string; name: string }): Promise<string> {
@@ -25,6 +26,12 @@ export async function ensureSelf(tx: Tx, user: { tenantId: string; name: string 
     keepInTouchDays: null,
   });
   await tx.update(contacts).set({ isSelf: true }).where(eq(contacts.id, id));
+  // If they already told Immich which face is theirs, the new entry gets it.
+  const [conn] = await tx.select({ personId: immichConnections.selfPersonId }).from(immichConnections).where(isNotNull(immichConnections.selfPersonId)).limit(1);
+  if (conn?.personId) {
+    await tx.insert(contactFaces).values({ tenantId: user.tenantId, contactId: id, personId: conn.personId }).onConflictDoNothing();
+    await tx.update(contacts).set({ avatarRef: immichAvatarRef(conn.personId) }).where(eq(contacts.id, id));
+  }
   return id;
 }
 

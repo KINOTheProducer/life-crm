@@ -267,17 +267,18 @@ function IconDot({ label, onClick, disabled, children }: { label: string; onClic
   );
 }
 
-/** Settings: which Immich face is you, for "photos together". */
+/** Settings: which Immich face is you, for your avatar and "photos together". */
 export function SelfFace({ personId }: { personId: string | null }) {
   const [picking, setPicking] = useState(false);
   const [pending, start] = useTransition();
+  const [error, setError] = useState<string>();
   return (
     <div className="grid gap-3">
       <div className="flex flex-wrap items-center gap-3">
         {personId ? <FaceThumb personId={personId} size={48} /> : <span className="grid size-12 place-items-center rounded-full bg-secondary text-muted-foreground"><ScanFace className="size-5" /></span>}
         <div className="grid flex-1 gap-0.5">
           <p className="text-sm font-medium">{personId ? "This is you" : "Which face is you?"}</p>
-          <p className="text-[13px] text-muted-foreground">Needed for photos of you together with someone.</p>
+          <p className="text-[13px] text-muted-foreground">Your photo everywhere it says You, and photos of you with someone.</p>
         </div>
         {!picking && (
           <Button size="sm" variant="outline" onClick={() => setPicking(true)}>
@@ -285,7 +286,7 @@ export function SelfFace({ personId }: { personId: string | null }) {
           </Button>
         )}
         {personId && !picking && (
-          <Button size="sm" variant="ghost" disabled={pending} onClick={() => start(async () => void (await setSelfFace(null)))}>
+          <Button size="sm" variant="ghost" disabled={pending} onClick={() => start(async () => setError((await setSelfFace(null)).error))}>
             Clear
           </Button>
         )}
@@ -296,17 +297,19 @@ export function SelfFace({ personId }: { personId: string | null }) {
           multiple={false}
           onDone={() => setPicking(false)}
           onPick={async (id) => {
-            await setSelfFace(id);
+            setError((await setSelfFace(id)).error);
           }}
         />
       )}
+      {error && <p className="text-sm text-destructive">{error}</p>}
     </div>
   );
 }
 
 /** Photos of someone, or of the two of you, straight from Immich. */
-export function PersonPhotosPanel({ contactId, firstName }: { contactId: string; firstName: string }) {
-  const [mode, setMode] = useState<"together" | "them">("together");
+export function PersonPhotosPanel({ contactId, firstName, isSelf = false }: { contactId: string; firstName: string; isSelf?: boolean }) {
+  // "You two" makes no sense on your own page.
+  const [mode, setMode] = useState<"together" | "them">(isSelf ? "them" : "together");
   const [data, setData] = useState<Record<string, PersonPhotos>>({});
   const [open, setOpen] = useState<number | null>(null);
   const [more, startMore] = useTransition();
@@ -335,20 +338,22 @@ export function PersonPhotosPanel({ contactId, firstName }: { contactId: string;
     <section className="grid gap-4 rounded-3xl bg-card p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="type-display text-[1.625rem]">Photos</h2>
-        <div role="tablist" className="flex gap-1">
-          {tabs.map(([key, label]) => (
-            <button
-              key={key}
-              type="button"
-              role="tab"
-              aria-selected={mode === key}
-              onClick={() => setMode(key)}
-              className={cn("rounded-full px-3.5 py-1.5 text-sm text-muted-foreground hover:text-foreground", mode === key && "bg-secondary text-foreground")}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        {!isSelf && (
+          <div role="tablist" className="flex gap-1">
+            {tabs.map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                role="tab"
+                aria-selected={mode === key}
+                onClick={() => setMode(key)}
+                className={cn("rounded-full px-3.5 py-1.5 text-sm text-muted-foreground hover:text-foreground", mode === key && "bg-secondary text-foreground")}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
       {!current && <p className="text-sm text-muted-foreground">Loading from Immich…</p>}
       {current?.error && <p className="text-sm text-destructive">{current.error}</p>}

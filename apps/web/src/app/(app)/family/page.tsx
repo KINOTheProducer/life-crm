@@ -122,6 +122,9 @@ export default async function FamilyPage({ searchParams }: PageProps<"/family">)
             <Link href="/family?view=everyone" className={tab(everyone)}>
               Everyone
             </Link>
+            <Link href="/family/import" className={tab(false)}>
+              Import / export
+            </Link>
           </div>
         }
       />
