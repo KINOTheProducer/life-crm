@@ -4,6 +4,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Avatar } from "@/components/avatar";
 import { BirthdayField } from "@/components/profile/birthday-field";
+import { CadenceField } from "@/components/profile/cadence-field";
+import { NameField } from "@/components/profile/name-field";
 import { Composer } from "@/components/profile/composer";
 import { FactsPanel } from "@/components/profile/facts-panel";
 import { CustomReminderList } from "@/components/reminders/custom-reminder-list";
@@ -97,10 +99,12 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
         <div className="flex items-end gap-5">
           <Avatar id={contact.id} name={profile.name} src={avatarSrc(contact.avatarRef)} size={104} className="text-[2.5rem]" />
           <div className="grid gap-2">
-            <h1 className="type-display text-[3.25rem] leading-[1.02]">
-              {profile.name}
-              {contact.nickname && <em className="text-muted-foreground"> “{contact.nickname}”</em>}
-            </h1>
+            <NameField contactId={contact.id} name={contact}>
+              <h1 className="type-display text-[3.25rem] leading-[1.02]">
+                {profile.name}
+                {contact.nickname && <em className="text-muted-foreground"> “{contact.nickname}”</em>}
+              </h1>
+            </NameField>
             <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[15px] text-muted-foreground">
               {isPartner && (
                 <Badge variant="accent">
@@ -219,12 +223,7 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
                   {partnership ? "Past partner" : "Mark as partner"}
                 </Link>
               )}
-              {contact.keepInTouchDays && (
-                <div className="grid gap-1">
-                  <p className="text-[13px] text-muted-foreground">Keep in touch</p>
-                  <p>Every {contact.keepInTouchDays} days</p>
-                </div>
-              )}
+              {!contact.isSelf && !contact.isDeceased && <CadenceField key={contact.keepInTouchDays} contactId={contact.id} days={contact.keepInTouchDays} />}
               {!contact.isSelf && <TrashPersonButton contactId={contact.id} firstName={contact.firstName} />}
             </CardContent>
           </Card>

@@ -7,7 +7,7 @@ import { z } from "zod";
 import { birthdayOf, setBirthday } from "@/lib/data/contacts";
 import { formatPartialDate, toIsoDate } from "@/lib/data/dates";
 import { insertFact, insertInteraction, insertNote } from "@/lib/data/entries";
-import { dateProblemText, partialDateFrom } from "@/lib/forms";
+import { dateProblemText, partialDateFrom, personName } from "@/lib/forms";
 import { requireUser, tenantQuery } from "@/lib/session";
 
 export interface FormState {
@@ -59,6 +59,49 @@ export async function updateBirthday(contactId: string, _prev: FormState, form: 
   if (typeof birthday === "string") return { error: dateProblemText("Birthday", birthday) };
   if (!(await contactExists(contactId))) return { error: "Person not found" };
   await tenantQuery((tx, user) => setBirthday(tx, user.tenantId, contactId, birthday));
+  revalidatePath(`/people/${contactId}`);
+  return { ok: Date.now() };
+}
+
+const nameSchema = z.object({
+  firstName: personName(100).pipe(z.string().min(1, "First name is required")),
+  lastName: personName(100).transform((v) => v || null),
+  nickname: personName(100).transform((v) => v || null),
+  pronouns: z
+    .string()
+    .trim()
+    .max(50)
+    .transform((v) => v || null),
+});
+
+export async function updateName(contactId: string, _prev: FormState, form: FormData): Promise<FormState> {
+  const parsed = nameSchema.safeParse({
+    firstName: form.get("firstName") ?? "",
+    lastName: form.get("lastName") ?? "",
+    nickname: form.get("nickname") ?? "",
+    pronouns: form.get("pronouns") ?? "",
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message };
+  if (!(await contactExists(contactId))) return { error: "Person not found" };
+  await tenantQuery((tx) => tx.update(contacts).set(parsed.data).where(eq(contacts.id, contactId)));
+  revalidatePath(`/people/${contactId}`);
+  return { ok: Date.now() };
+}
+
+/** 0 or blank turns catch-up nudges off for this person. */
+const cadenceSchema = z.coerce.number().int("Use whole days").min(0).max(3650, "That's more than ten years");
+
+export async function updateCadence(contactId: string, _prev: FormState, form: FormData): Promise<FormState> {
+  const raw = form.get("cadence") === "custom" ? form.get("customDays") : form.get("cadence");
+  const parsed = cadenceSchema.safeParse(String(raw ?? "").trim() || 0);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message };
+  if (!(await contactExists(contactId))) return { error: "Person not found" };
+  await tenantQuery((tx) =>
+    tx
+      .update(contacts)
+      .set({ keepInTouchDays: parsed.data || null })
+      .where(eq(contacts.id, contactId)),
+  );
   revalidatePath(`/people/${contactId}`);
   return { ok: Date.now() };
 }
