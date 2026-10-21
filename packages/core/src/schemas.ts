@@ -4,6 +4,13 @@ import { isValidPartialDate } from "./dates";
 export const closenessTiers = ["inner", "close", "friend", "acquaintance"] as const;
 export type ClosenessTier = (typeof closenessTiers)[number];
 
+export const closenessLabels: Record<ClosenessTier, string> = {
+  inner: "Inner circle",
+  close: "Close",
+  friend: "Friend",
+  acquaintance: "Acquaintance",
+};
+
 /** Default keep-in-touch cadence per tier, in days. */
 export const defaultCadenceDays: Record<ClosenessTier, number> = {
   inner: 7,

@@ -40,6 +40,24 @@ const index = indexFamilies(families);
 const term = (target: string, ego = "me") => kinship(index, ego, target, (id) => genders[id] ?? null);
 
 describe("kinship", () => {
+  it("relates people through siblings entered without parents", () => {
+    // mom's sister added with no grandparents known, then her kid and grandkid.
+    const idx = indexFamilies([
+      fam("f-p", ["mom2", "dad2"], ["me2", "bro2"]),
+      fam("f-mom-sibs", [], ["mom2", "aunt2"]),
+      fam("f-aunt2", ["aunt2"], ["cousin2"], "unknown"),
+      fam("f-cousin2", ["cousin2"], ["cousinkid2"], "unknown"),
+      fam("f-bro2", ["bro2"], ["nephew2"], "unknown"),
+      fam("f-nephew2", ["nephew2"], ["grandnephew2"], "unknown"),
+    ]);
+    const t = (target: string) => kinship(idx, "me2", target, () => null);
+    expect(t("aunt2")).toBe("aunt or uncle");
+    expect(t("cousin2")).toBe("first cousin");
+    expect(t("cousinkid2")).toBe("first cousin once removed");
+    expect(t("nephew2")).toBe("niece or nephew");
+    expect(t("grandnephew2")).toBe("great-niece or nephew");
+  });
+
   it("names direct family", () => {
     expect(term("me")).toBe("you");
     expect(term("mom")).toBe("mother");

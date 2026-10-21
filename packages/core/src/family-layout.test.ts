@@ -16,6 +16,7 @@ const index = indexFamilies([
   fam("me", ["me", "holly"], ["kid1", "kid2"]),
   fam("kid1", ["kid1", "sam"], ["grandkid"]),
   fam("sis", ["sis", "tom"], ["niece"]),
+  fam("aunt", ["aunt"], ["cousin"]),
 ]);
 
 const birth: Record<string, number> = { sis: 1, me: 2, bro: 3 };
@@ -31,9 +32,15 @@ describe("layoutHourglass", () => {
     expect(at("mom")!.gen).toBe(-1);
     expect(at("gma")!.gen).toBe(-2);
     expect(at("grandkid")!.gen).toBe(2);
-    // Not shown: siblings' children and collateral relatives.
-    expect(at("niece")).toBeUndefined();
-    expect(at("aunt")).toBeUndefined();
+    expect(at("niece")!.gen).toBe(1);
+  });
+
+  it("puts aunts and cousins on their parent's side, clear of everyone else", () => {
+    expect(at("aunt")!.gen).toBe(-1);
+    expect(at("cousin")!.gen).toBe(0);
+    const others = layout.nodes.filter((n) => !["aunt", "cousin"].includes(n.id));
+    expect(at("aunt")!.x).toBeLessThan(Math.min(...others.map((n) => n.x)));
+    expect(at("cousin")!.x).toBe(at("aunt")!.x);
   });
 
   it("keeps siblings in birth order with partners next to them", () => {
@@ -58,6 +65,12 @@ describe("layoutHourglass", () => {
     const fromParents = layout.descents.find((d) => d.gen === -1);
     expect(fromParents!.childXs).toEqual([at("sis")!.x, at("me")!.x, at("bro")!.x]);
     expect(fromParents!.fromX).toBe((at("mom")!.x + at("dad")!.x) / 2);
+  });
+
+  it("joins siblings with no known parents", () => {
+    const l = layoutHourglass(indexFamilies([fam("p", ["mom"], ["me"]), fam("sibs", [], ["mom", "aunt"])]), "me");
+    const x = (id: string) => l.nodes.find((n) => n.id === id)!.x;
+    expect(l.siblingBars).toEqual([{ gen: -1, xs: [x("mom"), x("aunt")].sort((a, b) => a - b) }]);
   });
 
   it("respects depth limits", () => {

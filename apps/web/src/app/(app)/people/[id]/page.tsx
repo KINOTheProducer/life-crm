@@ -1,10 +1,11 @@
-import { factCategoryLabels, todayIn, upcoming } from "@life-crm/core";
+import { closenessLabels, factCategoryLabels, todayIn, upcoming } from "@life-crm/core";
 import { ArrowLeft, FileUp, Heart, Mail, MessageCircle, Mic, Phone, StickyNote } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Avatar } from "@/components/avatar";
 import { BirthdayField } from "@/components/profile/birthday-field";
 import { CadenceField } from "@/components/profile/cadence-field";
+import { ClosenessField } from "@/components/profile/closeness-field";
 import { NameField } from "@/components/profile/name-field";
 import { Composer } from "@/components/profile/composer";
 import { FactsPanel } from "@/components/profile/facts-panel";
@@ -23,7 +24,7 @@ import { formatPartialDate, toIsoDate } from "@/lib/data/dates";
 import { getProfile, parseKinds } from "@/lib/data/profile";
 import { contactInfoFor } from "@/lib/data/contact-info";
 import { facesFor } from "@/lib/data/faces";
-import { ensureSelf, loadFamily, relationsOf } from "@/lib/data/family";
+import { ensureSelf, friendOf, loadFamily, relationsOf } from "@/lib/data/family";
 import { listMemories } from "@/lib/data/memories";
 import { immichConnection } from "@/lib/immich";
 import { avatarSrc } from "@/lib/immich-urls";
@@ -60,6 +61,7 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
     info: await contactInfoFor(tx, id),
     immich: Boolean(await immichConnection(tx, user.id)),
     family: relationsOf(await loadFamily(tx, await ensureSelf(tx, user)), id),
+    friendOf: await friendOf(tx, id),
     timeZone: user.timeZone,
   }));
   if (!result.profile) notFound();
@@ -76,9 +78,14 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
     contact.keepInTouchDays != null &&
     (contact.lastInteractionAt ? daysSince(contact.lastInteractionAt) : Infinity) > contact.keepInTouchDays;
 
-  const tierName = { inner: "Inner circle", close: "Close friend", friend: "Friend", acquaintance: "Acquaintance" }[contact.closeness];
+  // The tree is the source of truth for family, so a label typed before pronouns were set doesn't stick.
+  const treeTerm = result.family.toYou && result.family.toYou !== "you" ? capitalize(result.family.toYou) : null;
+  const friendOfText = result.friendOf.length
+    ? `${result.friendOf.map((f) => (f.isSelf ? "Your" : `${f.firstName}'s`)).join(" and ")} friend`
+    : null;
+  const toYou = treeTerm ?? contact.relationship ?? friendOfText;
   const summary = [
-    isPartner ? null : (contact.relationship ?? (result.family.toYou && result.family.toYou !== "you" ? capitalize(result.family.toYou) : tierName)),
+    isPartner ? null : (toYou ?? (contact.closeness === "close" ? "Close friend" : closenessLabels[contact.closeness])),
     !contact.isDeceased &&
       nextBirthday &&
       (nextBirthday.daysAway === 0
@@ -212,12 +219,16 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
                   <p>{contact.howMet}</p>
                 </div>
               )}
-              {contact.relationship && (
+              {!isPartner && toYou && (
                 <div className="grid gap-1">
                   <p className="text-[13px] text-muted-foreground">To you</p>
-                  <p>{contact.relationship}</p>
+                  <p>{toYou}</p>
+                  {treeTerm?.includes(" or ") && (
+                    <p className="text-[13px] text-muted-foreground">Add their pronouns (pencil next to their name) for the exact word.</p>
+                  )}
                 </div>
               )}
+              {!contact.isSelf && <ClosenessField key={contact.closeness} contactId={contact.id} closeness={contact.closeness} />}
               {!isPartner && (
                 <Link href={`/people/${contact.id}/partner`} className="text-[13px] text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
                   {partnership ? "Past partner" : "Mark as partner"}

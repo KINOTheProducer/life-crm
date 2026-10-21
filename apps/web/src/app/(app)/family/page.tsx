@@ -1,11 +1,12 @@
-import { kinshipGroup, layoutHourglass, partnersOf } from "@life-crm/core";
+import { closenessLabels, closenessTiers, kinshipGroup, layoutHourglass, partnersOf } from "@life-crm/core";
 import Link from "next/link";
 import { FamilyTree, type TreeCard } from "@/components/family/tree";
 import { PlaceFromLabels } from "@/components/family/place-from-labels";
 import { Avatar } from "@/components/avatar";
 import { PageHeader } from "@/components/page-header";
-import { contactOptions } from "@/lib/data/contacts";
-import { birthOrder, ensureSelf, loadFamily, type TreePerson } from "@/lib/data/family";
+import { fullName } from "@/lib/data/contacts";
+import { birthOrder, ensureSelf, loadConnections, loadFamily, treeContacts, type TreePerson } from "@/lib/data/family";
+import { immichConnection } from "@/lib/immich";
 import { avatarSrc } from "@/lib/immich-urls";
 import { tenantQuery } from "@/lib/session";
 import { cn } from "@/lib/utils";
@@ -36,38 +37,66 @@ export default async function FamilyPage({ searchParams }: PageProps<"/family">)
   const everyone = view === "everyone";
   const data = await tenantQuery(async (tx, user) => {
     const selfId = await ensureSelf(tx, user);
-    return { family: await loadFamily(tx, selfId), people: (await contactOptions(tx)).map(({ id, name }) => ({ id, name })) };
+    return {
+      family: await loadFamily(tx, selfId),
+      contacts: await treeContacts(tx),
+      links: await loadConnections(tx),
+      immich: Boolean(await immichConnection(tx, user.id)),
+    };
   });
   const placeable = await placeableFromLabels();
-  const { family } = data;
-  const focusId = typeof focus === "string" && family.people.has(focus) ? focus : family.selfId;
+  const { family, links } = data;
+  const byId = new Map(data.contacts.map((c) => [c.id, c]));
+  const focusId = typeof focus === "string" && byId.has(focus) ? focus : family.selfId;
   const layout = layoutHourglass(family.index, focusId, { up: 3, down: 3, order: birthOrder(family.people) });
 
+  const liveLinks = (id: string) => (links.get(id) ?? []).filter((l) => byId.has(l));
+  // Anyone outside the family with no friend link is a friend of yours.
+  const unplaced = data.contacts.filter((c) => !c.isSelf && !family.people.has(c.id) && liveLinks(c.id).length === 0).map((c) => c.id);
+  const friendsOf = (id: string) => [...liveLinks(id), ...(id === family.selfId ? unplaced : [])];
+  const lane = friendsOf(focusId);
+
   const cards: Record<string, TreeCard> = {};
-  for (const n of layout.nodes) {
-    const p = family.people.get(n.id);
-    if (!p) continue;
-    const partners = partnersOf(family.index, p.id).flatMap((pp) => {
+  const addCard = (id: string) => {
+    const c = byId.get(id);
+    if (!c || cards[id]) return;
+    const p = family.people.get(id);
+    const partners = partnersOf(family.index, id).flatMap((pp) => {
       const q = family.people.get(pp.id);
       return q ? [{ id: q.id, name: q.name }] : [];
     });
-    const soloKids = (family.index.ownFamilies.get(p.id) ?? []).some((f) => f.partners.length === 1 && f.children.length > 0);
-    const term = family.termFor(p.id);
-    cards[p.id] = {
-      id: p.id,
-      name: p.name,
-      firstName: p.firstName,
-      avatarRef: p.avatarRef,
-      term: term ? capitalize(term) : null,
-      years: years(p),
-      isSelf: p.isSelf,
-      isDeceased: p.isDeceased || p.deathYear != null,
+    const soloKids = (family.index.ownFamilies.get(id) ?? []).some((f) => f.partners.length === 1 && f.children.length > 0);
+    const term = p ? family.termFor(id) : null;
+    const friendLinks = liveLinks(id).map((l) => ({ id: l, firstName: byId.get(l)!.firstName }));
+    cards[id] = {
+      id,
+      name: fullName(c),
+      firstName: c.firstName,
+      lastName: c.lastName,
+      nickname: c.nickname,
+      pronouns: c.pronouns,
+      closeness: c.closeness,
+      keepInTouchDays: c.keepInTouchDays,
+      avatarRef: c.avatarRef,
+      term: term && term !== "you" ? capitalize(term) : friendLinks.length ? `${friendLinks.map((f) => `${f.firstName}'s`).join(" and ")} friend` : closenessLabels[c.closeness],
+      years: p ? years(p) : null,
+      isSelf: c.isSelf,
+      isDeceased: c.isDeceased || p?.deathYear != null,
       partners,
       hasSoloChildren: soloKids,
+      friendLinks,
+      friendCount: friendsOf(id).length,
     };
-  }
+  };
+  layout.nodes.forEach((n) => addCard(n.id));
+  lane.forEach(addCard);
+  const laneGroups =
+    focusId === family.selfId
+      ? closenessTiers.map((t) => ({ label: closenessLabels[t], ids: lane.filter((id) => byId.get(id)!.closeness === t) })).filter((g) => g.ids.length)
+      : [{ label: "Friends", ids: lane }].filter((g) => g.ids.length);
+  const people = data.contacts.filter((c) => !c.isSelf).map((c) => ({ id: c.id, name: fullName(c) }));
   const onlyYou = family.people.size <= 1;
-  const focusName = focusId === family.selfId ? null : family.people.get(focusId)?.name;
+  const focusName = focusId === family.selfId ? null : cards[focusId]?.name;
 
   // Everyone in the tree, grouped by how they're related to you.
   const groups = new Map<string, { person: TreePerson; term: string }[]>();
@@ -129,7 +158,7 @@ export default async function FamilyPage({ searchParams }: PageProps<"/family">)
             ))}
         </div>
       ) : (
-        <FamilyTree key={focusId} layout={layout} cards={cards} focusId={focusId} people={data.people} />
+        <FamilyTree key={focusId} layout={layout} cards={cards} focusId={focusId} people={people} lane={laneGroups} immich={data.immich} />
       )}
     </>
   );

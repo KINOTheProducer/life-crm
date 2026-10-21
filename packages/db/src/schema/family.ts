@@ -41,3 +41,28 @@ export const familyChildren = pgTable(
   },
   (t) => [primaryKey({ columns: [t.familyId, t.childId] }), index("family_children_child_idx").on(t.childId), tenantIsolation("family_children")],
 ).enableRLS();
+
+/**
+ * Non-family links between two people, so friends hang off whoever they're a friend of
+ * (your sister's best friend sits next to your sister). Stored once per pair, smaller id first.
+ * Friends of yours don't need a row: anyone outside the family with no link is yours.
+ */
+export const connections = pgTable(
+  "connections",
+  {
+    tenantId: tenantId(),
+    personAId: uuid("person_a_id")
+      .notNull()
+      .references(() => contacts.id, { onDelete: "cascade" }),
+    personBId: uuid("person_b_id")
+      .notNull()
+      .references(() => contacts.id, { onDelete: "cascade" }),
+    kind: text("kind", { enum: ["friend"] }).notNull().default("friend"),
+    ...timestamps,
+  },
+  (t) => [
+    primaryKey({ columns: [t.personAId, t.personBId] }),
+    index("connections_person_b_idx").on(t.personBId),
+    tenantIsolation("connections"),
+  ],
+).enableRLS();

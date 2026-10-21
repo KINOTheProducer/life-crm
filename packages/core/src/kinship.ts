@@ -89,17 +89,26 @@ export function siblingsOf(index: FamilyIndex, id: string): { id: string; half: 
   return [...out].map(([sid, half]) => ({ id: sid, half }));
 }
 
-/** Every lineal ancestor with how many generations up they are (1 = parent). */
+/**
+ * Every lineal ancestor with how many generations up they are (1 = parent). Birth families
+ * count too, keyed "family:<id>", so siblings entered without parents still share an ancestor
+ * and their kids come out as nieces and cousins.
+ */
 function ancestors(index: FamilyIndex, id: string): Map<string, number> {
   const out = new Map<string, number>([[id, 0]]);
   let frontier = [id];
   for (let gen = 1; frontier.length && gen < 30; gen++) {
     const next: string[] = [];
-    for (const f of frontier)
-      for (const p of parentsOf(index, f)) {
-        if (out.has(p)) continue;
-        out.set(p, gen);
-        next.push(p);
+    for (const person of frontier)
+      for (const f of index.birthFamilies.get(person) ?? []) {
+        if (!lineal(f.children.find((c) => c.id === person)!.kind)) continue;
+        const key = `family:${f.id}`;
+        if (!out.has(key)) out.set(key, gen);
+        for (const p of f.partners) {
+          if (out.has(p)) continue;
+          out.set(p, gen);
+          next.push(p);
+        }
       }
     frontier = next;
   }

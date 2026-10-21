@@ -27,6 +27,7 @@ const tables = {
   dateNights: schema.dateNights,
   families: schema.families,
   familyChildren: schema.familyChildren,
+  connections: schema.connections,
   memories: schema.memories,
   memoryPeople: schema.memoryPeople,
   memoryAssets: schema.memoryAssets,

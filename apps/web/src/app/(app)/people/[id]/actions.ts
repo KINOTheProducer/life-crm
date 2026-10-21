@@ -1,6 +1,6 @@
 "use server";
 
-import { birthdayInText, factCategories, interactionTypes, todayIn } from "@life-crm/core";
+import { birthdayInText, closenessTiers, factCategories, interactionTypes, todayIn } from "@life-crm/core";
 import { and, eq, isNull, schema } from "@life-crm/db";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -74,6 +74,11 @@ const nameSchema = z.object({
     .transform((v) => v || null),
 });
 
+function revalidatePerson(contactId: string) {
+  revalidatePath(`/people/${contactId}`);
+  revalidatePath("/family");
+}
+
 export async function updateName(contactId: string, _prev: FormState, form: FormData): Promise<FormState> {
   const parsed = nameSchema.safeParse({
     firstName: form.get("firstName") ?? "",
@@ -84,16 +89,20 @@ export async function updateName(contactId: string, _prev: FormState, form: Form
   if (!parsed.success) return { error: parsed.error.issues[0]?.message };
   if (!(await contactExists(contactId))) return { error: "Person not found" };
   await tenantQuery((tx) => tx.update(contacts).set(parsed.data).where(eq(contacts.id, contactId)));
-  revalidatePath(`/people/${contactId}`);
+  revalidatePerson(contactId);
   return { ok: Date.now() };
 }
 
 /** 0 or blank turns catch-up nudges off for this person. */
 const cadenceSchema = z.coerce.number().int("Use whole days").min(0).max(3650, "That's more than ten years");
 
-export async function updateCadence(contactId: string, _prev: FormState, form: FormData): Promise<FormState> {
+function cadenceFrom(form: FormData) {
   const raw = form.get("cadence") === "custom" ? form.get("customDays") : form.get("cadence");
-  const parsed = cadenceSchema.safeParse(String(raw ?? "").trim() || 0);
+  return cadenceSchema.safeParse(String(raw ?? "").trim() || 0);
+}
+
+export async function updateCadence(contactId: string, _prev: FormState, form: FormData): Promise<FormState> {
+  const parsed = cadenceFrom(form);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message };
   if (!(await contactExists(contactId))) return { error: "Person not found" };
   await tenantQuery((tx) =>
@@ -102,7 +111,40 @@ export async function updateCadence(contactId: string, _prev: FormState, form: F
       .set({ keepInTouchDays: parsed.data || null })
       .where(eq(contacts.id, contactId)),
   );
-  revalidatePath(`/people/${contactId}`);
+  revalidatePerson(contactId);
+  return { ok: Date.now() };
+}
+
+export async function updateCloseness(contactId: string, _prev: FormState, form: FormData): Promise<FormState> {
+  const parsed = z.enum(closenessTiers).safeParse(form.get("closeness"));
+  if (!parsed.success) return { error: "Pick how close you are" };
+  if (!(await contactExists(contactId))) return { error: "Person not found" };
+  await tenantQuery((tx) => tx.update(contacts).set({ closeness: parsed.data }).where(eq(contacts.id, contactId)));
+  revalidatePerson(contactId);
+  return { ok: Date.now() };
+}
+
+/** Name, closeness and cadence in one go, for the edit panel in the tree. */
+export async function updateBasics(contactId: string, _prev: FormState, form: FormData): Promise<FormState> {
+  const name = nameSchema.safeParse({
+    firstName: form.get("firstName") ?? "",
+    lastName: form.get("lastName") ?? "",
+    nickname: form.get("nickname") ?? "",
+    pronouns: form.get("pronouns") ?? "",
+  });
+  if (!name.success) return { error: name.error.issues[0]?.message };
+  const closeness = z.enum(closenessTiers).safeParse(form.get("closeness"));
+  if (!closeness.success) return { error: "Pick how close you are" };
+  const cadence = cadenceFrom(form);
+  if (!cadence.success) return { error: cadence.error.issues[0]?.message };
+  if (!(await contactExists(contactId))) return { error: "Person not found" };
+  await tenantQuery((tx) =>
+    tx
+      .update(contacts)
+      .set({ ...name.data, closeness: closeness.data, keepInTouchDays: cadence.data || null })
+      .where(eq(contacts.id, contactId)),
+  );
+  revalidatePerson(contactId);
   return { ok: Date.now() };
 }
 
