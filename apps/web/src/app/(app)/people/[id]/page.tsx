@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { Avatar } from "@/components/avatar";
 import { BirthdayField } from "@/components/profile/birthday-field";
 import { CadenceField } from "@/components/profile/cadence-field";
+import { CirclesField } from "@/components/profile/circles-field";
 import { ClosenessField } from "@/components/profile/closeness-field";
 import { NameField } from "@/components/profile/name-field";
 import { Composer } from "@/components/profile/composer";
@@ -32,6 +33,7 @@ import { listMemories } from "@/lib/data/memories";
 import { immichConnection } from "@/lib/immich";
 import { avatarSrc } from "@/lib/immich-urls";
 import { listCustomReminders } from "@/lib/data/reminders";
+import { circleOptions, circlesOf } from "@/lib/data/circles";
 import { countSettled, listDebts, listGifts, listTasks, repeatedIdeas } from "@/lib/data/practical";
 import { tenantQuery } from "@/lib/session";
 
@@ -70,6 +72,8 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
     tasks: await listTasks(tx, id),
     debts: await listDebts(tx, id),
     settled: await countSettled(tx, id),
+    circles: await circlesOf(tx, id),
+    allCircles: await circleOptions(tx),
     timeZone: user.timeZone,
   }));
   if (!result.profile) notFound();
@@ -242,6 +246,7 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
                   )}
                 </div>
               )}
+              {!contact.isSelf && <CirclesField contactId={contact.id} circles={result.circles} all={result.allCircles} />}
               {!contact.isSelf && <ClosenessField key={contact.closeness} contactId={contact.id} closeness={contact.closeness} />}
               {!isPartner && (
                 <Link href={`/people/${contact.id}/partner`} className="text-[13px] text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">

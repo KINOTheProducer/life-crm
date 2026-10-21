@@ -4,7 +4,7 @@ import { and, asc, eq, ilike, inArray, isNull, or, schema, sql } from "@life-crm
 
 import { tenantQuery } from "@/lib/session";
 
-const { addresses, contactMethods, contacts, facts, importantDates, notes } = schema;
+const { addresses, circleMembers, circles, contactMethods, contacts, facts, importantDates, notes } = schema;
 
 export interface PeopleFilter {
   tier?: ClosenessTier;
@@ -13,6 +13,7 @@ export interface PeopleFilter {
   month?: number;
   city?: string;
   interest?: string;
+  circleId?: string;
   /** Past their keep-in-touch cadence. */
   overdue?: boolean;
 }
@@ -46,6 +47,9 @@ export async function listPeople(filter: PeopleFilter = {}) {
         : undefined,
       filter.interest
         ? sql`exists (select 1 from ${facts} where ${facts.contactId} = ${contacts.id} and ${facts.archivedAt} is null and ${facts.category} = 'interest' and (${facts.value} ilike ${like(filter.interest.trim())} or ${facts.label} ilike ${like(filter.interest.trim())}))`
+        : undefined,
+      filter.circleId
+        ? sql`exists (select 1 from ${circleMembers} where ${circleMembers.contactId} = ${contacts.id} and ${circleMembers.circleId} = ${filter.circleId})`
         : undefined,
       filter.overdue
         ? sql`${contacts.keepInTouchDays} > 0 and coalesce(${contacts.lastInteractionAt}, ${contacts.createdAt}) < now() - make_interval(days => ${contacts.keepInTouchDays})`
@@ -136,7 +140,8 @@ export async function filterOptions() {
       .where(and(eq(facts.category, "interest"), isNull(facts.archivedAt)))
       .orderBy(asc(facts.value))
       .limit(200);
-    return { cities: cities.map((c) => c.city!).filter(Boolean), interests: interests.map((i) => i.value) };
+    const circleRows = await tx.select({ id: circles.id, name: circles.name }).from(circles).orderBy(asc(circles.name));
+    return { cities: cities.map((c) => c.city!).filter(Boolean), interests: interests.map((i) => i.value), circles: circleRows };
   });
 }
 

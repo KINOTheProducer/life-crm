@@ -36,6 +36,8 @@ const tables = {
   lifeEvents: schema.lifeEvents,
   tasks: schema.tasks,
   debts: schema.debts,
+  circles: schema.circles,
+  circleMembers: schema.circleMembers,
 } as const;
 
 async function liveIds(tx: Tx) {

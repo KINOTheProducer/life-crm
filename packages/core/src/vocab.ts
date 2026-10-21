@@ -100,3 +100,7 @@ export type GiftDirection = (typeof giftDirections)[number];
 /** Who owes whom, from your side. */
 export const debtDirections = ["they_owe", "i_owe"] as const;
 export type DebtDirection = (typeof debtDirections)[number];
+
+/** Pastel tones a circle can wear; the same palette as avatars. */
+export const circleTones = ["peach", "sage", "lilac", "sky", "butter", "rose"] as const;
+export type CircleTone = (typeof circleTones)[number];

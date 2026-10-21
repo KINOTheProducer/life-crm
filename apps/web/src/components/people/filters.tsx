@@ -8,15 +8,17 @@ import { cn } from "@/lib/utils";
 
 const chip = "h-9 rounded-full border border-input bg-card px-3 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50";
 
-/** Birthday month, city, interest and "due for a catch-up", kept in the URL. */
+/** Circle, birthday month, city, interest and "due for a catch-up", kept in the URL. */
 export function PeopleFilters({
   values,
   cities,
   interests,
+  circles,
 }: {
-  values: { q: string; tier: string; month: string; city: string; interest: string; overdue: boolean };
+  values: { q: string; tier: string; month: string; city: string; interest: string; circle: string; overdue: boolean };
   cities: string[];
   interests: string[];
+  circles: { id: string; name: string }[];
 }) {
   const router = useRouter();
   const [city, setCity] = useState(values.city);
@@ -32,10 +34,20 @@ export function PeopleFilters({
     }
     router.push(`/people${sp.size ? `?${sp}` : ""}`);
   };
-  const any = values.month || values.city || values.interest || values.overdue;
+  const any = values.month || values.city || values.interest || values.circle || values.overdue;
 
   return (
     <div className="mb-4 flex flex-wrap items-center gap-2">
+      {circles.length > 0 && (
+        <select aria-label="Circle" value={values.circle} onChange={(e) => go({ circle: e.target.value })} className={cn(chip, values.circle && "border-foreground")}>
+          <option value="">Any circle</option>
+          {circles.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </select>
+      )}
       <select aria-label="Birthday month" value={values.month} onChange={(e) => go({ month: e.target.value })} className={cn(chip, values.month && "border-foreground")}>
         <option value="">Birthday in…</option>
         {monthNames.map((m, i) => (
@@ -88,7 +100,7 @@ export function PeopleFilters({
           onClick={() => {
             setCity("");
             setInterest("");
-            go({ month: "", city: "", interest: "", overdue: false });
+            go({ month: "", city: "", interest: "", circle: "", overdue: false });
           }}
           className="inline-flex items-center gap-1 rounded-full px-3 py-2 text-sm text-muted-foreground hover:text-foreground"
         >
