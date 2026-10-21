@@ -9,6 +9,9 @@ import { ClosenessField } from "@/components/profile/closeness-field";
 import { NameField } from "@/components/profile/name-field";
 import { Composer } from "@/components/profile/composer";
 import { FactsPanel } from "@/components/profile/facts-panel";
+import { GiftsCard } from "@/components/profile/gifts-card";
+import { MoneyCard } from "@/components/profile/money-card";
+import { TasksCard } from "@/components/profile/tasks-card";
 import { CustomReminderList } from "@/components/reminders/custom-reminder-list";
 import { ReminderForm } from "@/components/reminders/reminder-form";
 import { Timeline } from "@/components/profile/timeline";
@@ -29,6 +32,7 @@ import { listMemories } from "@/lib/data/memories";
 import { immichConnection } from "@/lib/immich";
 import { avatarSrc } from "@/lib/immich-urls";
 import { listCustomReminders } from "@/lib/data/reminders";
+import { countSettled, listDebts, listGifts, listTasks, repeatedIdeas } from "@/lib/data/practical";
 import { tenantQuery } from "@/lib/session";
 
 
@@ -62,6 +66,10 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
     immich: Boolean(await immichConnection(tx, user.id)),
     family: relationsOf(await loadFamily(tx, await ensureSelf(tx, user)), id),
     friendOf: await friendOf(tx, id),
+    gifts: await listGifts(tx, id),
+    tasks: await listTasks(tx, id),
+    debts: await listDebts(tx, id),
+    settled: await countSettled(tx, id),
     timeZone: user.timeZone,
   }));
   if (!result.profile) notFound();
@@ -70,6 +78,9 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
   const isPartner = partnership?.status === "current";
 
   const today = todayIn(timeZone);
+  const todayIso = toIsoDate(today);
+  // Gift ideas are wishlist facts, shown with the gifts rather than under "About".
+  const ideas = profile.facts.filter((f) => f.category === "wishlist");
   const phone = result.info.methods.find((m) => m.kind === "phone" && m.isPrimary);
   const email = result.info.methods.find((m) => m.kind === "email" && m.isPrimary);
   const nextBirthday = profile.birthday ? upcoming(profile.birthday, today) : null;
@@ -164,6 +175,9 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
           <a href="#catch-up" className={buttonVariants({ variant: "outline" })}>
             Log catch-up
           </a>
+          <a href="#life-event" className={buttonVariants({ variant: "outline" })}>
+            Life event
+          </a>
           <Link href={`/capture/new?contact=${contact.id}`} className={buttonVariants()}>
             <Mic />
             Voice note
@@ -173,7 +187,7 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
 
       <div className="grid gap-8 lg:grid-cols-[1fr_340px]">
         <div className="grid content-start gap-8">
-          <Composer contactId={contact.id} firstName={contact.firstName} today={toIsoDate(today)} />
+          <Composer contactId={contact.id} firstName={contact.firstName} today={todayIso} />
           {result.faces.length > 0 && result.immich && <PersonPhotosPanel contactId={contact.id} firstName={contact.firstName} />}
           <Timeline
             contactId={contact.id}
@@ -259,9 +273,44 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
             </CardHeader>
             <CardContent className="grid gap-4">
               <CustomReminderList items={result.reminders} />
-              <ReminderForm today={toIsoDate(today)} contactId={contact.id} placeholder={`Ask ${contact.firstName} about…`} />
+              <ReminderForm today={todayIso} contactId={contact.id} placeholder={`Ask ${contact.firstName} about…`} />
             </CardContent>
           </Card>
+          {!contact.isSelf && (
+            <>
+              <Card>
+                <CardHeader>
+                  <CardTitle>To do</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <TasksCard contactId={contact.id} firstName={contact.firstName} tasks={result.tasks} today={todayIso} />
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Gifts</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <GiftsCard
+                    contactId={contact.id}
+                    firstName={contact.firstName}
+                    ideas={ideas}
+                    gifts={result.gifts}
+                    repeats={repeatedIdeas(ideas, result.gifts)}
+                    today={todayIso}
+                  />
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Money</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <MoneyCard contactId={contact.id} firstName={contact.firstName} debts={result.debts} settled={result.settled} today={todayIso} />
+                </CardContent>
+              </Card>
+            </>
+          )}
           <Card>
             <CardHeader>
               <CardTitle>Memories</CardTitle>
@@ -296,7 +345,9 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
           <FactsPanel
             contactId={contact.id}
             firstName={contact.firstName}
-            facts={profile.facts.map((f) => ({ ...f, category: f.category as keyof typeof factCategoryLabels }))}
+            facts={profile.facts
+              .filter((f) => contact.isSelf || f.category !== "wishlist")
+              .map((f) => ({ ...f, category: f.category as keyof typeof factCategoryLabels }))}
           />
         </aside>
       </div>

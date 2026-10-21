@@ -1,7 +1,19 @@
-import { interactionTypeLabels, type InteractionType } from "@life-crm/core";
+import { interactionTypeLabels, type InteractionType, type LifeEventType } from "@life-crm/core";
 import type { TimelineKind } from "@life-crm/db/schema";
 import {
+  Armchair,
+  Baby,
+  Briefcase,
   Cake,
+  Flower2,
+  Gem,
+  Gift,
+  GraduationCap,
+  HeartPulse,
+  Home,
+  PawPrint,
+  Plane,
+  Star,
   Heart,
   Images,
   Lightbulb,
@@ -27,8 +39,28 @@ const filters: { label: string; kinds: TimelineKind[] }[] = [
   { label: "Catch-ups", kinds: ["interaction"] },
   { label: "Notes", kinds: ["note", "voice"] },
   { label: "Memories", kinds: ["memory"] },
+  { label: "Life events", kinds: ["life_event"] },
+  { label: "Gifts", kinds: ["gift"] },
   { label: "Facts & dates", kinds: ["fact", "date", "milestone"] },
 ];
+
+const lifeEventIcons: Record<LifeEventType, LucideIcon> = {
+  new_job: Briefcase,
+  moved: Home,
+  engaged: Gem,
+  married: Heart,
+  baby: Baby,
+  graduated: GraduationCap,
+  new_pet: PawPrint,
+  loss: Flower2,
+  illness: HeartPulse,
+  retired: Armchair,
+  big_trip: Plane,
+  other: Star,
+};
+
+/** Kinds stored as a calendar date (noon UTC) rather than the moment they were written. */
+const dateOnlyKinds: TimelineKind[] = ["interaction", "memory", "gift", "life_event"];
 
 const interactionIcons: Record<InteractionType, LucideIcon> = {
   in_person: Users,
@@ -58,6 +90,10 @@ function iconFor(entry: TimelineEntry): LucideIcon {
       return Images;
     case "interaction":
       return interactionIcons[entry.title as InteractionType] ?? Users;
+    case "gift":
+      return Gift;
+    case "life_event":
+      return lifeEventIcons[(entry.data as { type?: LifeEventType } | null)?.type ?? "other"] ?? Star;
   }
 }
 
@@ -138,14 +174,14 @@ export function Timeline({
               const Icon = iconFor(entry);
               const learned = (entry.data as { learned?: string[] } | null)?.learned ?? [];
               const location = (entry.data as { location?: string | null } | null)?.location;
-              const day = (entry.kind === "interaction" || entry.kind === "memory" ? dateOnlyFmt : dayFmt).format(entry.occurredAt);
+              const day = (dateOnlyKinds.includes(entry.kind) ? dateOnlyFmt : dayFmt).format(entry.occurredAt);
               const photos = entry.kind === "memory" ? ((entry.data as { photos?: string[] } | null)?.photos ?? []) : [];
               return (
                 <li key={entry.id} className="relative">
                   <span
                     className={cn(
                       "absolute -left-[49px] top-0 grid size-8 place-items-center rounded-full ring-4 ring-background",
-                      entry.kind === "interaction" ? "bg-accent text-accent-foreground" : "bg-secondary text-foreground",
+                      entry.kind === "interaction" || entry.kind === "life_event" ? "bg-accent text-accent-foreground" : "bg-secondary text-foreground",
                     )}
                   >
                     <Icon className="size-4" />

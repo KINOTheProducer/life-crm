@@ -1,5 +1,5 @@
 
-import { anniversaryName } from "@life-crm/core";
+import { anniversaryName, formatIsoDate, todayIn } from "@life-crm/core";
 import { ArrowUpRight, Heart } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -12,6 +12,7 @@ import { closenessCounts, drifting, factsFor, yearOfCatchups } from "@/lib/data/
 import { partnerCards, userPrefs } from "@/lib/data/partners";
 import { upcomingBirthdays } from "@/lib/data/people";
 import { listInbox } from "@/lib/data/reminders";
+import { recentNews, type NewsItem } from "@/lib/data/practical";
 import { tenantQuery } from "@/lib/session";
 import { cn } from "@/lib/utils";
 import { avatarSrc } from "@/lib/immich-urls";
@@ -50,6 +51,7 @@ export default async function DashboardPage() {
       tiers: await closenessCounts(tx),
       year: await yearOfCatchups(tx, user.timeZone),
       nextFacts: next ? await factsFor(tx, next.contactId) : [],
+      news: await recentNews(tx, formatIsoDate(todayIn(user.timeZone))),
     };
   });
   const { user } = data;
@@ -109,7 +111,7 @@ export default async function DashboardPage() {
               <div className="grid gap-1 px-6 pt-5 pb-6">
                 <p className="text-sm text-muted-foreground">Coming up</p>
                 <Link href={`/people/${next.contactId}`} className="type-display text-[2rem] hover:underline">
-                  {next.turning != null ? `${next.name.split(" ")[0]} turns ${next.turning}` : `${next.name}'s birthday`}
+                  {next.turning ? `${next.name.split(" ")[0]} turns ${next.turning}` : `${next.name}'s birthday`}
                 </Link>
                 {known && <p className="text-[15px] text-muted-foreground">{known.value}</p>}
                 <dl className="mt-3 divide-y divide-border border-t border-border text-[15px]">
@@ -199,6 +201,8 @@ export default async function DashboardPage() {
         </section>
       </div>
 
+      {data.news.length > 0 && <News items={data.news} />}
+
       {data.inbox.length > 0 && (
         <section className="mt-3.5 rounded-3xl bg-card p-6">
           <div className="flex items-center justify-between">
@@ -265,6 +269,34 @@ function PartnerCard({ partner: p }: { partner: Partner }) {
           <span className="mt-1.5 text-xs">to your {anniversaryName(anniversary.milestone)}</span>
         </div>
       )}
+    </section>
+  );
+}
+
+const newsDate = new Intl.DateTimeFormat("en-CA", { month: "short", day: "numeric", timeZone: "UTC" });
+
+/** Life events from the last month. Hard news leads with a check-in, not a congratulations. */
+function News({ items }: { items: NewsItem[] }) {
+  return (
+    <section className="mt-3.5 rounded-3xl bg-card p-6">
+      <h2 className="text-sm text-muted-foreground">News from your people</h2>
+      <ul className="mt-2 divide-y divide-border">
+        {items.map((n) => (
+          <li key={n.id}>
+            <Link href={`/people/${n.contactId}`} className="flex items-center gap-3 py-3 hover:opacity-80">
+              <Avatar id={n.contactId} name={n.name} src={avatarSrc(n.avatarRef)} size={38} />
+              <span className="min-w-0 flex-1">
+                <span className="block font-medium">{n.name}</span>
+                <span className="block truncate text-[13px] text-muted-foreground">
+                  {n.label}
+                  {n.isSensitive && <span className="text-accent-ink"> · worth a check-in</span>}
+                </span>
+              </span>
+              <span className="font-mono text-xs text-muted-foreground">{newsDate.format(new Date(`${n.occurredOn}T00:00:00Z`))}</span>
+            </Link>
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }
