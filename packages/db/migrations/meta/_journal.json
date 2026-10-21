@@ -120,6 +120,13 @@
       "when": 1792603005287,
       "tag": "0016_self_face",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1792625838359,
+      "tag": "0017_contact_summaries",
+      "breakpoints": true
     }
   ]
 }

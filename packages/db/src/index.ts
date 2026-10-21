@@ -2,4 +2,5 @@ export * from "./client";
 export * as schema from "./schema";
 // Re-exported so apps use the same drizzle-orm instance as the schema.
 export { and, asc, count, desc, eq, gt, gte, ilike, inArray, isNotNull, isNull, lt, lte, ne, not, or, sql } from "drizzle-orm";
+export type { Column } from "drizzle-orm";
 export * from "./purge";

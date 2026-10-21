@@ -1,4 +1,5 @@
 import { AnthropicExtractor, DEFAULT_CLAUDE_MODEL } from "./anthropic";
+import { AnthropicAssistant, OpenAiCompatibleAssistant, type Assistant } from "./assistant";
 import { AnthropicCardReader, OpenAiCompatibleCardReader, type CardReader } from "./card";
 import { OpenAiCompatibleExtractor, OpenAiCompatibleTranscriber } from "./openai-compatible";
 import { AiError, type Extractor, type Transcriber } from "./types";
@@ -34,6 +35,12 @@ export function cardReaderFor(config: AiConfig): CardReader {
   if (config.provider === "anthropic") return new AnthropicCardReader({ apiKey: config.apiKey, baseURL: config.baseUrl }, config.model || DEFAULT_CLAUDE_MODEL);
   if (!config.baseUrl || !config.model) throw new AiError("A base URL and model are needed for an OpenAI-compatible provider.");
   return new OpenAiCompatibleCardReader({ baseUrl: config.baseUrl, apiKey: config.apiKey, model: config.model });
+}
+
+export function assistantFor(config: AiConfig): Assistant {
+  if (config.provider === "anthropic") return new AnthropicAssistant({ apiKey: config.apiKey, baseURL: config.baseUrl }, config.model || DEFAULT_CLAUDE_MODEL);
+  if (!config.baseUrl || !config.model) throw new AiError("A base URL and model are needed for an OpenAI-compatible provider.");
+  return new OpenAiCompatibleAssistant({ baseUrl: config.baseUrl, apiKey: config.apiKey, model: config.model });
 }
 
 /** Build an extractor from explicit settings (a user's own key or local model). */

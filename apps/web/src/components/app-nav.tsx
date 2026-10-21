@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, CircleDot, Home, Images, LogOut, MapPin, Mic, Network, Search, Settings, Users } from "lucide-react";
+import { Bell, CircleDot, Home, Images, LogOut, MapPin, MessageCircleQuestion, Mic, Network, Search, Settings, Users } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
@@ -15,6 +15,7 @@ const links = [
   { href: "/places", label: "Places", icon: MapPin },
   { href: "/memories", label: "Memories", icon: Images },
   { href: "/reminders", label: "Reminders", icon: Bell },
+  { href: "/ask", label: "Ask", icon: MessageCircleQuestion },
   { href: "/capture/new", label: "Voice notes", icon: Mic },
 ] as const;
 

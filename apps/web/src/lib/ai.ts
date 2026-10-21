@@ -2,11 +2,13 @@ import "server-only";
 import {
   AiError,
   aiConfigFromEnv,
+  assistantFor,
   cardReaderFor,
   extractorFor,
   OpenAiCompatibleTranscriber,
   sttConfigFromEnv,
   type AiConfig,
+  type Assistant,
   type CardReader,
   type Extractor,
   type Transcriber,
@@ -54,6 +56,17 @@ export async function cardReaderForUser(tx: Tx, userId: string): Promise<CardRea
   const config = await aiConfigFor(tx, userId);
   if (!config) throw off();
   return cardReaderFor(config);
+}
+
+export async function assistantForUser(tx: Tx, userId: string): Promise<Assistant> {
+  const config = await aiConfigFor(tx, userId);
+  if (!config) throw off();
+  return assistantFor(config);
+}
+
+/** Whether the AI features can run for this user at all. */
+export async function aiEnabledFor(tx: Tx, userId: string) {
+  return (await aiConfigFor(tx, userId)) !== null;
 }
 
 export async function transcriberForUser(tx: Tx, userId: string): Promise<Transcriber> {
