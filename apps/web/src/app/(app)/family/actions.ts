@@ -1,11 +1,11 @@
 "use server";
 
 import { childKinds, familyStatuses, roleFromLabel, type FamilyStatus } from "@life-crm/core";
-import { and, eq, isNull, schema, type Tx } from "@life-crm/db";
+import { and, eq, isNull, schema } from "@life-crm/db";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { insertContact } from "@/lib/data/contacts";
-import { connectRelative, contactInTenant, disconnect, ensureSelf, loadFamily, type RelativeRole } from "@/lib/data/family";
+import { connectFriends, connectRelative, contactInTenant, disconnect, disconnectFriends, ensureSelf, loadFamily, type RelativeRole } from "@/lib/data/family";
 import { createPartnership, monogamyConflict, userPrefs } from "@/lib/data/partners";
 import { dateProblemText, intOrNull, partialDateFrom, personName } from "@/lib/forms";
 import { tenantQuery } from "@/lib/session";
@@ -18,27 +18,12 @@ export interface RelativeState {
 const { contacts } = schema;
 const uuid = z.uuid();
 const roles = ["parent", "partner", "child", "sibling"] as const;
+export type AddRole = RelativeRole | "friend";
 const pronounsFor = { female: "she/her", male: "he/him" } as const;
 
 function revalidateTree(...contactIds: string[]) {
   revalidatePath("/family");
   for (const id of contactIds) revalidatePath(`/people/${id}`);
-}
-
-const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
-
-/** After someone joins the tree, fill in "what they are to you" if it's empty. */
-async function labelFromTree(tx: Tx, selfId: string, ids: string[]) {
-  const family = await loadFamily(tx, selfId);
-  for (const id of ids) {
-    if (id === selfId) continue;
-    const term = family.termFor(id);
-    if (!term || term === "you") continue;
-    await tx
-      .update(contacts)
-      .set({ relationship: capitalize(term) })
-      .where(and(eq(contacts.id, id), isNull(contacts.relationship)));
-  }
 }
 
 const newPersonSchema = z.object({
@@ -47,9 +32,9 @@ const newPersonSchema = z.object({
   pronouns: z.enum(["", "she/her", "he/him", "they/them"]).transform((v) => v || null),
 });
 
-/** Add a parent, partner, child or sibling to someone, picking an existing person or adding a new one. */
-export async function addRelative(anchorId: string, role: RelativeRole, _prev: RelativeState, form: FormData): Promise<RelativeState> {
-  if (!uuid.safeParse(anchorId).success || !(roles as readonly string[]).includes(role)) return { error: "Person not found" };
+/** Add a parent, partner, child, sibling or friend to someone, picking an existing person or adding a new one. */
+export async function addRelative(anchorId: string, role: AddRole, _prev: RelativeState, form: FormData): Promise<RelativeState> {
+  if (!uuid.safeParse(anchorId).success || !([...roles, "friend"] as string[]).includes(role)) return { error: "Person not found" };
   const kind = z.enum(childKinds).catch("biological").parse(form.get("kind") ?? "biological");
   const status = z.enum(familyStatuses).catch("unknown").parse(form.get("status") ?? "unknown");
   const startYear = intOrNull(form.get("startYear"));
@@ -98,23 +83,34 @@ export async function addRelative(anchorId: string, role: RelativeRole, _prev: R
         firstName: person!.firstName,
         lastName: person!.lastName,
         pronouns: person!.pronouns,
-        closeness: "close",
-        // Relatives don't get catch-up nudges until you ask for them.
-        keepInTouchDays: null,
+        ...(role === "friend"
+          ? { closeness: "friend" as const }
+          : // Relatives don't get catch-up nudges until you ask for them.
+            { closeness: "close" as const, keepInTouchDays: null }),
         birthday,
       });
       if (deceased || deathYear) await tx.update(contacts).set({ isDeceased: true, deathYear }).where(eq(contacts.id, personId));
     }
-    if (personId === anchorId) return { error: "Someone can't be their own relative" };
+    if (personId === anchorId) return { error: role === "friend" ? "Someone can't be their own friend" : "Someone can't be their own relative" };
 
+    // Friends of yours need no link: anyone outside the family with no other link is yours.
+    if (role === "friend") {
+      if (anchorId !== selfId) await connectFriends(tx, user.tenantId, anchorId, personId);
+      return { personId };
+    }
     await connectRelative(tx, user.tenantId, { anchorId, personId, role, kind, status, startYear, otherParentId, coParent: form.get("coParent") === "on" });
     if (currentPartner) await createPartnership(tx, user.tenantId, personId, { label: status === "married" ? "Spouse" : "Partner" });
-    await labelFromTree(tx, selfId, [personId]);
     return { personId };
   });
   if ("error" in result) return { error: result.error };
   revalidateTree(anchorId, result.personId);
   return { ok: Date.now() };
+}
+
+export async function removeFriend(a: string, b: string) {
+  if (!uuid.safeParse(a).success || !uuid.safeParse(b).success) return;
+  await tenantQuery((tx) => disconnectFriends(tx, a, b));
+  revalidateTree(a, b);
 }
 
 export async function removeFromFamily(familyId: string, personId: string) {

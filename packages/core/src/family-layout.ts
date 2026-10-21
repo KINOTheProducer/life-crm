@@ -28,10 +28,17 @@ export interface DescentLine {
   childXs: number[];
 }
 
+/** Siblings whose parents aren't known, joined by a bar above them. */
+export interface SiblingBar {
+  gen: number;
+  xs: number[];
+}
+
 export interface HourglassLayout {
   nodes: LaidOutNode[];
   couples: CoupleLine[];
   descents: DescentLine[];
+  siblingBars: SiblingBar[];
   width: number;
   minGen: number;
   maxGen: number;
@@ -105,7 +112,8 @@ export function layoutHourglass(
   const row = [focus, ...siblings].sort(order);
   const parents = up > 0 ? parentsOf(index, focus, true) : [];
   parents.forEach(claim);
-  const rowBlocks = row.map((id) => (id === focus ? descendants(id, down) : descendants(id, 0)));
+  // Siblings bring their kids too, so nieces and nephews are in the tree.
+  const rowBlocks = row.map((id) => descendants(id, down));
   const parentBlocks = parents.map((p) => ancestry(p, up - 1));
 
   let x = 0;
@@ -125,6 +133,27 @@ export function layoutHourglass(
     x += b.width;
   });
 
+  // Aunts and uncles with their families (cousins and on down), outside everyone placed so
+  // far: the first parent's side on the left, the other's on the right.
+  if (up > 0) {
+    const shownParents = parents.map((p) => positions.get(p)!).sort((a, b) => a.x - b.x);
+    shownParents.forEach((parent, i) => {
+      const blocks = siblingsOf(index, parent.id)
+        .map((s) => s.id)
+        .filter(claim)
+        .sort(order)
+        .map((s) => descendants(s, down + 1));
+      if (blocks.length === 0) return;
+      const placed = [...positions.values()];
+      const total = blocks.reduce((n, b) => n + b.width, 0);
+      let at = i === 0 && shownParents.length > 1 ? Math.min(...placed.map((n) => n.x - 0.5)) - total : Math.max(...placed.map((n) => n.x + 0.5));
+      for (const b of blocks) {
+        b.place(at, -1);
+        at += b.width;
+      }
+    });
+  }
+
   // Normalise so the leftmost card starts at 0.
   const nodes = [...positions.values()];
   const minX = Math.min(...nodes.map((n) => n.x - 0.5));
@@ -132,13 +161,21 @@ export function layoutHourglass(
 
   const couples: CoupleLine[] = [];
   const descents: DescentLine[] = [];
+  const siblingBars: SiblingBar[] = [];
   for (const f of index.families.values()) {
     const shownPartners = f.partners.map((p) => positions.get(p)).filter((n): n is LaidOutNode => !!n);
     if (shownPartners.length === 2 && shownPartners[0]!.gen === shownPartners[1]!.gen) {
       const [a, b] = shownPartners.sort((p, q) => p.x - q.x);
       couples.push({ gen: a!.gen, x1: a!.x, x2: b!.x });
     }
-    if (shownPartners.length === 0) continue;
+    if (shownPartners.length === 0) {
+      const kids = f.children.map((c) => positions.get(c.id)).filter((n): n is LaidOutNode => !!n);
+      for (const gen of new Set(kids.map((k) => k.gen))) {
+        const xs = kids.filter((k) => k.gen === gen).map((k) => k.x);
+        if (xs.length > 1) siblingBars.push({ gen, xs: xs.sort((a, b) => a - b) });
+      }
+      continue;
+    }
     const gen = shownPartners[0]!.gen;
     const kids = f.children.map((c) => positions.get(c.id)).filter((n): n is LaidOutNode => !!n && n.gen === gen + 1);
     if (kids.length === 0) continue;
@@ -152,6 +189,7 @@ export function layoutHourglass(
     nodes,
     couples,
     descents,
+    siblingBars,
     width: Math.max(...nodes.map((n) => n.x + 0.5)),
     minGen: Math.min(...gens),
     maxGen: Math.max(...gens),

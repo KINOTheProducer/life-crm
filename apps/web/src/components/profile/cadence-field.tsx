@@ -23,11 +23,35 @@ export function cadenceText(days: number | null) {
   return options.find(([d]) => d === days)?.[1] ?? `Every ${days} days`;
 }
 
+/** `cadence` select (plus `customDays` when custom), read by the cadence actions. */
+export function CadenceInputs({ days, autoFocus }: { days: number | null; autoFocus?: boolean }) {
+  const known = !days || options.some(([d]) => d === days);
+  const [choice, setChoice] = useState(known ? String(days ?? 0) : "custom");
+  return (
+    <>
+      <select name="cadence" aria-label="How often to catch up" value={choice} onChange={(e) => setChoice(e.target.value)} className={selectClass}>
+        <option value="0">No reminders</option>
+        {options.map(([d, l]) => (
+          <option key={d} value={d}>
+            {l}
+          </option>
+        ))}
+        <option value="custom">Custom…</option>
+      </select>
+      {choice === "custom" && (
+        <label className="flex items-center gap-2 text-sm">
+          Every
+          <Input name="customDays" type="number" inputMode="numeric" min={1} max={3650} required defaultValue={known ? "" : String(days)} className="w-24" autoFocus={autoFocus} />
+          days
+        </label>
+      )}
+    </>
+  );
+}
+
 /** The keep-in-touch row in a person's details, editable in place. */
 export function CadenceField({ contactId, days }: { contactId: string; days: number | null }) {
   const [editing, setEditing] = useState(false);
-  const known = !days || options.some(([d]) => d === days);
-  const [choice, setChoice] = useState(known ? String(days ?? 0) : "custom");
   const [state, action, pending] = useActionState(async (prev: FormState, form: FormData) => {
     const next = await updateCadence(contactId, prev, form);
     if (next.ok) setEditing(false);
@@ -46,22 +70,7 @@ export function CadenceField({ contactId, days }: { contactId: string; days: num
       </div>
       {editing ? (
         <form onSubmit={submitKeepingValues(action)} className="grid gap-2">
-          <select name="cadence" aria-label="How often to catch up" value={choice} onChange={(e) => setChoice(e.target.value)} className={selectClass}>
-            <option value="0">No reminders</option>
-            {options.map(([d, l]) => (
-              <option key={d} value={d}>
-                {l}
-              </option>
-            ))}
-            <option value="custom">Custom…</option>
-          </select>
-          {choice === "custom" && (
-            <label className="flex items-center gap-2 text-sm">
-              Every
-              <Input name="customDays" type="number" inputMode="numeric" min={1} max={3650} required defaultValue={known ? "" : String(days)} className="w-24" autoFocus />
-              days
-            </label>
-          )}
+          <CadenceInputs days={days} autoFocus />
           {state.error && <p className="text-sm text-destructive">{state.error}</p>}
           <div className="flex items-center gap-2">
             <Button type="submit" size="sm" disabled={pending}>

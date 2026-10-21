@@ -8,10 +8,10 @@ import {
   type FamilyStatus,
   type PartialDate,
 } from "@life-crm/core";
-import { and, eq, inArray, isNull, or, schema, sql, type Tx } from "@life-crm/db";
+import { and, asc, eq, inArray, isNull, or, schema, sql, type Tx } from "@life-crm/db";
 import { fullName, insertContact } from "./contacts";
 
-const { contacts, families, familyChildren, importantDates, partnerships } = schema;
+const { connections, contacts, families, familyChildren, importantDates, partnerships } = schema;
 
 /** The user's own contact row, created the first time the tree needs it. */
 export async function ensureSelf(tx: Tx, user: { tenantId: string; name: string }): Promise<string> {
@@ -303,4 +303,58 @@ export function relationsOf(data: FamilyData, personId: string) {
   for (const f of index.birthFamilies.get(personId) ?? [])
     for (const parent of f.partners) for (const pf of index.ownFamilies.get(parent) ?? []) for (const c of pf.children) add(c.id, null);
   return { relations: out, toYou: data.termFor(personId) };
+}
+
+const pair = (a: string, b: string) => (a < b ? { personAId: a, personBId: b } : { personAId: b, personBId: a });
+
+/** Mark two people as friends. */
+export async function connectFriends(tx: Tx, tenantId: string, a: string, b: string) {
+  if (a === b) throw new Error("Someone can't be their own friend");
+  await tx.insert(connections).values({ tenantId, ...pair(a, b) }).onConflictDoNothing();
+}
+
+export async function disconnectFriends(tx: Tx, a: string, b: string) {
+  const p = pair(a, b);
+  await tx.delete(connections).where(and(eq(connections.personAId, p.personAId), eq(connections.personBId, p.personBId)));
+}
+
+/** Everyone's friend links, both ways round. */
+export async function loadConnections(tx: Tx) {
+  const rows = await tx.select({ a: connections.personAId, b: connections.personBId }).from(connections);
+  const out = new Map<string, string[]>();
+  for (const { a, b } of rows) {
+    out.set(a, [...(out.get(a) ?? []), b]);
+    out.set(b, [...(out.get(b) ?? []), a]);
+  }
+  return out;
+}
+
+/** Everyone you know, with what the tree's edit panel needs. */
+export async function treeContacts(tx: Tx) {
+  return tx
+    .select({
+      id: contacts.id,
+      firstName: contacts.firstName,
+      lastName: contacts.lastName,
+      nickname: contacts.nickname,
+      pronouns: contacts.pronouns,
+      closeness: contacts.closeness,
+      keepInTouchDays: contacts.keepInTouchDays,
+      avatarRef: contacts.avatarRef,
+      isSelf: contacts.isSelf,
+      isDeceased: contacts.isDeceased,
+    })
+    .from(contacts)
+    .where(isNull(contacts.deletedAt))
+    .orderBy(asc(contacts.firstName), asc(contacts.lastName));
+}
+
+/** Who someone is a friend of, by name, for their profile. */
+export async function friendOf(tx: Tx, personId: string) {
+  const links = (await loadConnections(tx)).get(personId) ?? [];
+  if (links.length === 0) return [];
+  return tx
+    .select({ id: contacts.id, firstName: contacts.firstName, isSelf: contacts.isSelf })
+    .from(contacts)
+    .where(and(inArray(contacts.id, links), isNull(contacts.deletedAt)));
 }

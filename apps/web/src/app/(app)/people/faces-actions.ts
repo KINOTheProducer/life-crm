@@ -66,6 +66,7 @@ export async function listFaces(contactId: string | null): Promise<{ faces: Face
 function revalidatePerson(contactId: string) {
   revalidatePath(`/people/${contactId}`);
   revalidatePath("/people");
+  revalidatePath("/family");
 }
 
 export async function linkFacesTo(contactId: string, personIds: string[], renameInImmich: boolean): Promise<{ error?: string }> {

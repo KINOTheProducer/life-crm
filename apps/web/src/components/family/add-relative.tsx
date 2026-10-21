@@ -2,11 +2,10 @@
 
 import { childKinds, familyStatuses, type ChildKind, type FamilyStatus } from "@life-crm/core";
 import { useActionState, useEffect, useMemo, useState } from "react";
-import { addRelative, type RelativeState } from "@/app/(app)/family/actions";
+import { addRelative, type AddRole, type RelativeState } from "@/app/(app)/family/actions";
 import { PartialDateFields } from "@/components/partial-date-fields";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import type { RelativeRole } from "@/lib/data/family";
 import { nameInputProps, selectClass } from "@/lib/forms";
 import { submitKeepingValues } from "@/lib/submit";
 import { cn } from "@/lib/utils";
@@ -29,7 +28,7 @@ const statusLabels: Record<FamilyStatus, string> = {
   unknown: "Not sure",
 };
 
-const roleWords: Record<RelativeRole, string> = { parent: "parent", partner: "partner", child: "child", sibling: "sibling" };
+const roleWords: Record<AddRole, string> = { parent: "parent", partner: "partner", child: "child", sibling: "sibling", friend: "friend" };
 
 export function AddRelativeForm({
   anchor,
@@ -40,7 +39,7 @@ export function AddRelativeForm({
   onDone,
 }: {
   anchor: { id: string; firstName: string; isSelf: boolean };
-  role: RelativeRole;
+  role: AddRole;
   people: { id: string; name: string }[];
   anchorPartners: { id: string; name: string }[];
   hasSoloChildren: boolean;
@@ -92,7 +91,7 @@ export function AddRelativeForm({
             <Input name="lastName" placeholder="Last name" aria-label="Last name" maxLength={100} {...nameInputProps} />
           </div>
           <select name="pronouns" aria-label="Pronouns" defaultValue="" className={selectClass}>
-            <option value="">Pronouns (for words like aunt or uncle)</option>
+            <option value="">{role === "friend" ? "Pronouns" : "Pronouns (for words like aunt or uncle)"}</option>
             <option value="she/her">she/her</option>
             <option value="he/him">he/him</option>
             <option value="they/them">they/them</option>
