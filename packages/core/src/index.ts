@@ -1,6 +1,7 @@
 export * from "./contact-info";
 export * from "./dates";
 export * from "./family-layout";
+export * from "./gedcom";
 export * from "./gifts";
 export * from "./kinship";
 export * from "./names";

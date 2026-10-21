@@ -1,8 +1,11 @@
+import { serializeGedcom } from "@life-crm/core";
 import { serializeVcard, toCsv } from "@life-crm/dav";
 import { and, eq, isNull, schema, withTenant, type Tx } from "@life-crm/db";
 import { NextResponse, type NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
 import { cardsFor } from "@/lib/data/cards";
+import { familyAsGedcom } from "@/lib/data/gedcom";
+import { APP_NAME } from "@/lib/brand";
 import { db } from "@/lib/db";
 
 const { contacts } = schema;
@@ -95,6 +98,14 @@ export async function GET(request: NextRequest, { params }: RouteContext<"/api/e
       ]);
     });
     return download(body, "text/csv", `people-${stamp}.csv`);
+  }
+
+  if (format === "ged") {
+    const user = session!.user;
+    const body = await withTenant(db, tenantId, async (tx) =>
+      serializeGedcom(await familyAsGedcom(tx, { tenantId, name: user.name }), { source: APP_NAME }),
+    );
+    return download(body, "text/x-gedcom", `family-tree-${stamp}.ged`);
   }
 
   if (format === "json") {
