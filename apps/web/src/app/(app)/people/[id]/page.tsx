@@ -6,6 +6,7 @@ import { Avatar } from "@/components/avatar";
 import { BirthdayField } from "@/components/profile/birthday-field";
 import { CadenceField } from "@/components/profile/cadence-field";
 import { CirclesField } from "@/components/profile/circles-field";
+import { SpanField } from "@/components/profile/span-field";
 import { ClosenessField } from "@/components/profile/closeness-field";
 import { NameField } from "@/components/profile/name-field";
 import { Composer } from "@/components/profile/composer";
@@ -192,7 +193,7 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
       <div className="grid gap-8 lg:grid-cols-[1fr_340px]">
         <div className="grid content-start gap-8">
           <Composer contactId={contact.id} firstName={contact.firstName} today={todayIso} />
-          {result.faces.length > 0 && result.immich && <PersonPhotosPanel contactId={contact.id} firstName={contact.firstName} />}
+          {result.faces.length > 0 && result.immich && <PersonPhotosPanel contactId={contact.id} firstName={contact.firstName} isSelf={contact.isSelf} />}
           <Timeline
             contactId={contact.id}
             entries={profile.timeline.entries}
@@ -231,6 +232,15 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
                   <p className="text-muted-foreground">Unknown</p>
                 )}
               </BirthdayField>
+              {!contact.isSelf && (
+                <SpanField
+                  key={`${contact.metYear}-${contact.metMonth}-${contact.lostTouchYear}`}
+                  contactId={contact.id}
+                  metYear={contact.metYear}
+                  metMonth={contact.metMonth}
+                  lostTouchYear={contact.lostTouchYear}
+                />
+              )}
               {contact.howMet && (
                 <div className="grid gap-1">
                   <p className="text-[13px] text-muted-foreground">How you met</p>

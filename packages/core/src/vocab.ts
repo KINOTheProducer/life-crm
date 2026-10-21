@@ -104,3 +104,14 @@ export type DebtDirection = (typeof debtDirections)[number];
 /** Pastel tones a circle can wear; the same palette as avatars. */
 export const circleTones = ["peach", "sage", "lilac", "sky", "butter", "rose"] as const;
 export type CircleTone = (typeof circleTones)[number];
+
+/** Chapters of your own life, drawn behind the life timeline. */
+export const eraKinds = ["school", "home", "work", "other"] as const;
+export type EraKind = (typeof eraKinds)[number];
+
+export const eraKindLabels: Record<EraKind, string> = {
+  school: "School",
+  home: "Lived in",
+  work: "Work",
+  other: "Other",
+};

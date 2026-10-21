@@ -41,6 +41,7 @@ const tables = {
   debts: schema.debts,
   circles: schema.circles,
   circleMembers: schema.circleMembers,
+  eras: schema.eras,
 } as const;
 
 async function liveIds(tx: Tx) {

@@ -1,5 +1,5 @@
 import { closenessTiers, type ClosenessTier } from "@life-crm/core";
-import { Plus, Search, Upload } from "lucide-react";
+import { ChartGantt, Plus, Search, Upload } from "lucide-react";
 import Link from "next/link";
 import { Avatar } from "@/components/avatar";
 import { PageHeader } from "@/components/page-header";
@@ -62,6 +62,10 @@ export default async function PeoplePage({ searchParams }: PageProps<"/people">)
         aside={activeTier ? tierLabel[activeTier].toLowerCase() : undefined}
         actions={
           <>
+            <Link href="/people/timeline" className={buttonVariants({ variant: "ghost" })}>
+              <ChartGantt />
+              Over the years
+            </Link>
             <Link href="/people/import" className={buttonVariants({ variant: "outline" })}>
               <Upload />
               Import
