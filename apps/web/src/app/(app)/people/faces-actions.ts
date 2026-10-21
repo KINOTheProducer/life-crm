@@ -6,6 +6,7 @@ import { and, eq, isNull, schema } from "@life-crm/db";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { facesFor, linkFaces, linkedFaces, unlinkFace } from "@/lib/data/faces";
+import { ensureSelf } from "@/lib/data/family";
 import { immichConnection, immichFor } from "@/lib/immich";
 import { immichAvatarRef } from "@/lib/immich-urls";
 import { tenantQuery } from "@/lib/session";
@@ -130,12 +131,33 @@ export async function setAvatarFace(contactId: string, personId: string | null) 
   revalidatePerson(contactId);
 }
 
+/**
+ * Pick your own face. It's also linked to your own entry, so "You" gets your photo as an
+ * avatar and your profile shows your photos. Picking a different face moves the link.
+ */
 export async function setSelfFace(personId: string | null): Promise<{ error?: string }> {
   if (personId && !uuid.safeParse(personId).success) return { error: "Unknown face" };
-  await tenantQuery(async (tx, user) => {
+  const result = await tenantQuery(async (tx, user) => {
+    const conn = await immichConnection(tx, user.id);
+    if (!conn) return { error: "Connect Immich in Settings first" };
+    let person = null;
+    if (personId) {
+      const immich = await immichFor(tx, user.id);
+      try {
+        person = await immich!.person(personId);
+      } catch (err) {
+        return { error: err instanceof ImmichError && err.status === 404 ? "That face is gone from Immich" : "Couldn't reach Immich" };
+      }
+    }
+    const selfId = await ensureSelf(tx, user);
+    if (conn.selfPersonId && conn.selfPersonId !== personId) await unlinkFace(tx, selfId, conn.selfPersonId);
     await tx.update(immichConnections).set({ selfPersonId: personId }).where(eq(immichConnections.userId, user.id));
+    if (person) await linkFaces(tx, user.tenantId, selfId, [person]);
+    return { selfId };
   });
+  if ("error" in result) return result;
   revalidatePath("/settings");
+  revalidatePerson(result.selfId);
   return {};
 }
 
