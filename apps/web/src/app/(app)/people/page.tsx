@@ -35,9 +35,10 @@ export default async function PeoplePage({ searchParams }: PageProps<"/people">)
   const city = str(params.city);
   const interest = str(params.interest);
   const overdue = params.overdue === "1";
-  const filtered = Boolean(query || month || city || interest || overdue);
+  const circle = /^[0-9a-f-]{36}$/.test(str(params.circle)) ? str(params.circle) : "";
+  const filtered = Boolean(query || month || city || interest || overdue || circle);
   const [people, options] = await Promise.all([
-    listPeople({ tier: activeTier, q: query, month: month && month >= 1 && month <= 12 ? month : undefined, city, interest, overdue }),
+    listPeople({ tier: activeTier, q: query, month: month && month >= 1 && month <= 12 ? month : undefined, city, interest, overdue, circleId: circle || undefined }),
     filterOptions(),
   ]);
   // Keep the other filters when switching tiers.
@@ -49,6 +50,7 @@ export default async function PeoplePage({ searchParams }: PageProps<"/people">)
     if (city) sp.set("city", city);
     if (interest) sp.set("interest", interest);
     if (overdue) sp.set("overdue", "1");
+    if (circle) sp.set("circle", circle);
     const qs = sp.toString();
     return `/people${qs ? `?${qs}` : ""}`;
   };
@@ -79,6 +81,7 @@ export default async function PeoplePage({ searchParams }: PageProps<"/people">)
           {city && <input type="hidden" name="city" value={city} />}
           {interest && <input type="hidden" name="interest" value={interest} />}
           {overdue && <input type="hidden" name="overdue" value="1" />}
+          {circle && <input type="hidden" name="circle" value={circle} />}
           <Search className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground" />
           <input
             name="q"
@@ -104,9 +107,10 @@ export default async function PeoplePage({ searchParams }: PageProps<"/people">)
       </div>
 
       <PeopleFilters
-        values={{ q: query, tier: activeTier ?? "", month: month ? String(month) : "", city, interest, overdue }}
+        values={{ q: query, tier: activeTier ?? "", month: month ? String(month) : "", city, interest, circle, overdue }}
         cities={options.cities}
         interests={options.interests}
+        circles={options.circles}
       />
 
       {people.length === 0 ? (

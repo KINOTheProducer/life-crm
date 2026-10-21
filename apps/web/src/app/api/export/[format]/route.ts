@@ -32,6 +32,12 @@ const tables = {
   memoryPeople: schema.memoryPeople,
   memoryAssets: schema.memoryAssets,
   contactFaces: schema.contactFaces,
+  gifts: schema.gifts,
+  lifeEvents: schema.lifeEvents,
+  tasks: schema.tasks,
+  debts: schema.debts,
+  circles: schema.circles,
+  circleMembers: schema.circleMembers,
 } as const;
 
 async function liveIds(tx: Tx) {

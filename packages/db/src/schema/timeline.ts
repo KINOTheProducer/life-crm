@@ -103,7 +103,7 @@ export const interactionPeople = pgTable(
   ],
 ).enableRLS();
 
-export const timelineKinds = ["created", "note", "interaction", "fact", "date", "voice", "milestone", "memory"] as const;
+export const timelineKinds = ["created", "note", "interaction", "fact", "date", "voice", "milestone", "memory", "gift", "life_event"] as const;
 export type TimelineKind = (typeof timelineKinds)[number];
 
 /**

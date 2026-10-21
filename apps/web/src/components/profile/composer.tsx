@@ -1,18 +1,19 @@
 "use client";
 
-import { interactionTypeLabels, interactionTypes } from "@life-crm/core";
+import { interactionTypeLabels, interactionTypes, lifeEventTypeLabels, lifeEventTypes, sensitiveLifeEvents, type LifeEventType } from "@life-crm/core";
 import { useActionState, useEffect, useRef, useState } from "react";
 import { addNote, logInteraction, type FormState } from "@/app/(app)/people/[id]/actions";
+import { addLifeEvent } from "@/app/(app)/people/[id]/practical-actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { selectClass } from "@/lib/forms";
+import { nameInputProps, selectClass } from "@/lib/forms";
 import { cn } from "@/lib/utils";
 
 const fieldClass =
   "w-full rounded-xl border border-input bg-card px-3.5 py-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
 
-type Tab = "note" | "interaction";
-const hashes: Record<string, Tab> = { "#note": "note", "#catch-up": "interaction" };
+type Tab = "note" | "interaction" | "event";
+const hashes: Record<string, Tab> = { "#note": "note", "#catch-up": "interaction", "#life-event": "event" };
 
 function clearHash() {
   // So the header button opens it again next time.
@@ -20,8 +21,8 @@ function clearHash() {
 }
 
 /**
- * Add a note or log a catch-up above a person's timeline. Closed until opened with a `#note` or
- * `#catch-up` link, so the page leads with the timeline.
+ * Add a note, log a catch-up or record a life event above a person's timeline. Closed until
+ * opened with a `#note`, `#catch-up` or `#life-event` link, so the page leads with the timeline.
  */
 export function Composer({ contactId, firstName, today }: { contactId: string; firstName: string; today: string }) {
   const [tab, setTab] = useState<Tab | null>(null);
@@ -40,6 +41,12 @@ export function Composer({ contactId, firstName, today }: { contactId: string; f
     if (state.ok) close();
     return state;
   }, {});
+  const [eventState, eventAction, eventPending] = useActionState(async (prev: FormState, form: FormData) => {
+    const state = await addLifeEvent(contactId, prev, form);
+    if (state.ok) close();
+    return state;
+  }, {});
+  const [eventType, setEventType] = useState<LifeEventType>("new_job");
   const root = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -58,8 +65,9 @@ export function Composer({ contactId, firstName, today }: { contactId: string; f
   }, []);
 
   if (!tab) {
-    // Something the note did besides being saved, like setting a birthday.
-    return noteState.message ? <p className="text-sm text-muted-foreground">{noteState.message}</p> : null;
+    // Something saving did besides the obvious, like setting a birthday or a check-in reminder.
+    const message = (noteState.ok ?? 0) > (eventState.ok ?? 0) ? noteState.message : eventState.message;
+    return message ? <p className="text-sm text-muted-foreground">{message}</p> : null;
   }
 
   return (
@@ -70,6 +78,7 @@ export function Composer({ contactId, firstName, today }: { contactId: string; f
             [
               ["note", "Note"],
               ["interaction", "Log a catch-up"],
+              ["event", "Life event"],
             ] as const
           ).map(([key, label]) => (
             <button
@@ -112,6 +121,40 @@ export function Composer({ contactId, firstName, today }: { contactId: string; f
             {notePending ? "Saving…" : "Add note"}
           </Button>
         </form>
+      ) : tab === "event" ? (
+        <form action={eventAction} className="grid gap-3">
+          <div className="grid grid-cols-[1fr_1fr_2fr] gap-2">
+            <select
+              name="type"
+              aria-label="What happened"
+              value={eventType}
+              onChange={(e) => setEventType(e.target.value as LifeEventType)}
+              className={selectClass}
+            >
+              {lifeEventTypes.map((t) => (
+                <option key={t} value={t}>
+                  {lifeEventTypeLabels[t]}
+                </option>
+              ))}
+            </select>
+            <Input name="date" type="date" aria-label="When" defaultValue={today} required />
+            <Input name="title" placeholder={eventPlaceholders[eventType]} maxLength={200} />
+          </div>
+          {eventType === "baby" && (
+            <Input name="babyName" placeholder="Baby's first name, to add them to the tree (optional)" maxLength={100} {...nameInputProps} />
+          )}
+          <textarea name="notes" rows={2} maxLength={2000} placeholder="Anything to remember (optional)" className={fieldClass} />
+          {sensitiveLifeEvents.includes(eventType) && (
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" name="checkIn" defaultChecked className="size-4 accent-foreground" />
+              Remind me to check in on {firstName} every week
+            </label>
+          )}
+          {eventState.error && <p className="text-sm text-destructive">{eventState.error}</p>}
+          <Button type="submit" className="justify-self-start" disabled={eventPending}>
+            {eventPending ? "Saving…" : "Save"}
+          </Button>
+        </form>
       ) : (
         <form action={ixAction} className="grid gap-3">
           <div className="grid grid-cols-[1fr_1fr_2fr] gap-2">
@@ -135,3 +178,18 @@ export function Composer({ contactId, firstName, today }: { contactId: string; f
     </section>
   );
 }
+
+const eventPlaceholders: Record<LifeEventType, string> = {
+  new_job: "Where, e.g. Started at Shopify",
+  moved: "Where to, e.g. Moved to Vancouver",
+  engaged: "Details (optional)",
+  married: "Details (optional)",
+  baby: "Details (optional)",
+  graduated: "From what (optional)",
+  new_pet: "Name and kind (optional)",
+  loss: "Who, e.g. Lost her dad",
+  illness: "What (optional)",
+  retired: "From what (optional)",
+  big_trip: "Where to (optional)",
+  other: "What happened",
+};
