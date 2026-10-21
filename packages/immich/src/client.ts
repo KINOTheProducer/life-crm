@@ -72,6 +72,7 @@ const assetSchema = z
     id: z.string(),
     type: z.string(),
     originalFileName: z.string().optional(),
+    originalMimeType: z.string().nullish(),
     localDateTime: z.string().nullish(),
     fileCreatedAt: z.string().nullish(),
     isTrashed: z.boolean().optional(),
@@ -101,8 +102,22 @@ const toPerson = (p: z.infer<typeof personSchema>): ImmichPerson => ({
 
 const hidden = new Set(["archive", "hidden", "locked"]);
 
+/** Camera RAW extensions. Shot RAW+JPEG, these are the same photo twice, so skip them. */
+const rawExtensions = new Set([
+  "3fr", "ari", "arw", "bay", "cr2", "cr3", "crw", "dcr", "dng", "erf", "fff", "iiq", "k25", "kdc",
+  "mef", "mos", "mrw", "nef", "nrw", "orf", "ori", "pef", "raf", "raw", "rw2", "rwl", "sr2", "srf", "srw", "x3f",
+]);
+
+function isRaw(a: z.infer<typeof assetSchema>) {
+  // Immich reports RAW as "image/x-nikon-nef", "image/x-adobe-dng" and so on.
+  const fromMime = /^image\/x-.*-(\w+)$/.exec(a.originalMimeType?.toLowerCase() ?? "")?.[1];
+  const fromName = a.originalFileName?.split(".").pop()?.toLowerCase();
+  return [fromMime, fromName].some((ext) => ext != null && rawExtensions.has(ext));
+}
+
 function toAsset(a: z.infer<typeof assetSchema>): ImmichAsset | null {
   if (a.isTrashed || a.isArchived || (a.visibility && hidden.has(a.visibility))) return null;
+  if (isRaw(a)) return null;
   const local = a.localDateTime ?? a.fileCreatedAt ?? null;
   return {
     id: a.id,
