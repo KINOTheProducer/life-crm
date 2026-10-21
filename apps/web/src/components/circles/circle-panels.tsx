@@ -7,7 +7,7 @@ import { useActionState, useState, useTransition } from "react";
 import { deleteCircle, logGroupCatchup, saveMembers, updateCircle } from "@/app/(app)/circles/actions";
 import type { FormState } from "@/app/(app)/people/[id]/actions";
 import { Avatar } from "@/components/avatar";
-import { PeoplePicker } from "@/components/people-picker";
+import { PeoplePicker, type PickerPerson } from "@/components/people-picker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { selectClass, textareaClass } from "@/lib/forms";
@@ -61,7 +61,7 @@ export function MembersEditor({
   onDone,
 }: {
   circleId: string;
-  people: { id: string; name: string }[];
+  people: PickerPerson[];
   members: string[];
   onDone: () => void;
 }) {
@@ -94,7 +94,7 @@ export function CircleMembers({
   avatars,
 }: {
   circleId: string;
-  people: { id: string; name: string }[];
+  people: PickerPerson[];
   members: { id: string; name: string; detail: string; overdue: boolean }[];
   avatars: Record<string, string | null>;
 }) {

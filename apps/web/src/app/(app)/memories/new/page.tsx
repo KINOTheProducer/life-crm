@@ -9,7 +9,7 @@ import { tenantQuery } from "@/lib/session";
 export default async function NewMemoryPage({ searchParams }: PageProps<"/memories/new">) {
   const { person } = await searchParams;
   const { people, today } = await tenantQuery(async (tx, user) => ({
-    people: (await contactOptions(tx)).map(({ id, name }) => ({ id, name })),
+    people: (await contactOptions(tx)).map(({ id, name, nickname, avatarRef }) => ({ id, name, nickname, avatarRef })),
     today: toIsoDate(todayIn(user.timeZone)),
   }));
   const preselect = typeof person === "string" && people.some((p) => p.id === person) ? [person] : [];

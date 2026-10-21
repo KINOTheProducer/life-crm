@@ -10,13 +10,15 @@ export function fullName(c: { firstName: string; lastName: string | null }) {
   return [c.firstName, c.lastName].filter(Boolean).join(" ");
 }
 
-/** Every person with their birthday, for pickers. */
+/** Every person with their birthday, nickname and avatar, for pickers. */
 export async function contactOptions(tx: Tx) {
   const rows = await tx
     .select({
       id: contacts.id,
       firstName: contacts.firstName,
       lastName: contacts.lastName,
+      nickname: contacts.nickname,
+      avatarRef: contacts.avatarRef,
       year: importantDates.year,
       month: importantDates.month,
       day: importantDates.day,
@@ -28,6 +30,8 @@ export async function contactOptions(tx: Tx) {
   return rows.map((r) => ({
     id: r.id,
     name: fullName(r),
+    nickname: r.nickname,
+    avatarRef: r.avatarRef,
     birthday: r.month && r.day ? { year: r.year, month: r.month, day: r.day } : null,
   }));
 }

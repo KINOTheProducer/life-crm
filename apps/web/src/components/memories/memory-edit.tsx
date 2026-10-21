@@ -5,6 +5,7 @@ import { useState, useTransition } from "react";
 import { deleteMemory } from "@/app/(app)/memories/actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import type { PickerPerson } from "@/components/people-picker";
 import { MemoryForm, type MemoryFormValues } from "./memory-form";
 
 /** Edit and delete controls; the form opens in place of the details. */
@@ -17,7 +18,7 @@ export function MemoryEdit({
 }: {
   memoryId: string;
   values: MemoryFormValues;
-  people: { id: string; name: string }[];
+  people: PickerPerson[];
   today: string;
   children: React.ReactNode;
 }) {
