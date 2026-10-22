@@ -5,12 +5,13 @@ import { and, eq, schema } from "@life-crm/db";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { addAddress as insertAddress, addMethods } from "@/lib/data/contact-info";
-import { contactInTenant } from "@/lib/data/family";
+import { contactInTenant, householdOf } from "@/lib/data/family";
 import { tenantQuery } from "@/lib/session";
 
 export interface ContactFormState {
   error?: string;
   ok?: number;
+  message?: string;
 }
 
 const { addresses, contactMethods, contacts } = schema;
@@ -99,14 +100,20 @@ export async function addContactAddress(contactId: string, _prev: ContactFormSta
   if (!uuid.safeParse(contactId).success) return { error: "Person not found" };
   const parsed = addressSchema.safeParse(Object.fromEntries(form));
   if (!parsed.success) return { error: "Something in that address is too long" };
-  const added = await tenantQuery(async (tx, user) => {
+  const alsoFor = form.getAll("alsoFor").map(String);
+  const result = await tenantQuery(async (tx, user) => {
     if (!(await contactInTenant(tx, contactId))) return null;
-    return insertAddress(tx, user.tenantId, contactId, parsed.data);
+    if (!(await insertAddress(tx, user.tenantId, contactId, parsed.data))) return false;
+    // Only people who are actually in their household, whatever the form sent.
+    const household = (await householdOf(tx, contactId)).filter((m) => alsoFor.includes(m.id));
+    for (const m of household) await insertAddress(tx, user.tenantId, m.id, parsed.data);
+    return household;
   });
-  if (added === null) return { error: "Person not found" };
-  if (!added) return { error: "Add at least a city, or it's already there" };
+  if (result === null) return { error: "Person not found" };
+  if (!result) return { error: "Add at least a city, or it's already there" };
   revalidatePath(`/people/${contactId}`);
-  return { ok: Date.now() };
+  for (const m of result) revalidatePath(`/people/${m.id}`);
+  return { ok: Date.now(), message: result.length ? `Also added for ${result.map((m) => m.name).join(", ")}.` : undefined };
 }
 
 export async function removeContactAddress(contactId: string, addressId: string) {

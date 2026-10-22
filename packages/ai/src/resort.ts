@@ -1,11 +1,11 @@
-import { factCategories, importantDateKinds, isValidPartialDate, milestoneKinds } from "@life-crm/core";
+import { factCategories, importantDateKinds, isValidPartialDate, milestoneKinds, personRelations } from "@life-crm/core";
 import { z } from "zod";
 import type { KnownPerson } from "./extraction";
 import { stripEmDashes } from "./types";
 
 // Looking again at what's already saved about someone and suggesting a better home for it.
 // Each saved item is either left alone, rewritten in place, moved somewhere else (possibly
-// split up), or dropped as a duplicate of another saved item. Never copied.
+// split up, and across people), or dropped as a duplicate of another saved item. Never copied.
 
 export const resortTargetKinds = ["fact", "note", "date", "milestone"] as const;
 
@@ -19,6 +19,16 @@ const target = z.object({
   month: z.number().int().nullable(),
   day: z.number().int().nullable(),
   year: z.number().int().nullable(),
+  personId: z.string().nullable().describe("Known person id when this part is really about them. Null for the subject or a new person."),
+  newPerson: z
+    .object({
+      firstName: z.string(),
+      lastName: z.string().nullable(),
+      relation: z.enum(personRelations).describe("What they are to the subject."),
+      relationLabel: z.string().nullable().describe('In the item\'s words, e.g. "Older brother", "Cousin".'),
+    })
+    .nullable()
+    .describe("When this part is about someone named who isn't in the known people list. Use the same name each time they come up."),
 });
 
 export const resortSchema = z.object({
@@ -27,8 +37,7 @@ export const resortSchema = z.object({
       id: z.string().describe('The saved item\'s id, e.g. "f3".'),
       reason: z.string().describe("One short sentence on why, shown to the user."),
       duplicateOf: z.string().nullable().describe("Id of another saved item that already says the same thing. into is then empty."),
-      personId: z.string().nullable().describe("Known person id when this is really about them, otherwise null for the subject."),
-      into: z.array(target).describe("What the item becomes. Several entries to split it up."),
+      into: z.array(target).describe("What the item becomes. Several entries to split it up, each on whoever it's about."),
     }),
   ),
 });
@@ -60,7 +69,8 @@ Possible changes:
 - A better category or label for a fact. Statements are facts, not things to ask about: "Loves bouldering" is an interest, not follow_up. follow_up is only for something to ask about, check in on, or still open.
 - A note that holds facts or dates becomes those facts or dates, split up. Keep any part that isn't a fact as a shorter note in the same change.
 - A fact that is really a yearly date (with a month and day) becomes a date. When the subject is the user's partner, dates about their relationship become milestones.
-- A fact or note that is really about someone else in the known people list moves to them (personId).
+- A fact, note or date that is really about someone else moves to them. Use personId for someone in the known people list. For someone named who isn't in the list ("her brother Jake loves fishing"), fill newPerson with their name and what they are to the subject, and they'll be added. When an item mixes the subject and other people, split it so each part goes to whoever it's about.
+- Only move things to people who are named. Something about an unnamed relative ("her mom is a nurse") stays on the subject as a family fact whose label says who it's about ("Mom's job").
 - An item that says the same thing as another saved item is a duplicate: set duplicateOf to the one to keep (the more complete one) and leave into empty.
 
 Rules:
@@ -91,6 +101,7 @@ ${input.items.map((i) => `- ${i.id} [${i.kind}] ${i.text}`).join("\n")}`;
 }
 
 function validTarget(t: ResortTarget, isPartner: boolean): boolean {
+  if (t.newPerson && !t.newPerson.firstName.trim()) return false;
   const date = t.month != null && t.day != null && isValidPartialDate({ month: t.month, day: t.day, year: t.year });
   switch (t.kind) {
     case "fact":
@@ -100,7 +111,8 @@ function validTarget(t: ResortTarget, isPartner: boolean): boolean {
     case "date":
       return date && !!t.dateKind && !!t.label?.trim();
     case "milestone":
-      return isPartner && date && !!t.milestone;
+      // Milestones belong to the relationship, so only ever on the subject.
+      return isPartner && !t.personId && !t.newPerson && date && !!t.milestone;
   }
 }
 
@@ -111,7 +123,10 @@ function validTarget(t: ResortTarget, isPartner: boolean): boolean {
 export function sanitizeResort(output: Resort, input: ResortInput): Resort {
   const raw = stripEmDashes(output);
   const ids = new Set(input.items.map((i) => i.id));
-  const people = new Set(input.knownPeople.map((p) => p.id).filter((id) => id !== input.subject.id));
+  const others = input.knownPeople.filter((p) => p.id !== input.subject.id);
+  const people = new Set(others.map((p) => p.id));
+  // A "new" person who is already known by full name is that person.
+  const byName = new Map(others.map((p) => [p.name.trim().toLowerCase(), p.id]));
   const isPartner = !!input.subject.partnerLabel;
   const touched = new Set<string>();
   const dropped = new Set<string>();
@@ -119,19 +134,26 @@ export function sanitizeResort(output: Resort, input: ResortInput): Resort {
 
   for (const c of raw.changes) {
     if (!ids.has(c.id) || touched.has(c.id)) continue;
-    const personId = c.personId && people.has(c.personId) ? c.personId : null;
     if (c.duplicateOf) {
       // Keep chains out: the one kept can't itself be dropped.
       if (c.duplicateOf === c.id || !ids.has(c.duplicateOf) || dropped.has(c.duplicateOf)) continue;
       touched.add(c.id);
       dropped.add(c.id);
-      changes.push({ ...c, personId: null, into: [] });
+      changes.push({ ...c, into: [] });
       continue;
     }
-    const into = c.into.filter((t) => validTarget(t, isPartner && !personId));
+    const into = c.into
+      .map((t) => {
+        const personId = t.personId && people.has(t.personId) ? t.personId : null;
+        if (personId || !t.newPerson) return { ...t, personId, newPerson: null };
+        const name = [t.newPerson.firstName, t.newPerson.lastName].filter(Boolean).join(" ").trim().toLowerCase();
+        const known = byName.get(name);
+        return known ? { ...t, personId: known, newPerson: null } : t;
+      })
+      .filter((t) => validTarget(t, isPartner));
     if (into.length === 0) continue;
     touched.add(c.id);
-    changes.push({ ...c, personId, into });
+    changes.push({ ...c, into });
   }
   return { changes };
 }

@@ -43,7 +43,7 @@ export const extractionSchema = z.object({
   interaction: z
     .object({
       type: z.enum(interactionTypes),
-      date: z.string().describe("YYYY-MM-DD, resolved against today's date."),
+      date: z.string().describe("YYYY-MM-DD, resolved against the date the note was recorded."),
       location: z.string().nullable(),
       summary: z.string().describe("One or two sentences on what happened, in first person: \"Grabbed coffee and caught up on her new job.\""),
       participantRefs: z.array(z.string()).describe("refs of people who were part of it."),
@@ -63,7 +63,10 @@ export interface KnownPerson {
 
 export interface ExtractionInput {
   transcript: string;
-  /** User's local date, YYYY-MM-DD. */
+  /**
+   * The day the note was recorded in the user's time zone, YYYY-MM-DD. "Yesterday" is
+   * relative to this, not to when it's processed, so re-reading an old note lands on the same days.
+   */
   today: string;
   timeZone: string;
   knownPeople: KnownPerson[];
@@ -105,7 +108,12 @@ export function sanitizeExtraction(output: Extraction, input: ExtractionInput): 
     interaction =
       participantRefs.length === 0
         ? null
-        : { ...interaction, participantRefs, date: isoDate.test(interaction.date) ? interaction.date : input.today };
+        : {
+            ...interaction,
+            participantRefs,
+            // A catch-up can't happen after the note about it was recorded.
+            date: isoDate.test(interaction.date) && interaction.date <= input.today ? interaction.date : input.today,
+          };
   }
   return { people, interaction };
 }

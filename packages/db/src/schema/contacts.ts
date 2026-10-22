@@ -18,11 +18,6 @@ export const contacts = pgTable(
       .default("friend"),
     keepInTouchDays: integer("keep_in_touch_days"),
     howMet: text("how_met"),
-    /** When you met, as precisely as anyone remembers. Drives the start of their bar on the life timeline. */
-    metYear: smallint("met_year"),
-    metMonth: smallint("met_month"),
-    /** The year you drifted apart for good, if you did. Ends their bar. */
-    lostTouchYear: smallint("lost_touch_year"),
     company: text("company"),
     jobTitle: text("job_title"),
     /** UID a CardDAV client gave the contact, kept so its vCard round-trips. Defaults to our id. */
@@ -120,4 +115,26 @@ export const addresses = pgTable(
     ...timestamps,
   },
   (t) => [index("addresses_contact_idx").on(t.contactId), index("addresses_city_idx").on(t.tenantId, t.city), tenantIsolation("addresses")],
+).enableRLS();
+
+/**
+ * Stretches of time someone has been in your life: when you met, and when you lost touch if
+ * you did. More than one when you drifted apart and caught back up. No end means still now.
+ */
+export const contactPeriods = pgTable(
+  "contact_periods",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: tenantId(),
+    contactId: uuid("contact_id")
+      .notNull()
+      .references(() => contacts.id, { onDelete: "cascade" }),
+    /** Null only for periods carried over from before, where you'd said when you lost touch but not when you met. */
+    startYear: smallint("start_year"),
+    startMonth: smallint("start_month"),
+    endYear: smallint("end_year"),
+    endMonth: smallint("end_month"),
+    ...timestamps,
+  },
+  (t) => [index("contact_periods_contact_idx").on(t.contactId), tenantIsolation("contact_periods")],
 ).enableRLS();

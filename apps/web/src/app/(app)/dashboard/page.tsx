@@ -86,14 +86,15 @@ export default async function DashboardPage() {
       />
 
       {data.partners.length > 0 && (
-        <div className={cn("mb-3.5 grid gap-3.5", data.partners.length > 1 && "lg:grid-cols-2")}>
+        <div className={cn("mb-3.5 grid grid-cols-[minmax(0,1fr)] gap-3.5", data.partners.length > 1 && "lg:grid-cols-2")}>
           {data.partners.map((p) => (
             <PartnerCard key={p.contactId} partner={p} />
           ))}
         </div>
       )}
 
-      <div className="grid gap-3.5 lg:grid-cols-[1.2fr_1fr_1fr]">
+      {/* minmax(0, …) so a long note truncates instead of widening its column. */}
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-3.5 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)]">
         {/* Next birthday */}
         <section className="flex flex-col overflow-hidden rounded-3xl bg-card lg:row-span-2">
           {next ? (

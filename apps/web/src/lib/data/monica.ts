@@ -7,6 +7,7 @@ import { fullName } from "./contacts";
 import { dateToInstant, parseIsoDate } from "./dates";
 import { insertFact, insertInteraction } from "./entries";
 import { connectFriends, connectRelative } from "./family";
+import { periodsOf, setPeriods } from "./periods";
 import { insertGift, insertLifeEvent } from "./practical";
 import { recordTimeline } from "./timeline";
 
@@ -77,13 +78,16 @@ export async function applyMonicaPerson(
       pronouns: c.pronouns ?? pronounsFor(p.gender),
       isDeceased: c.isDeceased || p.isDead,
       deathYear: c.deathYear ?? p.deathYear,
-      metYear: c.metYear ?? p.met?.year ?? null,
-      metMonth: c.metYear ? c.metMonth : (p.met?.month ?? null),
       // Someone you chose a cadence for in Monica is someone you want nudges about here too.
       keepInTouchDays: c.keepInTouchDays ?? p.stayInTouchDays,
       closeness: c.keepInTouchDays == null && p.stayInTouchDays && c.closeness === "acquaintance" ? "friend" : c.closeness,
     })
     .where(eq(contacts.id, contactId));
+
+  // When you met, unless you've already said when you've known them.
+  if (p.met?.year && (await periodsOf(tx, contactId)).length === 0) {
+    await setPeriods(tx, tenantId, contactId, [{ startYear: p.met.year, startMonth: p.met.month ?? null, endYear: null, endMonth: null }]);
+  }
 
   const have = await existing(tx, contactId);
   const firstName = c.firstName;
