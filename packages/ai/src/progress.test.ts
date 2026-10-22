@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import { AnthropicExtractor } from "./anthropic";
 import type { Extraction, KnownPerson } from "./extraction";
+import { sanitizeExtraction } from "./extraction";
 import { OpenAiCompatibleExtractor } from "./openai-compatible";
+import { noEmDashes } from "./types";
 import { extractionProgress, mentionedPeople, mentionLine, parsePartialJson, type PartialExtraction } from "./progress";
 
 const knownPeople: KnownPerson[] = [
@@ -154,5 +156,18 @@ describe("streaming extraction", () => {
     const out = await extractor.extract(input, (p) => seen.push(p));
     expect(seen).toHaveLength(2);
     expect(out).toEqual(extraction);
+  });
+});
+
+describe("noEmDashes", () => {
+  it("swaps em dashes for commas, wherever the model puts them", () => {
+    expect(noEmDashes("Sarah — a nurse — ran a marathon")).toBe("Sarah, a nurse, ran a marathon");
+    expect(noEmDashes("Nurse—Sunnybrook")).toBe("Nurse, Sunnybrook");
+    expect(noEmDashes("— just this")).toBe("just this");
+  });
+
+  it("cleans every string in an extraction", () => {
+    const dashed = { ...extraction, interaction: { ...extraction.interaction!, summary: "Discord call — caught up" } };
+    expect(sanitizeExtraction(dashed, input).interaction?.summary).toBe("Discord call, caught up");
   });
 });

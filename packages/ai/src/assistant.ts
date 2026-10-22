@@ -2,7 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { z } from "zod";
 import { DEFAULT_CLAUDE_MODEL } from "./anthropic";
-import { AiError } from "./types";
+import { AiError, noEmDashes } from "./types";
 
 /**
  * Something the model can read and point back to: a fact, note, catch-up or life event.
@@ -57,6 +57,7 @@ Rules:
 - Write to the user, in second person ("your cousin", "you met at…"). Keep it to 2-4 sentences: who they are to the user, what's going on in their life lately, what they care about.
 - askAbout lists things still open that deserve a follow-up question: an interview, a surgery, a trip, a move, a new baby, a "how did it go". Skip anything already resolved by a later source or older than a year unless it's still clearly open. Cite the source ref each one comes from.
 - Be gentle with sensitive things (health, loss, breakups): phrase follow-ups kindly.
+- Never use em dashes.
 - Never write "the user". The notes are in the user's own first person ("I", "we"); turn that into "you".`;
 
 export const ASK_SYSTEM_PROMPT = `You answer the user's questions about the people in their life, using only the numbered sources from their personal relationship manager.
@@ -67,7 +68,8 @@ Rules:
 - Answer in one to three sentences, or a short list when the question asks for several people. Use people's names.
 - Put the refs of every source you relied on in refs. Don't write refs into the answer text.
 - For "when did I last…" questions, use the most recent dated source and give the date.
-- Talk to the user as "you". Never write "the user".`;
+- Talk to the user as "you". Never write "the user".
+- Never use em dashes.`;
 
 function sourceBlock(sources: Source[]) {
   return sources
@@ -97,17 +99,17 @@ Question: ${input.question}`;
 export function sanitizeSummary(raw: PersonSummary, sources: Source[]): PersonSummary {
   const refs = new Set(sources.map((s) => s.ref));
   return {
-    summary: raw.summary.trim(),
+    summary: noEmDashes(raw.summary.trim()),
     askAbout: raw.askAbout
       .filter((a) => a.text.trim() !== "")
       .slice(0, 5)
-      .map((a) => ({ text: a.text.trim(), ref: a.ref && refs.has(a.ref) ? a.ref : null })),
+      .map((a) => ({ text: noEmDashes(a.text.trim()), ref: a.ref && refs.has(a.ref) ? a.ref : null })),
   };
 }
 
 export function sanitizeAnswer(raw: Answer, sources: Source[]): Answer {
   const refs = new Set(sources.map((s) => s.ref));
-  return { answer: raw.answer.trim(), refs: [...new Set(raw.refs.filter((r) => refs.has(r)))] };
+  return { answer: noEmDashes(raw.answer.trim()), refs: [...new Set(raw.refs.filter((r) => refs.has(r)))] };
 }
 
 /** Summaries and questions over the user's own notes. */

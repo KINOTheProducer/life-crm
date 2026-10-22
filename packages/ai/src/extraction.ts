@@ -1,5 +1,6 @@
 import { factCategories, interactionTypes, isValidPartialDate } from "@life-crm/core";
 import { z } from "zod";
+import { stripEmDashes } from "./types";
 
 // Every field is required-but-nullable: structured output modes require all keys present.
 
@@ -76,7 +77,8 @@ const isoDate = /^\d{4}-\d{2}-\d{2}$/;
  * Drop anything the model got wrong in ways the schema can't express: unknown contact ids,
  * impossible birthdays, malformed dates, participant refs that point nowhere.
  */
-export function sanitizeExtraction(raw: Extraction, input: ExtractionInput): Extraction {
+export function sanitizeExtraction(output: Extraction, input: ExtractionInput): Extraction {
+  const raw = stripEmDashes(output);
   const knownIds = new Set(input.knownPeople.map((p) => p.id));
   const usedIds = new Set<string>();
 
