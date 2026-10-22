@@ -117,7 +117,8 @@ export const dismissedSuggestions = pgTable(
 ).enableRLS();
 
 export const aiProviders = ["server", "anthropic", "openai_compatible", "off"] as const;
-export const sttProviders = ["server", "openai_compatible", "off"] as const;
+/** "same_as_ai" uses the AI provider's base URL and key, with its own model. */
+export const sttProviders = ["server", "same_as_ai", "openai_compatible", "off"] as const;
 
 /**
  * A user's AI choices. "server" means whatever the instance is configured with in its
@@ -131,7 +132,10 @@ export const aiSettings = pgTable(
       .primaryKey()
       .references(() => user.id, { onDelete: "cascade" }),
     provider: text("provider", { enum: aiProviders }).notNull().default("server"),
+    /** Reading voice notes and business cards. */
     model: text("model"),
+    /** Ask and person summaries. Null means the same as `model`. */
+    chatModel: text("chat_model"),
     baseUrl: text("base_url"),
     apiKeyEnc: text("api_key_enc"),
     sttProvider: text("stt_provider", { enum: sttProviders }).notNull().default("server"),

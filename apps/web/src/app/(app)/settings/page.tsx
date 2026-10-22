@@ -82,6 +82,7 @@ export default async function SettingsPage() {
               values={{
                 provider: ai?.provider ?? "server",
                 model: ai?.model ?? "",
+                chatModel: ai?.chatModel ?? "",
                 baseUrl: ai?.baseUrl ?? "",
                 hasKey: Boolean(ai?.apiKeyEnc),
                 sttProvider: ai?.sttProvider ?? "server",

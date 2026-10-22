@@ -41,6 +41,7 @@ export async function aiConfigFor(tx: Tx, userId: string): Promise<AiConfig | nu
     apiKey: s.apiKeyEnc ? decryptSecret(s.apiKeyEnc) : undefined,
     baseUrl: s.baseUrl ?? undefined,
     model: s.model ?? undefined,
+    chatModel: s.chatModel ?? undefined,
   };
 }
 
@@ -72,6 +73,10 @@ export async function aiEnabledFor(tx: Tx, userId: string) {
 export async function transcriberForUser(tx: Tx, userId: string): Promise<Transcriber> {
   const s = await aiSettingsFor(tx, userId);
   if (s?.sttProvider === "off") throw new AiError("Speech to text is turned off in Settings.");
+  if (s?.sttProvider === "same_as_ai") {
+    if (s.provider !== "openai_compatible" || !s.baseUrl || !s.sttModel) throw new AiError("Speech to text needs an OpenAI-style AI provider and a model in Settings.");
+    return new OpenAiCompatibleTranscriber({ baseUrl: s.baseUrl, model: s.sttModel, apiKey: s.apiKeyEnc ? decryptSecret(s.apiKeyEnc) : undefined });
+  }
   if (s?.sttProvider === "openai_compatible") {
     if (!s.sttBaseUrl || !s.sttModel) throw new AiError("Speech to text needs a base URL and model in Settings.");
     return new OpenAiCompatibleTranscriber({ baseUrl: s.sttBaseUrl, model: s.sttModel, apiKey: s.sttApiKeyEnc ? decryptSecret(s.sttApiKeyEnc) : undefined });
@@ -84,7 +89,9 @@ export function describeServerAi() {
   const ai = serverAi();
   const stt = sttConfigFromEnv();
   return {
-    ai: ai ? (ai.provider === "anthropic" ? `Claude (${ai.model})${ai.apiKey ? "" : ", no API key set"}` : `${ai.model} at ${ai.baseUrl}`) : "not set up",
+    ai: ai
+      ? `${ai.provider === "anthropic" ? `Claude (${ai.model})${ai.apiKey ? "" : ", no API key set"}` : `${ai.model} at ${ai.baseUrl}`}${ai.chatModel ? `, ${ai.chatModel} for Ask and summaries` : ""}`
+      : "not set up",
     stt: `${stt.model} at ${stt.baseUrl}`,
   };
 }

@@ -1,18 +1,21 @@
 "use client";
 
-import { useActionState, useState, useTransition } from "react";
-import { saveAiSettings, testAi, type AiState } from "@/app/(app)/settings/ai-actions";
+import type { ModelOption } from "@life-crm/ai";
+import { RefreshCw } from "lucide-react";
+import { useActionState, useRef, useState, useTransition } from "react";
+import { pullModels, saveAiSettings, testAi, type AiState } from "@/app/(app)/settings/ai-actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { submitKeepingValues } from "@/lib/submit";
 import { cn } from "@/lib/utils";
 
 type Provider = "server" | "anthropic" | "openai_compatible" | "off";
-type Stt = "server" | "openai_compatible" | "off";
+type Stt = "server" | "same_as_ai" | "openai_compatible" | "off";
 
 export interface AiFormValues {
   provider: Provider;
   model: string;
+  chatModel: string;
   baseUrl: string;
   hasKey: boolean;
   sttProvider: Stt;
@@ -33,17 +36,112 @@ function Choice<T extends string>({ name, value, current, onPick, title, detail 
   );
 }
 
+const fieldClass =
+  "h-9 w-full min-w-0 rounded-full border border-input bg-transparent px-3.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
+
+/**
+ * A model name: free text until models are pulled, then a dropdown of what the provider has.
+ * The saved value stays in the list even if the provider no longer offers it.
+ */
+function ModelField({
+  name,
+  label,
+  defaultValue,
+  models,
+  placeholder,
+  required,
+  sameAs,
+}: {
+  name: string;
+  label: string;
+  defaultValue: string;
+  models: ModelOption[] | null;
+  placeholder?: string;
+  required?: boolean;
+  /** Offer a first "same as" option that saves blank. */
+  sameAs?: string;
+}) {
+  const [value, setValue] = useState(defaultValue);
+  const [typing, setTyping] = useState(false);
+  const list = models && !typing ? models : null;
+  // A required field left blank shows the first model once there's a list to pick from.
+  const shown = value || (required && list?.length ? list[0]!.id : "");
+  return (
+    <label className="grid gap-1.5 text-[13px] text-muted-foreground">
+      <span className="flex items-center justify-between gap-2">
+        {label}
+        {models && (
+          <button type="button" onClick={() => setTyping((t) => !t)} className="underline-offset-4 hover:text-foreground hover:underline">
+            {typing ? "Pick from list" : "Type a name"}
+          </button>
+        )}
+      </span>
+      {list ? (
+        <select name={name} value={shown} onChange={(e) => setValue(e.target.value)} required={required} className={fieldClass}>
+          {sameAs !== undefined ? <option value="">{sameAs}</option> : !shown && <option value="">Default</option>}
+          {shown && !list.some((m) => m.id === shown) && <option value={shown}>{shown} (saved)</option>}
+          {list.map((m) => (
+            <option key={m.id} value={m.id}>
+              {m.label === m.id ? m.id : `${m.label} (${m.id})`}
+            </option>
+          ))}
+        </select>
+      ) : (
+        <Input name={name} value={value} onChange={(e) => setValue(e.target.value)} placeholder={placeholder} required={required} />
+      )}
+    </label>
+  );
+}
+
+function PullButton({ onPull, pending }: { onPull: () => void; pending: boolean }) {
+  return (
+    <Button type="button" variant="outline" size="sm" onClick={onPull} disabled={pending}>
+      <RefreshCw className={pending ? "animate-spin" : undefined} />
+      {pending ? "Pulling…" : "Pull available models"}
+    </Button>
+  );
+}
+
 export function AiSettingsForm({ values, server }: { values: AiFormValues; server: { ai: string; stt: string } }) {
   const [state, action, pending] = useActionState<AiState, FormData>(saveAiSettings, {});
   const [test, setTest] = useState<AiState | null>(null);
   const [testing, startTest] = useTransition();
   const [provider, setProvider] = useState<Provider>(values.provider);
   const [stt, setStt] = useState<Stt>(values.sttProvider);
+  const form = useRef<HTMLFormElement>(null);
+  // Pulled lists belong to the provider they came from; picking another clears them.
+  const [aiModels, setAiModels] = useState<{ provider: Provider; models: ModelOption[]; speech: ModelOption[] } | null>(null);
+  const [sttModels, setSttModels] = useState<ModelOption[] | null>(null);
+  const [pullError, setPullError] = useState<{ kind: "ai" | "stt"; message: string } | null>(null);
+  const [pullingAi, startPullAi] = useTransition();
+  const [pullingStt, startPullStt] = useTransition();
+
+  const pull = (kind: "ai" | "stt") => {
+    const data = new FormData(form.current!);
+    const field = (n: string) => String(data.get(n) ?? "");
+    const run = kind === "ai" ? startPullAi : startPullStt;
+    run(async () => {
+      setPullError(null);
+      const res = await pullModels(
+        kind === "ai"
+          ? { kind, provider, baseUrl: field("baseUrl"), apiKey: field("apiKey") }
+          : { kind, provider: "openai_compatible", baseUrl: field("sttBaseUrl"), apiKey: field("sttApiKey") },
+      );
+      if (res.error || !res.models) setPullError({ kind, message: res.error ?? "No models found" });
+      else if (kind === "ai") setAiModels({ provider, models: res.models, speech: res.speech ?? [] });
+      else setSttModels(res.models);
+    });
+  };
+  const pulled = aiModels?.provider === provider ? aiModels.models : null;
+  // Only an OpenAI-style endpoint can also transcribe; with anything else, sharing falls back to the server.
+  const canShare = provider === "openai_compatible";
+  const sttChoice: Stt = stt === "same_as_ai" && !canShare ? "server" : stt;
+  const sttFromAi = sttChoice === "same_as_ai";
 
   return (
-    <form onSubmit={submitKeepingValues(action)} className="grid gap-6">
+    <form ref={form} onSubmit={submitKeepingValues(action)} className="grid gap-6">
       <fieldset className="grid gap-2">
-        <legend className="mb-2 text-sm font-medium">Reading voice notes and business cards</legend>
+        <legend className="mb-2 text-sm font-medium">AI for notes, cards, Ask and summaries</legend>
         <Choice name="provider" value="server" current={provider} onPick={setProvider} title="This server's setup" detail={server.ai} />
         <Choice name="provider" value="anthropic" current={provider} onPick={setProvider} title="Claude with my own key" detail="Your notes go to Anthropic under your account." />
         <Choice
@@ -65,45 +163,98 @@ export function AiSettingsForm({ values, server }: { values: AiFormValues; serve
               <Input name="baseUrl" type="url" defaultValue={values.baseUrl} placeholder="http://192.168.1.10:11434/v1" required />
             </label>
           )}
-          <label className="grid gap-1.5 text-[13px] text-muted-foreground">
-            Model
-            <Input name="model" defaultValue={values.model} placeholder={provider === "anthropic" ? "Leave blank for the default" : "qwen2.5vl:7b"} required={provider === "openai_compatible"} />
-          </label>
-          <label className="grid gap-1.5 text-[13px] text-muted-foreground">
+          <label className="grid gap-1.5 text-[13px] text-muted-foreground sm:col-span-2">
             API key
             <Input name="apiKey" type="password" autoComplete="off" placeholder={values.hasKey && values.provider === provider ? "Saved. Paste a new one to replace it" : provider === "anthropic" ? "sk-ant-…" : "If your server needs one"} />
           </label>
-          {provider === "openai_compatible" && <p className="text-[13px] text-muted-foreground sm:col-span-2">Card scans need a model that can read images.</p>}
+          <div className="flex flex-wrap items-center gap-3 sm:col-span-2">
+            <PullButton onPull={() => pull("ai")} pending={pullingAi} />
+            {pulled && <span className="text-[13px] text-muted-foreground">{new Set([...pulled, ...(aiModels?.speech ?? [])].map((m) => m.id)).size} models, used for every dropdown below</span>}
+            {pullError?.kind === "ai" && <span className="text-[13px] text-destructive">{pullError.message}</span>}
+          </div>
+          <ModelField
+            key={`model-${provider}`}
+            name="model"
+            label="Voice notes, cards and imports"
+            defaultValue={values.provider === provider ? values.model : ""}
+            models={pulled}
+            placeholder={provider === "anthropic" ? "Leave blank for the default" : "qwen2.5vl:7b"}
+            required={provider === "openai_compatible"}
+          />
+          <ModelField
+            key={`chat-${provider}`}
+            name="chatModel"
+            label="Ask and summaries"
+            defaultValue={values.provider === provider ? values.chatModel : ""}
+            models={pulled}
+            placeholder="Blank uses the same model"
+            sameAs="Same as voice notes"
+          />
+          <p className="text-[13px] text-muted-foreground sm:col-span-2">
+            A small, quick model is fine for reading notes{provider === "openai_compatible" && " (card scans need one that can read images)"}. Ask and summaries do better with a stronger one.
+          </p>
         </div>
       )}
 
       <fieldset className="grid gap-2">
         <legend className="mb-2 text-sm font-medium">Speech to text</legend>
-        <Choice name="sttProvider" value="server" current={stt} onPick={setStt} title="This server's setup" detail={server.stt} />
+        {canShare && (
+          <Choice
+            name="sttProvider"
+            value="same_as_ai"
+            current={sttChoice}
+            onPick={setStt}
+            title="Same endpoint as above"
+            detail="Pick a whisper or other transcription model from the same server."
+          />
+        )}
+        <Choice name="sttProvider" value="server" current={sttChoice} onPick={setStt} title="This server's setup" detail={server.stt} />
         <Choice
           name="sttProvider"
           value="openai_compatible"
-          current={stt}
+          current={sttChoice}
           onPick={setStt}
-          title="My own"
+          title="A different endpoint"
           detail="Any /audio/transcriptions endpoint: a local Whisper (speaches), OpenAI, Groq."
         />
-        <Choice name="sttProvider" value="off" current={stt} onPick={setStt} title="Off" detail="Voice notes are turned off." />
+        <Choice name="sttProvider" value="off" current={sttChoice} onPick={setStt} title="Off" detail="Voice notes are turned off." />
       </fieldset>
-      {stt === "openai_compatible" && (
+      {sttFromAi && (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <ModelField
+            name="sttModel"
+            label="Speech to text model"
+            defaultValue={values.sttProvider === "same_as_ai" ? values.sttModel : ""}
+            models={aiModels?.provider === provider ? aiModels.speech : null}
+            placeholder="whisper-1"
+            required
+          />
+          <p className="self-end pb-2 text-[13px] text-muted-foreground">{pulled ? "From the models pulled above." : "Pull models above to pick from a list."}</p>
+        </div>
+      )}
+      {sttChoice === "openai_compatible" && (
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="grid gap-1.5 text-[13px] text-muted-foreground sm:col-span-2">
             Base URL
             <Input name="sttBaseUrl" type="url" defaultValue={values.sttBaseUrl} placeholder="http://192.168.1.10:8000/v1" required />
           </label>
-          <label className="grid gap-1.5 text-[13px] text-muted-foreground">
-            Model
-            <Input name="sttModel" defaultValue={values.sttModel} placeholder="Systran/faster-whisper-small" required />
-          </label>
-          <label className="grid gap-1.5 text-[13px] text-muted-foreground">
+          <label className="grid gap-1.5 text-[13px] text-muted-foreground sm:col-span-2">
             API key
             <Input name="sttApiKey" type="password" autoComplete="off" placeholder={values.hasSttKey ? "Saved. Paste a new one to replace it" : "If needed"} />
           </label>
+          <div className="flex flex-wrap items-center gap-3 sm:col-span-2">
+            <PullButton onPull={() => pull("stt")} pending={pullingStt} />
+            {sttModels && <span className="text-[13px] text-muted-foreground">{sttModels.length} models</span>}
+            {pullError?.kind === "stt" && <span className="text-[13px] text-destructive">{pullError.message}</span>}
+          </div>
+          <ModelField
+            name="sttModel"
+            label="Model"
+            defaultValue={values.sttProvider === "openai_compatible" ? values.sttModel : ""}
+            models={sttModels}
+            placeholder="Systran/faster-whisper-small"
+            required
+          />
         </div>
       )}
 

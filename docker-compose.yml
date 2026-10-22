@@ -34,6 +34,7 @@ services:
       AI_PROVIDER: ${AI_PROVIDER:-anthropic}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       AI_MODEL: ${AI_MODEL:-}
+      AI_CHAT_MODEL: ${AI_CHAT_MODEL:-}
       AI_BASE_URL: ${AI_BASE_URL:-}
       AI_API_KEY: ${AI_API_KEY:-}
       STT_BASE_URL: ${STT_BASE_URL:-http://whisper:8000/v1}
