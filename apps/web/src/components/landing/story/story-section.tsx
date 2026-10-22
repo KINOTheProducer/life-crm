@@ -16,6 +16,13 @@ const chapters = [
 
 // Where each chapter starts in overall scroll progress; matches the timings in scene.tsx.
 const starts = [0, 0.25, 0.5, 0.72];
+// Where each chapter comes to rest, once its part of the scene has played out.
+const stops = [0, 0.48, 0.66, 1];
+const STEP_MS = 1400;
+// A gesture is over once no wheel events have come in for this long (trackpads keep sending them as they coast).
+const GESTURE_GAP_MS = 220;
+
+const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
 
 function supportsWebGL() {
   try {
@@ -28,7 +35,8 @@ function supportsWebGL() {
 
 /**
  * Scroll-driven 3D story. The section is several screens tall; the canvas sticks while the
- * reader scrolls through it, and scroll position drives the scene. With reduced motion or
+ * reader scrolls through it, and scroll position drives the scene. Each scroll gesture steps
+ * exactly one chapter. With reduced motion or
  * no WebGL it falls back to a plain list.
  */
 export function StorySection() {
@@ -71,6 +79,97 @@ export function StorySection() {
       window.removeEventListener("resize", onScroll);
     };
   }, [mode, progress]);
+
+  // One gesture moves one chapter, however hard the wheel is flicked. Past either end the page
+  // scrolls normally, so the story never traps anyone.
+  useEffect(() => {
+    if (mode !== "3d") return;
+    const el = section.current!;
+    let busy = false;
+    let lastInput = 0;
+    let frame = 0;
+
+    const top = () => el.getBoundingClientRect().top + window.scrollY;
+    const total = () => el.offsetHeight - window.innerHeight;
+    const stopY = (i: number) => top() + stops[i]! * total();
+    const pinned = () => {
+      const y = window.scrollY - top();
+      return y >= -1 && y <= total() + 1;
+    };
+
+    const glide = (to: number) => {
+      busy = true;
+      const from = window.scrollY;
+      const start = performance.now();
+      cancelAnimationFrame(frame);
+      const tick = (now: number) => {
+        const t = Math.min(1, (now - start) / STEP_MS);
+        window.scrollTo({ top: from + (to - from) * easeInOut(t), behavior: "instant" });
+        if (t < 1) frame = requestAnimationFrame(tick);
+        else release();
+      };
+      frame = requestAnimationFrame(tick);
+    };
+    // Stay locked until the gesture that started the step has fully died down.
+    const release = () => {
+      if (performance.now() - lastInput < GESTURE_GAP_MS) setTimeout(release, GESTURE_GAP_MS);
+      else busy = false;
+    };
+
+    /** Returns true if the story handled the step; false lets the page scroll on past it. */
+    const step = (dir: 1 | -1) => {
+      lastInput = performance.now();
+      if (busy) return true;
+      const y = window.scrollY;
+      const at = stops.findIndex((_, i) => Math.abs(y - stopY(i)) < 4);
+      // Coming in from outside or mid-way: settle on the nearest chapter first.
+      if (at === -1) {
+        const nearest = stops.reduce((best, _, i) => (Math.abs(y - stopY(i)) < Math.abs(y - stopY(best)) ? i : best), 0);
+        glide(stopY(nearest));
+        return true;
+      }
+      const next = at + dir;
+      if (next < 0 || next >= stops.length) return false;
+      glide(stopY(next));
+      return true;
+    };
+
+    const onWheel = (e: WheelEvent) => {
+      if (!pinned() || Math.abs(e.deltaY) < 1) return;
+      if (step(e.deltaY > 0 ? 1 : -1)) e.preventDefault();
+    };
+    // Per touch: "stepped" once it has moved a chapter, "free" once it's scrolling the page past an end.
+    let touch: { y: number; stepped: boolean; free: boolean } | null = null;
+    const onTouchStart = (e: TouchEvent) => {
+      touch = { y: e.touches[0]?.clientY ?? 0, stepped: false, free: false };
+    };
+    const onTouchMove = (e: TouchEvent) => {
+      if (!touch || touch.free || !pinned()) return;
+      e.preventDefault();
+      if (touch.stepped || busy) return;
+      const dy = touch.y - (e.touches[0]?.clientY ?? touch.y);
+      if (Math.abs(dy) < 24) return;
+      if (step(dy > 0 ? 1 : -1)) touch.stepped = true;
+      else touch.free = true;
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (!pinned() || e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      const dir = ["ArrowDown", "PageDown", " "].includes(e.key) ? 1 : ["ArrowUp", "PageUp"].includes(e.key) ? -1 : 0;
+      if (dir && step(dir)) e.preventDefault();
+    };
+
+    window.addEventListener("wheel", onWheel, { passive: false });
+    window.addEventListener("touchstart", onTouchStart, { passive: true });
+    window.addEventListener("touchmove", onTouchMove, { passive: false });
+    window.addEventListener("keydown", onKey);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("wheel", onWheel);
+      window.removeEventListener("touchstart", onTouchStart);
+      window.removeEventListener("touchmove", onTouchMove);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [mode]);
 
   if (mode !== "3d") {
     return (
