@@ -124,10 +124,23 @@ export async function loadFamily(tx: Tx, selfId: string) {
     .map((f) => ({ ...f, partners: f.partners.filter((p) => people.has(p)), children: f.children.filter((c) => people.has(c.id)) }))
     .filter((f) => f.partners.length + f.children.length > 0);
 
+  // Couples among your friends sit in the same tables, so only people linked to you count as relatives.
+  const relatives = new Set([selfId]);
+  for (let grew = true; grew; ) {
+    grew = false;
+    for (const f of live) {
+      const members = [...f.partners, ...f.children.map((c) => c.id)];
+      if (members.some((m) => relatives.has(m)) && members.some((m) => !relatives.has(m))) {
+        members.forEach((m) => relatives.add(m));
+        grew = true;
+      }
+    }
+  }
+
   const index = indexFamilies(live);
   const genderOf = (id: string) => genderFromPronouns(people.get(id)?.pronouns);
   const termFor = (id: string, ego = selfId) => kinship(index, ego, id, genderOf);
-  return { selfId, index, people, termFor };
+  return { selfId, index, people, relatives, termFor };
 }
 
 export type FamilyData = Awaited<ReturnType<typeof loadFamily>>;
