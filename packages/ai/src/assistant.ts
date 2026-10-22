@@ -18,7 +18,7 @@ export interface Source {
 }
 
 export const summarySchema = z.object({
-  summary: z.string().describe("2-4 sentences on who this person is to the user. Plain, warm, specific. No headings."),
+  summary: z.string().describe("2-4 sentences on who this person is to you, in second person. Plain, warm, specific. No headings."),
   askAbout: z
     .array(
       z.object({
@@ -56,7 +56,8 @@ Rules:
 - Only use what the sources say. Never guess or add detail.
 - Write to the user, in second person ("your cousin", "you met at…"). Keep it to 2-4 sentences: who they are to the user, what's going on in their life lately, what they care about.
 - askAbout lists things still open that deserve a follow-up question: an interview, a surgery, a trip, a move, a new baby, a "how did it go". Skip anything already resolved by a later source or older than a year unless it's still clearly open. Cite the source ref each one comes from.
-- Be gentle with sensitive things (health, loss, breakups): phrase follow-ups kindly.`;
+- Be gentle with sensitive things (health, loss, breakups): phrase follow-ups kindly.
+- Never write "the user". The notes are in the user's own first person ("I", "we"); turn that into "you".`;
 
 export const ASK_SYSTEM_PROMPT = `You answer the user's questions about the people in their life, using only the numbered sources from their personal relationship manager.
 
@@ -65,7 +66,8 @@ Rules:
 - "I", "me" and "my" in the question mean the user.
 - Answer in one to three sentences, or a short list when the question asks for several people. Use people's names.
 - Put the refs of every source you relied on in refs. Don't write refs into the answer text.
-- For "when did I last…" questions, use the most recent dated source and give the date.`;
+- For "when did I last…" questions, use the most recent dated source and give the date.
+- Talk to the user as "you". Never write "the user".`;
 
 function sourceBlock(sources: Source[]) {
   return sources

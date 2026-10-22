@@ -11,7 +11,9 @@ Rules:
 - Facts are short and durable: job, partner and kids' names, pets, where they live, interests, food preferences and allergies, health events, things to ask about next time (category follow_up, e.g. "Ask how the marathon went").
 - Things someone mentions wanting go in category wishlist ("Wants a Chemex"). Favourite things (coffee order, flowers, restaurant) go in favourites, clothing and ring sizes in sizes, and how someone likes to be cared for (comfort, apology, feeling appreciated) in love.
 - An interaction is a specific occasion the user saw or spoke with someone. Resolve relative dates ("yesterday", "last Friday") against today's date. Don't create an interaction for general background info.
-- Write values in plain, natural English. Keep the user's wording where it is clear.`;
+- Calls on apps (Discord, FaceTime, WhatsApp, Zoom, Messenger) are type video when cameras were on or the note says video or facetime, otherwise call. A plain "Discord call" or "hopped on Discord" is a call.
+- Write values in plain, natural English. Keep the user's wording where it is clear.
+- Everything you write is saved as the user's own notes, so write it in first person as they would: "I met her at Waterloo", "We grabbed coffee at Pilot". Never write "the user".`;
 
 export function buildExtractionMessage(input: ExtractionInput): string {
   const known =
