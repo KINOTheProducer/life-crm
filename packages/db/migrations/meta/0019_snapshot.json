@@ -1,5 +1,5 @@
 {
-  "id": "c3efaa1d-202f-4943-b2b4-79bdfa518f90",
+  "id": "f9a121e3-f57d-437e-be54-917a10632995",
   "prevId": "47b99542-7f8e-4aed-aba8-3caffd465fbe",
   "version": "7",
   "dialect": "postgresql",
@@ -904,12 +904,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "household_id": {
-          "name": "household_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -1012,19 +1006,6 @@
             "id"
           ],
           "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "contacts_household_id_households_id_fk": {
-          "name": "contacts_household_id_households_id_fk",
-          "tableFrom": "contacts",
-          "tableTo": "households",
-          "columnsFrom": [
-            "household_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
           "onUpdate": "no action"
         }
       },
@@ -1785,6 +1766,12 @@
         },
         "extraction": {
           "name": "extraction",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "progress": {
+          "name": "progress",
           "type": "jsonb",
           "primaryKey": false,
           "notNull": false
@@ -5332,142 +5319,6 @@
       "policies": {
         "contact_summaries_tenant_isolation": {
           "name": "contact_summaries_tenant_isolation",
-          "as": "PERMISSIVE",
-          "for": "ALL",
-          "to": [
-            "public"
-          ],
-          "using": "tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid",
-          "withCheck": "tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid"
-        }
-      },
-      "checkConstraints": {},
-      "isRLSEnabled": true
-    },
-    "public.households": {
-      "name": "households",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "tenant_id": {
-          "name": "tenant_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "street": {
-          "name": "street",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "line2": {
-          "name": "line2",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "city": {
-          "name": "city",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "region": {
-          "name": "region",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "postal_code": {
-          "name": "postal_code",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "country": {
-          "name": "country",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "send_card": {
-          "name": "send_card",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": true
-        },
-        "notes": {
-          "name": "notes",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "households_tenant_idx": {
-          "name": "households_tenant_idx",
-          "columns": [
-            {
-              "expression": "tenant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "households_tenant_id_tenants_id_fk": {
-          "name": "households_tenant_id_tenants_id_fk",
-          "tableFrom": "households",
-          "tableTo": "tenants",
-          "columnsFrom": [
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {
-        "households_tenant_isolation": {
-          "name": "households_tenant_isolation",
           "as": "PERMISSIVE",
           "for": "ALL",
           "to": [

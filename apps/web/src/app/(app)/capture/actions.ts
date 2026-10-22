@@ -42,7 +42,7 @@ export async function reprocessCapture(captureId: string, transcript: string) {
   await tenantQuery((tx) =>
     tx
       .update(schema.captures)
-      .set({ status: "extracting", transcript: text, extraction: null, error: null })
+      .set({ status: "extracting", transcript: text, extraction: null, progress: null, error: null })
       .where(and(eq(schema.captures.id, captureId), inArray(schema.captures.status, ["ready", "failed"]))),
   );
   after(() => processCapture(user.tenantId, captureId, user.timeZone, text));

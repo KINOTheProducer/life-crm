@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { refreshPersonSummary } from "@/app/(app)/people/[id]/assistant-actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useSteps, WorkingSteps } from "@/components/working-steps";
 
 interface SummaryView {
   summary: string;
@@ -35,6 +36,14 @@ export function SummaryCard({
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const tried = useRef(false);
+  const steps = useSteps(
+    [
+      `Reading ${sourceCount} ${sourceCount === 1 ? "thing" : "things"} you've noted about ${firstName}`,
+      `Looking for what's still open with ${firstName}`,
+      view ? `Rewriting ${firstName}'s card` : `Writing ${firstName}'s card`,
+    ],
+    pending,
+  );
 
   const refresh = () =>
     start(async () => {
@@ -82,6 +91,7 @@ export function SummaryCard({
               </div>
             )}
             {view.stale && !pending && <p className="text-[13px] text-muted-foreground">New notes since this was written.</p>}
+            <WorkingSteps lines={steps} />
           </>
         ) : (
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -89,6 +99,7 @@ export function SummaryCard({
             <Button variant="outline" onClick={refresh} disabled={pending}>
               {pending ? "Reading your notes…" : "Summarize"}
             </Button>
+            <WorkingSteps lines={steps} className="basis-full" />
           </div>
         )}
         {error && <p className="text-sm text-destructive">{error}</p>}

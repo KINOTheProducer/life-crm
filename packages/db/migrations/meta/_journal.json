@@ -138,8 +138,15 @@
     {
       "idx": 19,
       "version": "7",
-      "when": 1792632339593,
-      "tag": "0019_households",
+      "when": 1792641174166,
+      "tag": "0019_capture_progress",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1792650420178,
+      "tag": "0020_households",
       "breakpoints": true
     }
   ]

@@ -5,5 +5,6 @@ export * from "./config";
 export * from "./extraction";
 export * from "./models";
 export * from "./openai-compatible";
+export * from "./progress";
 export * from "./prompt";
 export * from "./types";

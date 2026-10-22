@@ -2,9 +2,11 @@
 
 import { ArrowUp } from "lucide-react";
 import Link from "next/link";
-import { useActionState, useEffect, useRef } from "react";
-import { ask, type AskState } from "@/app/(app)/ask/actions";
+import { useEffect, useRef, useState } from "react";
+import type { AskEvent } from "@/app/api/ask/route";
 import { Button } from "@/components/ui/button";
+import { WorkingSteps } from "@/components/working-steps";
+import type { AskResult } from "@/lib/data/assistant";
 
 const examples = ["Who do I know that's into climbing?", "What's Ryan's wife's name?", "When did I last see Grandpa?", "Who lives in Vancouver?"];
 
@@ -12,12 +14,54 @@ const kindLabels = { person: "Profile", fact: "Fact", note: "Note", interaction:
 
 const isoDay = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
 
-/** One question at a time; the answer cites the notes it came from. */
+interface AskState {
+  question?: string;
+  result?: AskResult;
+  error?: string;
+}
+
+/** One question at a time; the answer cites the notes it came from. Says what it's doing while it works. */
 export function AskForm({ initial }: { initial: string }) {
-  const [state, action, pending] = useActionState<AskState, FormData>(ask, {});
+  const [state, setState] = useState<AskState>({});
+  const [pending, setPending] = useState(false);
+  const [steps, setSteps] = useState<string[]>([]);
   const input = useRef<HTMLTextAreaElement>(null);
   const form = useRef<HTMLFormElement>(null);
   const autoSent = useRef(false);
+
+  async function ask(question: string) {
+    setPending(true);
+    setSteps([]);
+    const next: AskState = { question };
+    try {
+      const res = await fetch("/api/ask", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question }) });
+      if (!res.ok || !res.body) {
+        const body = (await res.json().catch(() => ({}))) as { error?: string };
+        next.error = body.error ?? "Something went wrong. Please try again.";
+      } else {
+        const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
+        let buffer = "";
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += value;
+          const lines = buffer.split("\n");
+          buffer = lines.pop() ?? "";
+          for (const line of lines.filter(Boolean)) {
+            const event = JSON.parse(line) as AskEvent;
+            if ("step" in event) setSteps((s) => [...s, event.step]);
+            else if ("result" in event) next.result = event.result;
+            else next.error = event.error;
+          }
+        }
+        if (!next.result && !next.error) next.error = "The answer got cut off. Please try again.";
+      }
+    } catch {
+      next.error = "Couldn't reach the server. Check your connection and try again.";
+    }
+    setState(next);
+    setPending(false);
+  }
 
   // A question passed in the URL (from the command palette) is asked straight away.
   useEffect(() => {
@@ -29,7 +73,15 @@ export function AskForm({ initial }: { initial: string }) {
 
   return (
     <div className="grid gap-6">
-      <form ref={form} action={action} className="relative">
+      <form
+        ref={form}
+        onSubmit={(e) => {
+          e.preventDefault();
+          const question = new FormData(e.currentTarget).get("question");
+          if (!pending && typeof question === "string") void ask(question);
+        }}
+        className="relative"
+      >
         <textarea
           ref={input}
           name="question"
@@ -69,7 +121,7 @@ export function AskForm({ initial }: { initial: string }) {
         </div>
       )}
 
-      {pending && <p className="text-sm text-muted-foreground">Looking through your notes…</p>}
+      {pending && <WorkingSteps lines={steps.length ? steps : ["Looking through your notes"]} />}
       {state.error && !pending && <p className="text-sm text-destructive">{state.error}</p>}
 
       {state.result && !pending && (
