@@ -5,13 +5,17 @@ import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
 import { ImportReview } from "@/components/profile/import-review";
 import { toIsoDate } from "@/lib/data/dates";
-import { existingProfile } from "@/lib/data/import";
+import { existingProfile, knownPeople } from "@/lib/data/import";
 import { tenantQuery } from "@/lib/session";
 
 export default async function ImportPage({ params }: PageProps<"/people/[id]/import">) {
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
-  const data = await tenantQuery(async (tx, user) => ({ existing: await existingProfile(tx, id), today: toIsoDate(todayIn(user.timeZone)) }));
+  const data = await tenantQuery(async (tx, user) => ({
+    existing: await existingProfile(tx, id),
+    people: await knownPeople(tx, id),
+    today: toIsoDate(todayIn(user.timeZone)),
+  }));
   if (!data.existing) notFound();
 
   return (
@@ -23,9 +27,9 @@ export default async function ImportPage({ params }: PageProps<"/people/[id]/imp
       <PageHeader
         title="Import notes"
         aside={`about ${data.existing.firstName}.`}
-        description="A text or Markdown file with anything you know about them. You'll see where each part goes, and can move it, before anything is saved."
+        description="A text or Markdown file with anything you know about them. People it mentions get their own profiles. You'll see where each part goes, and can move it, before anything is saved."
       />
-      <ImportReview contactId={id} firstName={data.existing.firstName} existing={data.existing} today={data.today} />
+      <ImportReview contactId={id} firstName={data.existing.firstName} existing={data.existing} today={data.today} people={data.people.map((p) => ({ id: p.id, name: p.name })).sort((a, b) => a.name.localeCompare(b.name))} />
     </>
   );
 }

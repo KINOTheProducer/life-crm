@@ -115,3 +115,29 @@ export const eraKindLabels: Record<EraKind, string> = {
   work: "Work",
   other: "Other",
 };
+
+/** Yearly dates other than birthdays, as `important_dates.type`. */
+export const importantDateKinds = ["anniversary", "memorial", "graduation", "due_date", "custom"] as const;
+export type ImportantDateKind = (typeof importantDateKinds)[number];
+
+export const importantDateKindLabels: Record<ImportantDateKind, string> = {
+  anniversary: "Anniversary",
+  memorial: "Memorial",
+  graduation: "Graduation",
+  due_date: "Due date",
+  custom: "Other",
+};
+
+/** How someone relates to another person, loosely, as read from notes. */
+export const personRelations = ["parent", "child", "sibling", "partner", "friend", "coworker", "other"] as const;
+export type PersonRelation = (typeof personRelations)[number];
+
+export const personRelationLabels: Record<PersonRelation, string> = {
+  parent: "Parent",
+  child: "Child",
+  sibling: "Sibling",
+  partner: "Partner",
+  friend: "Friend",
+  coworker: "Coworker",
+  other: "Other",
+};

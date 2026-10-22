@@ -2,6 +2,7 @@ export * from "./anthropic";
 export * from "./assistant";
 export * from "./card";
 export * from "./config";
+export * from "./document";
 export * from "./extraction";
 export * from "./models";
 export * from "./openai-compatible";

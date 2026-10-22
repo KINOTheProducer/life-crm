@@ -1,3 +1,4 @@
+import type { DocumentExtraction, DocumentInput } from "./document";
 import type { Extraction, ExtractionInput } from "./extraction";
 import type { PartialExtraction } from "./progress";
 
@@ -5,6 +6,8 @@ export interface Extractor {
   readonly name: string;
   /** Pass `onPartial` to stream: it gets what the model has written so far, many times over. */
   extract(input: ExtractionInput, onPartial?: (partial: PartialExtraction) => void): Promise<Extraction>;
+  /** Sort a file of notes about one person, and anyone else it mentions. */
+  readDocument(input: DocumentInput): Promise<DocumentExtraction>;
 }
 
 export interface Transcriber {
