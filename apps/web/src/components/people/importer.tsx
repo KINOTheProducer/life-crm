@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useState, useTransition } from "react";
 import { previewImport, runImport, type ImportAction, type PreviewRow } from "@/app/(app)/people/import/actions";
 import { Button } from "@/components/ui/button";
+import { useSteps, WorkingSteps } from "@/components/working-steps";
 import { cn } from "@/lib/utils";
 
 const actionLabels: Record<ImportAction, string> = { create: "Add new", merge: "Merge", skip: "Skip" };
@@ -45,6 +46,17 @@ export function Importer() {
   const counts = { create: 0, merge: 0, skip: 0 };
   for (const r of rows ?? []) counts[r.action]++;
 
+  const people = (n: number) => `${n} ${n === 1 ? "person" : "people"}`;
+  const readingSteps = useSteps([`Reading ${file?.name ?? "the file"}`, "Matching names, phones and emails to people you have"], pending && !rows);
+  const importSteps = useSteps(
+    [
+      ...(counts.create ? [`Adding ${people(counts.create)}`] : []),
+      ...(counts.merge ? [`Merging ${people(counts.merge)} into who you already have`] : []),
+      ...(file && /\.json$/i.test(file.name) ? ["Bringing over their notes, catch-ups, gifts and relationships"] : []),
+    ],
+    pending && !!rows,
+  );
+
   if (done) {
     return (
       <div className="grid max-w-xl gap-3 rounded-3xl bg-card p-8">
@@ -77,7 +89,7 @@ export function Importer() {
         <input type="file" accept=".vcf,.vcard,.csv,.json,text/vcard,text/csv,application/json" className="sr-only" onChange={(e) => choose(e.target.files?.[0])} />
       </label>
 
-      {pending && !rows && <p className="text-muted-foreground">Reading {file?.name ?? "the file"}…</p>}
+      <WorkingSteps lines={readingSteps} />
       {error && <p className="text-destructive">{error}</p>}
 
       {rows && (
@@ -109,6 +121,7 @@ export function Importer() {
                 {pending ? "Importing…" : `Import ${counts.create + counts.merge}`}
               </Button>
             </div>
+            <WorkingSteps lines={importSteps} className="basis-full" />
           </div>
           <ul className="divide-y divide-border rounded-3xl bg-card px-6">
             {rows.map((r) => (

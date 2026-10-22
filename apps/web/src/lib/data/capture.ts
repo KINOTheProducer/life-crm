@@ -1,5 +1,14 @@
 import "server-only";
-import { AiError, extractionSchema, type Extraction, type KnownPerson } from "@life-crm/ai";
+import {
+  AiError,
+  extractionProgress,
+  extractionSchema,
+  mentionedPeople,
+  mentionLine,
+  type Extraction,
+  type KnownPerson,
+  type PartialExtraction,
+} from "@life-crm/ai";
 import {
   defaultCadenceDays,
   factCategories,
@@ -59,6 +68,33 @@ async function knownPeople(tx: Tx): Promise<KnownPerson[]> {
 }
 
 /**
+ * Saves progress lines as the model streams, at most about once a second and only when they
+ * change, so the review page has something to show without a write per token.
+ */
+function progressWriter(tenantId: string, captureId: string, toLines: (partial: PartialExtraction) => string[]) {
+  let saved = "";
+  let lastAt = 0;
+  let writing: Promise<unknown> = Promise.resolve();
+  let busy = false;
+  return {
+    update(partial: PartialExtraction) {
+      if (busy || Date.now() - lastAt < 1000) return;
+      const lines = toLines(partial);
+      const key = JSON.stringify(lines);
+      if (key === saved) return;
+      saved = key;
+      lastAt = Date.now();
+      busy = true;
+      writing = withTenant(db, tenantId, (tx) => tx.update(captures).set({ progress: lines }).where(eq(captures.id, captureId)))
+        .catch((error) => console.error("Saving capture progress failed", error))
+        .finally(() => (busy = false));
+    },
+    /** Wait for the last write so it can't land after the result. */
+    settled: () => writing,
+  };
+}
+
+/**
  * Transcribe (unless a transcript is supplied) and extract. Runs after the upload response
  * is sent; status changes are what the review page polls.
  */
@@ -76,36 +112,42 @@ export async function processCapture(tenantId: string, captureId: string, timeZo
     }
     if (!text.trim()) throw new AiError("No speech was detected in the recording.");
 
+    const transcriptText = text;
     const context = await withTenant(db, tenantId, async (tx) => {
+      const people = await knownPeople(tx);
+      const firstLine = mentionLine(mentionedPeople(transcriptText, people));
       await tx
         .update(captures)
-        .set({ status: "extracting", transcript: text, error: null })
+        .set({ status: "extracting", transcript: transcriptText, progress: [firstLine], error: null })
         .where(eq(captures.id, captureId));
       const [capture] = await tx.select().from(captures).where(eq(captures.id, captureId));
-      const people = await knownPeople(tx);
       return {
+        firstLine,
         people,
         contextPerson: people.find((p) => p.id === capture?.contextContactId) ?? null,
         extractor: await extractorForUser(tx, capture!.userId),
       };
     });
 
-    const extraction = await context.extractor.extract({
-      transcript: text,
-      today: toIsoDate(todayIn(timeZone)),
-      timeZone,
-      knownPeople: context.people,
-      contextPerson: context.contextPerson,
-    });
+    const today = toIsoDate(todayIn(timeZone));
+    const progress = progressWriter(tenantId, captureId, (partial) => [
+      context.firstLine,
+      ...extractionProgress(partial, { knownPeople: context.people, today }),
+    ]);
+    const extraction = await context.extractor.extract(
+      { transcript: text, today, timeZone, knownPeople: context.people, contextPerson: context.contextPerson },
+      progress.update,
+    );
+    await progress.settled();
 
     await withTenant(db, tenantId, (tx) =>
-      tx.update(captures).set({ status: "ready", extraction }).where(eq(captures.id, captureId)),
+      tx.update(captures).set({ status: "ready", extraction, progress: null }).where(eq(captures.id, captureId)),
     );
   } catch (error) {
     await withTenant(db, tenantId, (tx) =>
       tx
         .update(captures)
-        .set({ status: "failed", error: errorMessage(error) })
+        .set({ status: "failed", progress: null, error: errorMessage(error) })
         .where(eq(captures.id, captureId)),
     );
   }
@@ -118,6 +160,7 @@ export async function getCapture(tx: Tx, captureId: string) {
       status: captures.status,
       transcript: captures.transcript,
       extraction: captures.extraction,
+      progress: captures.progress,
       error: captures.error,
       contextContactId: captures.contextContactId,
       durationMs: captures.durationMs,

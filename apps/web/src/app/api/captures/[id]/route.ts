@@ -4,7 +4,7 @@ import { auth } from "@/lib/auth";
 import { getCapture } from "@/lib/data/capture";
 import { db } from "@/lib/db";
 
-/** Processing status, polled by the review page. */
+/** Processing status and what's been found so far, polled by the review page. */
 export async function GET(request: NextRequest, { params }: RouteContext<"/api/captures/[id]">) {
   const session = await auth.api.getSession({ headers: request.headers });
   const tenantId = session?.user.tenantId;
@@ -14,5 +14,5 @@ export async function GET(request: NextRequest, { params }: RouteContext<"/api/c
   if (!/^[0-9a-f-]{36}$/.test(id)) return NextResponse.json({ error: "Not found" }, { status: 404 });
   const capture = await withTenant(db, tenantId, (tx) => getCapture(tx, id));
   if (!capture) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  return NextResponse.json({ status: capture.status, error: capture.error });
+  return NextResponse.json({ status: capture.status, progress: capture.progress ?? [], error: capture.error });
 }

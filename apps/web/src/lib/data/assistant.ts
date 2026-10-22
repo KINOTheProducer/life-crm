@@ -1,6 +1,6 @@
 import "server-only";
 import { createHash } from "node:crypto";
-import type { Answer, Source } from "@life-crm/ai";
+import { listNames, type Answer, type Source } from "@life-crm/ai";
 import { closenessLabels, formatIsoDate, kinWords, lifeEventTypeLabels, questionKeywords, stem, todayIn, type LifeEventType } from "@life-crm/core";
 import type { AskAboutItem } from "@life-crm/db/schema";
 import { and, asc, desc, eq, ilike, inArray, isNull, or, schema, sql, type Column, type Tx } from "@life-crm/db";
@@ -282,7 +282,7 @@ const NAMED_LIMIT = 4;
  * anyone the question names (by name, nickname, or "grandpa"), and anything else whose
  * words match. Plain word matching for now; embeddings would slot in here.
  */
-export async function askSources(tx: Tx, user: CurrentUser, question: string) {
+export async function askSources(tx: Tx, user: CurrentUser, question: string, onStep: (line: string) => void = () => {}) {
   const words = questionKeywords(question);
   const family = await loadFamily(tx, await ensureSelf(tx, user));
 
@@ -302,6 +302,12 @@ export async function askSources(tx: Tx, user: CurrentUser, question: string) {
     if (named.size >= NAMED_LIMIT) break;
   }
 
+  const topical = words.filter((w) => !kinWords[w] && !people.some((p) => named.has(p.id) && [p.firstName, p.lastName, p.nickname].some((n) => n?.toLowerCase() === w)));
+  const namedPeople = people.filter((p) => named.has(p.id));
+  if (namedPeople.length) onStep(`Looking at what you know about ${listNames(namedPeople.map((p) => p.firstName))}`);
+  if (topical.length) onStep(`Searching your notes for ${listNames(topical.slice(0, 3).map((w) => `"${w}"`))}`);
+  if (!namedPeople.length && !topical.length) onStep(`Going through the ${people.length} people you know`);
+
   const lines = await personLines(tx, people, family, user.timeZone, named);
   const names = new Map(people.map((p) => [p.id, fullName(p)]));
   const list = new SourceList();
@@ -309,7 +315,6 @@ export async function askSources(tx: Tx, user: CurrentUser, question: string) {
 
   if (named.size) await addDetails(tx, list, names, user.timeZone, { contactIds: [...named] }, { facts: 100, notes: 10, interactions: 10, events: 10 });
   // Words that aren't someone's name: look for them in everyone's notes.
-  const topical = words.filter((w) => !kinWords[w] && !people.some((p) => named.has(p.id) && [p.firstName, p.lastName, p.nickname].some((n) => n?.toLowerCase() === w)));
   if (topical.length) {
     const before = list.sources.length;
     await addDetails(tx, list, names, user.timeZone, { match: topical.map(stem) }, { facts: 60, notes: 20, interactions: 20, events: 15 });
@@ -324,6 +329,13 @@ export async function askSources(tx: Tx, user: CurrentUser, question: string) {
       }
     }
   }
+  const notes = list.sources.filter((s) => !s.ref.startsWith("P"));
+  const about = [...new Set(notes.map((s) => list.info.get(s.ref)!.contactName.split(" ")[0]!))];
+  onStep(
+    notes.length
+      ? `Reading ${notes.length} ${notes.length === 1 ? "note" : "notes"}${about.length ? ` about ${listNames(about)}` : ""}`
+      : "No notes match, so going by everyone's profiles",
+  );
   return list;
 }
 
@@ -332,9 +344,11 @@ export interface AskResult {
   citations: Citation[];
 }
 
-export async function answerQuestion(tx: Tx, user: CurrentUser, question: string): Promise<AskResult> {
+/** `onStep` hears what's happening along the way: who it's looking at, what it's reading. */
+export async function answerQuestion(tx: Tx, user: CurrentUser, question: string, onStep?: (line: string) => void): Promise<AskResult> {
   const assistant = await assistantForUser(tx, user.id);
-  const list = await askSources(tx, user, question);
+  const list = await askSources(tx, user, question, onStep);
+  onStep?.("Writing your answer");
   const out: Answer = await assistant.ask({ question, sources: list.sources, today: formatIsoDate(todayIn(user.timeZone)) });
   return { answer: out.answer, citations: out.refs.map((r) => list.citation(r)).filter((c): c is Citation => c !== null) };
 }

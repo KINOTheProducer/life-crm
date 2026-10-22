@@ -26,6 +26,8 @@ export const captures = pgTable(
     durationMs: integer("duration_ms"),
     transcript: text("transcript"),
     extraction: jsonb("extraction"),
+    /** What processing has found so far, as lines for the review screen while it waits. */
+    progress: jsonb("progress").$type<string[]>(),
     error: text("error"),
     ...timestamps,
     committedAt: timestamp("committed_at", { withTimezone: true }),

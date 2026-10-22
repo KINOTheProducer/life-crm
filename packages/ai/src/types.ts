@@ -1,8 +1,10 @@
 import type { Extraction, ExtractionInput } from "./extraction";
+import type { PartialExtraction } from "./progress";
 
 export interface Extractor {
   readonly name: string;
-  extract(input: ExtractionInput): Promise<Extraction>;
+  /** Pass `onPartial` to stream: it gets what the model has written so far, many times over. */
+  extract(input: ExtractionInput, onPartial?: (partial: PartialExtraction) => void): Promise<Extraction>;
 }
 
 export interface Transcriber {
@@ -18,4 +20,17 @@ export class AiError extends Error {
     super(message);
     this.name = "AiError";
   }
+}
+
+/** Em dashes never make it into anything we save or show: "Sarah — a nurse" becomes "Sarah, a nurse". */
+export function noEmDashes(text: string): string {
+  return text.replace(/\s*\u2014\s*/g, ", ").replace(/^, |, $/g, "");
+}
+
+/** `noEmDashes` on every string in a JSON-shaped value. */
+export function stripEmDashes<T>(value: T): T {
+  if (typeof value === "string") return noEmDashes(value) as T;
+  if (Array.isArray(value)) return value.map(stripEmDashes) as T;
+  if (value && typeof value === "object") return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, stripEmDashes(v)])) as T;
+  return value;
 }

@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { extractionSchema, sanitizeExtraction, type Extraction, type ExtractionInput } from "./extraction";
+import { parsePartialJson, type PartialExtraction } from "./progress";
 import { buildExtractionMessage, EXTRACTION_SYSTEM_PROMPT } from "./prompt";
 import { AiError, type Extractor } from "./types";
 
@@ -17,19 +18,29 @@ export class AnthropicExtractor implements Extractor {
     this.client = new Anthropic({ apiKey: options.apiKey, baseURL: options.baseURL, fetch: options.fetch });
   }
 
-  async extract(input: ExtractionInput): Promise<Extraction> {
+  async extract(input: ExtractionInput, onPartial?: (partial: PartialExtraction) => void): Promise<Extraction> {
+    const params = {
+      model: this.model,
+      max_tokens: 16000,
+      // Retries on another model if this one declines for policy reasons.
+      betas: ["server-side-fallback-2026-07-01"],
+      fallbacks: "default" as const,
+      output_config: { effort: "medium" as const, format: betaZodOutputFormat(extractionSchema) },
+      system: [{ type: "text" as const, text: EXTRACTION_SYSTEM_PROMPT, cache_control: { type: "ephemeral" as const } }],
+      messages: [{ role: "user" as const, content: buildExtractionMessage(input) }],
+    };
     let response;
     try {
-      response = await this.client.beta.messages.parse({
-        model: this.model,
-        max_tokens: 16000,
-        // Retries on another model if this one declines for policy reasons.
-        betas: ["server-side-fallback-2026-07-01"],
-        fallbacks: "default",
-        output_config: { effort: "medium", format: betaZodOutputFormat(extractionSchema) },
-        system: [{ type: "text", text: EXTRACTION_SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
-        messages: [{ role: "user", content: buildExtractionMessage(input) }],
-      });
+      if (onPartial) {
+        const stream = this.client.beta.messages.stream(params);
+        stream.on("text", (_delta, snapshot) => {
+          const partial = parsePartialJson(snapshot);
+          if (partial) onPartial(partial as PartialExtraction);
+        });
+        response = await stream.finalMessage();
+      } else {
+        response = await this.client.beta.messages.parse(params);
+      }
     } catch (error) {
       if (error instanceof Anthropic.AuthenticationError) throw new AiError("Claude API key is missing or invalid.");
       if (error instanceof Anthropic.RateLimitError) throw new AiError("Claude is rate limiting requests.", true);

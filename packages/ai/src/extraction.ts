@@ -1,5 +1,6 @@
 import { factCategories, interactionTypes, isValidPartialDate } from "@life-crm/core";
 import { z } from "zod";
+import { stripEmDashes } from "./types";
 
 // Every field is required-but-nullable: structured output modes require all keys present.
 
@@ -21,7 +22,7 @@ const extractedPerson = z.object({
     })
     .nullable()
     .describe("Only when a birthday was stated. Year null if unknown."),
-  howMet: z.string().nullable().describe("How the user met them, only if stated."),
+  howMet: z.string().nullable().describe("How I met them, in first person (\"At a friend's wedding\"), only if stated."),
   facts: z
     .array(
       z.object({
@@ -34,7 +35,7 @@ const extractedPerson = z.object({
   note: z
     .string()
     .nullable()
-    .describe("Anything else worth remembering about this person that is not a fact. 1-3 sentences."),
+    .describe("Anything else worth remembering about this person that is not a fact. 1-3 sentences, in first person."),
 });
 
 export const extractionSchema = z.object({
@@ -44,7 +45,7 @@ export const extractionSchema = z.object({
       type: z.enum(interactionTypes),
       date: z.string().describe("YYYY-MM-DD, resolved against today's date."),
       location: z.string().nullable(),
-      summary: z.string().describe("One or two sentences describing what happened, written for the user."),
+      summary: z.string().describe("One or two sentences on what happened, in first person: \"Grabbed coffee and caught up on her new job.\""),
       participantRefs: z.array(z.string()).describe("refs of people who were part of it."),
     })
     .nullable()
@@ -76,7 +77,8 @@ const isoDate = /^\d{4}-\d{2}-\d{2}$/;
  * Drop anything the model got wrong in ways the schema can't express: unknown contact ids,
  * impossible birthdays, malformed dates, participant refs that point nowhere.
  */
-export function sanitizeExtraction(raw: Extraction, input: ExtractionInput): Extraction {
+export function sanitizeExtraction(output: Extraction, input: ExtractionInput): Extraction {
+  const raw = stripEmDashes(output);
   const knownIds = new Set(input.knownPeople.map((p) => p.id));
   const usedIds = new Set<string>();
 

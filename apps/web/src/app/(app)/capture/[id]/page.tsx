@@ -29,7 +29,10 @@ export default async function CapturePage({ params }: PageProps<"/capture/[id]">
           status: data.capture.status,
           transcript: data.capture.transcript,
           extraction: data.capture.extraction,
+          progress: data.capture.progress ?? [],
           error: data.capture.error,
+          durationMs: data.capture.durationMs,
+          contextName: data.contacts.find((c) => c.id === data.capture.contextContactId)?.name ?? null,
         }}
         contacts={data.contacts}
       />
