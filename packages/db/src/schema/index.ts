@@ -11,3 +11,4 @@ export * from "./practical";
 export * from "./circles";
 export * from "./eras";
 export * from "./summaries";
+export * from "./households";

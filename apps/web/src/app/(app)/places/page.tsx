@@ -1,7 +1,8 @@
-import { MapPin, Search } from "lucide-react";
+import { House, MapPin, Search } from "lucide-react";
 import Link from "next/link";
 import { Avatar } from "@/components/avatar";
 import { PageHeader } from "@/components/page-header";
+import { buttonVariants } from "@/components/ui/button";
 import { listPlaces } from "@/lib/data/places";
 import { avatarSrc } from "@/lib/immich-urls";
 import { tenantQuery } from "@/lib/session";
@@ -21,6 +22,12 @@ export default async function PlacesPage({ searchParams }: PageProps<"/places">)
       <PageHeader
         title="Places."
         aside={all.length ? `${total} ${total === 1 ? "person" : "people"} in ${all.length} ${all.length === 1 ? "city" : "cities"}.` : "Where your people are."}
+        actions={
+          <Link href="/households" className={buttonVariants({ variant: "outline" })}>
+            <House />
+            Households
+          </Link>
+        }
       />
       <form action="/places" className="relative mb-6 max-w-sm">
         <Search className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground" />

@@ -6,6 +6,7 @@ import { Avatar } from "@/components/avatar";
 import { BirthdayField } from "@/components/profile/birthday-field";
 import { CadenceField } from "@/components/profile/cadence-field";
 import { CirclesField } from "@/components/profile/circles-field";
+import { HouseholdField } from "@/components/profile/household-field";
 import { SpanField } from "@/components/profile/span-field";
 import { ClosenessField } from "@/components/profile/closeness-field";
 import { NameField } from "@/components/profile/name-field";
@@ -38,6 +39,7 @@ import { immichConnection } from "@/lib/immich";
 import { avatarSrc } from "@/lib/immich-urls";
 import { listCustomReminders } from "@/lib/data/reminders";
 import { circleOptions, circlesOf } from "@/lib/data/circles";
+import { householdOf, householdOptions } from "@/lib/data/households";
 import { countSettled, listDebts, listGifts, listTasks, repeatedIdeas } from "@/lib/data/practical";
 import { tenantQuery } from "@/lib/session";
 
@@ -78,6 +80,8 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
     settled: await countSettled(tx, id),
     circles: await circlesOf(tx, id),
     allCircles: await circleOptions(tx),
+    household: await householdOf(tx, id),
+    allHouseholds: await householdOptions(tx),
     summary: await summaryFor(tx, user, id),
     aiEnabled: await aiEnabledFor(tx, user.id),
     timeZone: user.timeZone,
@@ -275,6 +279,19 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
                     <p className="text-[13px] text-muted-foreground">Add their pronouns (pencil next to their name) for the exact word.</p>
                   )}
                 </div>
+              )}
+              {!contact.isSelf && (
+                <HouseholdField
+                  contactId={contact.id}
+                  household={
+                    result.household && {
+                      id: result.household.id,
+                      label: result.household.label,
+                      others: result.household.members.filter((m) => m.id !== contact.id).map((m) => m.firstName),
+                    }
+                  }
+                  all={result.allHouseholds}
+                />
               )}
               {!contact.isSelf && <CirclesField contactId={contact.id} circles={result.circles} all={result.allCircles} />}
               {!contact.isSelf && <ClosenessField key={contact.closeness} contactId={contact.id} closeness={contact.closeness} />}

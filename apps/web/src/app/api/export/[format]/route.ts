@@ -5,6 +5,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
 import { cardsFor } from "@/lib/data/cards";
 import { familyAsGedcom } from "@/lib/data/gedcom";
+import { cardListRows } from "@/lib/data/households";
 import { APP_NAME } from "@/lib/brand";
 import { db } from "@/lib/db";
 
@@ -40,6 +41,7 @@ const tables = {
   tasks: schema.tasks,
   debts: schema.debts,
   circles: schema.circles,
+  households: schema.households,
   circleMembers: schema.circleMembers,
   eras: schema.eras,
 } as const;
@@ -99,6 +101,13 @@ export async function GET(request: NextRequest, { params }: RouteContext<"/api/e
       ]);
     });
     return download(body, "text/csv", `people-${stamp}.csv`);
+  }
+
+  if (format === "holiday-cards") {
+    const body = await withTenant(db, tenantId, async (tx) =>
+      toCsv([["Name", "Street", "Apt or unit", "City", "Province or state", "Postal code", "Country", "People"], ...(await cardListRows(tx))]),
+    );
+    return download(body, "text/csv", `holiday-cards-${stamp}.csv`);
   }
 
   if (format === "ged") {
