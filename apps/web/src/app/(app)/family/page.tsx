@@ -52,7 +52,7 @@ export default async function FamilyPage({ searchParams }: PageProps<"/family">)
 
   const liveLinks = (id: string) => (links.get(id) ?? []).filter((l) => byId.has(l));
   // Anyone outside the family with no friend link is a friend of yours.
-  const unplaced = data.contacts.filter((c) => !c.isSelf && !family.people.has(c.id) && liveLinks(c.id).length === 0).map((c) => c.id);
+  const unplaced = data.contacts.filter((c) => !c.isSelf && !family.relatives.has(c.id) && liveLinks(c.id).length === 0).map((c) => c.id);
   const friendsOf = (id: string) => [...liveLinks(id), ...(id === family.selfId ? unplaced : [])];
   const lane = friendsOf(focusId);
 
@@ -95,13 +95,14 @@ export default async function FamilyPage({ searchParams }: PageProps<"/family">)
       ? closenessTiers.map((t) => ({ label: closenessLabels[t], ids: lane.filter((id) => byId.get(id)!.closeness === t) })).filter((g) => g.ids.length)
       : [{ label: "Friends", ids: lane }].filter((g) => g.ids.length);
   const people = data.contacts.filter((c) => !c.isSelf).map((c) => ({ id: c.id, name: fullName(c) }));
-  const onlyYou = family.people.size <= 1;
+  const relativeCount = family.relatives.size - 1;
+  const onlyYou = relativeCount === 0;
   const focusName = focusId === family.selfId ? null : cards[focusId]?.name;
 
   // Everyone in the tree, grouped by how they're related to you.
   const groups = new Map<string, { person: TreePerson; term: string }[]>();
   for (const p of family.people.values()) {
-    if (p.isSelf) continue;
+    if (p.isSelf || !family.relatives.has(p.id)) continue;
     const term = family.termFor(p.id) ?? "related";
     const g = term === "related" ? "Others" : kinshipGroup(term);
     groups.set(g, [...(groups.get(g) ?? []), { person: p, term }]);
@@ -112,7 +113,7 @@ export default async function FamilyPage({ searchParams }: PageProps<"/family">)
     <>
       <PageHeader
         title="Family."
-        aside={focusName ? `Around ${focusName}.` : `${family.people.size - 1 || "No"} ${family.people.size - 1 === 1 ? "relative" : "relatives"} so far.`}
+        aside={focusName ? `Around ${focusName}.` : `${relativeCount || "No"} ${relativeCount === 1 ? "relative" : "relatives"} so far.`}
         description={onlyYou ? "Start with your parents, partner, siblings or kids. Click yourself in the tree to add someone." : undefined}
         actions={
           <div className="flex gap-1">

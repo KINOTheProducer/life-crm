@@ -17,6 +17,7 @@ const { contacts } = schema;
  */
 const tables = {
   contacts: schema.contacts,
+  contactPeriods: schema.contactPeriods,
   contactMethods: schema.contactMethods,
   addresses: schema.addresses,
   importantDates: schema.importantDates,

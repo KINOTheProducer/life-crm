@@ -2,7 +2,7 @@
 
 import { formatMoney } from "@life-crm/core";
 import { Check, Gift, Plus, X } from "lucide-react";
-import { useActionState, useEffect, useState, useTransition } from "react";
+import { useActionState, useEffect, useRef, useState, useTransition } from "react";
 import { archiveFact } from "@/app/(app)/people/[id]/actions";
 import { addGift, addGiftIdea, deleteGift, setThanked } from "@/app/(app)/people/[id]/practical-actions";
 import { Button } from "@/components/ui/button";
@@ -66,8 +66,8 @@ export function GiftsCard({
           <p className="text-[13px] text-muted-foreground">Ideas</p>
           <ul className="grid gap-1.5">
             {ideas.map((idea) => (
-              <li key={idea.id} className="group flex items-start justify-between gap-2 text-sm">
-                <span>
+              <li key={idea.id} className="group flex flex-wrap items-start justify-between gap-2 text-sm">
+                <span className="min-w-0 flex-1">
                   {idea.value}
                   {repeats[idea.id] && <span className="block text-[13px] text-accent-ink">You gave something like this in {repeats[idea.id]}</span>}
                 </span>
@@ -89,6 +89,11 @@ export function GiftsCard({
                     <X className="size-3.5" />
                   </button>
                 </span>
+                {mode?.kind === "gift" && mode.idea?.id === idea.id && (
+                  <div className="basis-full">
+                    <GiftForm key={idea.id} contactId={contactId} idea={idea} today={today} onDone={() => setMode(null)} />
+                  </div>
+                )}
               </li>
             ))}
           </ul>
@@ -154,9 +159,7 @@ export function GiftsCard({
       )}
 
       {mode?.kind === "idea" && <IdeaForm contactId={contactId} firstName={firstName} onDone={() => setMode(null)} />}
-      {mode?.kind === "gift" && (
-        <GiftForm key={mode.idea?.id ?? "new"} contactId={contactId} idea={mode.idea} today={today} onDone={() => setMode(null)} />
-      )}
+      {mode?.kind === "gift" && !mode.idea && <GiftForm key="new" contactId={contactId} today={today} onDone={() => setMode(null)} />}
 
       {!mode && (
         <div className="flex flex-wrap gap-2">
@@ -197,6 +200,9 @@ function IdeaForm({ contactId, firstName, onDone }: { contactId: string; firstNa
 
 function GiftForm({ contactId, idea, today, onDone }: { contactId: string; idea?: Idea; today: string; onDone: () => void }) {
   const [state, action, pending] = useActionState(addGift.bind(null, contactId), {});
+  const root = useRef<HTMLFormElement>(null);
+  // Long idea lists push the form out of view; bring it to where the person is looking.
+  useEffect(() => root.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }), []);
   // A repeat warning is worth reading before the form goes away.
   const warning = state.ok ? state.message : undefined;
   useEffect(() => {
@@ -215,7 +221,7 @@ function GiftForm({ contactId, idea, today, onDone }: { contactId: string; idea?
   }
 
   return (
-    <form onSubmit={submitKeepingValues(action)} className="grid gap-2 border-t border-border pt-4">
+    <form ref={root} onSubmit={submitKeepingValues(action)} className="grid gap-2 border-t border-border pt-4">
       {idea && <input type="hidden" name="fromIdea" value={idea.id} />}
       <div className="grid grid-cols-2 gap-2">
         <select name="direction" aria-label="Given or received" defaultValue="given" className={selectClass}>
@@ -224,7 +230,7 @@ function GiftForm({ contactId, idea, today, onDone }: { contactId: string; idea?
         </select>
         <Input name="date" type="date" aria-label="Date" defaultValue={today} max={today} required />
       </div>
-      <Input name="title" placeholder="What, e.g. Chemex" defaultValue={idea?.value} required maxLength={200} autoFocus={!idea} />
+      <Input name="title" placeholder="What, e.g. Chemex" defaultValue={idea?.value} required maxLength={500} autoFocus={!idea} />
       <div className="grid grid-cols-[1fr_7rem] gap-2">
         <Input name="occasion" placeholder="Occasion (optional)" maxLength={100} />
         <Input name="price" inputMode="decimal" placeholder="$ CAD" aria-label="Price in CAD" maxLength={12} />

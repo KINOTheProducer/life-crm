@@ -10,10 +10,16 @@ Rules:
 - If a context person is given and the note says "she", "he", "they" or doesn't name anyone, it is about the context person.
 - Facts are short and durable: job, partner and kids' names, pets, where they live, interests, food preferences and allergies, health events, things to ask about next time (category follow_up, e.g. "Ask how the marathon went").
 - Things someone mentions wanting go in category wishlist ("Wants a Chemex"). Favourite things (coffee order, flowers, restaurant) go in favourites, clothing and ring sizes in sizes, and how someone likes to be cared for (comfort, apology, feeling appreciated) in love.
-- An interaction is a specific occasion the user saw or spoke with someone. Resolve relative dates ("yesterday", "last Friday") against today's date. Don't create an interaction for general background info.
+- An interaction is a specific occasion the user saw or spoke with someone. Its date is the day it happened, not the day of the note: resolve "yesterday", "2 days ago", "last Friday", "on the 14th" or "October 3rd" against the date the note was recorded. With no date mentioned, use the recording date. Don't create an interaction for general background info.
+- The note may be read again long after it was recorded, so never leave relative time words in facts or notes. Write "Interview at Shopify on Oct 23" rather than "interview tomorrow".
+- If the user corrects themselves ("Molly, sorry, Holly", "no wait, it was Tuesday"), use only the corrected version.
 - Calls on apps (Discord, FaceTime, WhatsApp, Zoom, Messenger) are type video when cameras were on or the note says video or facetime, otherwise call. A plain "Discord call" or "hopped on Discord" is a call.
 - Write values in plain, natural English. Keep the user's wording where it is clear. Never use em dashes.
 - Everything you write is saved as the user's own notes, so write it in first person as they would: "I met her at Waterloo", "We grabbed coffee at Pilot". Never write "the user".`;
+
+function weekday(iso: string) {
+  return new Intl.DateTimeFormat("en-CA", { weekday: "long", timeZone: "UTC" }).format(new Date(`${iso}T12:00:00Z`));
+}
 
 export function buildExtractionMessage(input: ExtractionInput): string {
   const known =
@@ -24,7 +30,7 @@ export function buildExtractionMessage(input: ExtractionInput): string {
           .join("\n");
   const context = input.contextPerson ? `${input.contextPerson.id}: ${input.contextPerson.name}` : "none";
 
-  return `Today is ${input.today} (${input.timeZone}).
+  return `This note was recorded on ${weekday(input.today)} ${input.today} (${input.timeZone}). Treat that as today.
 
 Context person: ${context}
 

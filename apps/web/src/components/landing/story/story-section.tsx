@@ -8,10 +8,10 @@ import { clamp01, type ProgressRef } from "./progress";
 const StoryScene = dynamic(() => import("./scene"), { ssr: false });
 
 const chapters = [
-  { title: "Say it.", aside: "", body: "Hit record after you see someone and talk for thirty seconds. Who you saw, what's new, what to remember." },
-  { title: "It sorts itself.", aside: "", body: "Names, birthdays, jobs and plans become cards on the right person. You check them before anything is saved." },
-  { title: "It comes back", aside: "when it matters.", body: "Birthdays two weeks out, a few days before and on the day, with what they told you last time." },
-  { title: "Nobody drifts", aside: "away.", body: "Pick how often you want to see each person. When it's been too long, you'll hear about it." },
+  { title: "You care about", aside: "a lot of people.", body: "Birthdays, kids' names, who just moved, who you owe a call. That's a lot to keep track of." },
+  { title: "Say it once.", aside: "", body: "Talk for thirty seconds after you see someone. Who you saw, what's new, what to remember. It goes straight in." },
+  { title: "It sorts itself.", aside: "", body: "Names, birthdays, jobs and plans land on the right person. You check them before anything is saved." },
+  { title: "And your head", aside: "is clear.", body: "Birthdays and catch-ups come back when they matter, so you don't have to hold on to any of it." },
 ];
 
 // Where each chapter starts in overall scroll progress; matches the timings in scene.tsx.

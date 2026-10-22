@@ -56,7 +56,7 @@ export async function getHousehold(tx: Tx, id: string) {
   return row ? ((await withMembers(tx, [row]))[0] ?? null) : null;
 }
 
-export async function householdOf(tx: Tx, contactId: string) {
+export async function householdFor(tx: Tx, contactId: string) {
   const [c] = await tx.select({ householdId: contacts.householdId }).from(contacts).where(eq(contacts.id, contactId));
   return c?.householdId ? getHousehold(tx, c.householdId) : null;
 }

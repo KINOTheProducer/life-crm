@@ -26,16 +26,24 @@ export async function saveCapture(captureId: string, payload: unknown): Promise<
 }
 
 export async function discardCapture(captureId: string) {
+  const [row] = await tenantQuery((tx) =>
+    tx
+      .select({ committedAt: schema.captures.committedAt })
+      .from(schema.captures)
+      .where(and(eq(schema.captures.id, captureId), inArray(schema.captures.status, ["ready", "failed"]))),
+  );
+  if (!row) redirect("/capture/new");
+  // Discarding a re-read of a saved note keeps what was saved the first time.
   await tenantQuery((tx) =>
     tx
       .update(schema.captures)
-      .set({ status: "discarded", audio: null })
-      .where(and(eq(schema.captures.id, captureId), inArray(schema.captures.status, ["ready", "failed"]))),
+      .set(row.committedAt ? { status: "committed", extraction: null, error: null } : { status: "discarded", audio: null })
+      .where(eq(schema.captures.id, captureId)),
   );
-  redirect("/capture/new");
+  redirect(row.committedAt ? `/capture/${captureId}` : "/capture/new");
 }
 
-/** Re-run extraction on an edited transcript. */
+/** Re-run extraction on an edited transcript, or on a note that was already saved. */
 export async function reprocessCapture(captureId: string, transcript: string) {
   const user = await requireUser();
   const text = transcript.trim().slice(0, 20000);
@@ -43,7 +51,7 @@ export async function reprocessCapture(captureId: string, transcript: string) {
     tx
       .update(schema.captures)
       .set({ status: "extracting", transcript: text, extraction: null, progress: null, error: null })
-      .where(and(eq(schema.captures.id, captureId), inArray(schema.captures.status, ["ready", "failed"]))),
+      .where(and(eq(schema.captures.id, captureId), inArray(schema.captures.status, ["ready", "failed", "committed"]))),
   );
   after(() => processCapture(user.tenantId, captureId, user.timeZone, text));
 }

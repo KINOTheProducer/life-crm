@@ -7,10 +7,12 @@ import {
   type Family,
   type FamilyStatus,
   type PartialDate,
+  type PersonRelation,
 } from "@life-crm/core";
 import { and, asc, eq, inArray, isNotNull, isNull, or, schema, sql, type Tx } from "@life-crm/db";
 import { immichAvatarRef } from "@/lib/immich-urls";
 import { fullName, insertContact } from "./contacts";
+import { insertFact } from "./entries";
 
 const { connections, contactFaces, contacts, families, familyChildren, immichConnections, importantDates, partnerships } = schema;
 
@@ -122,10 +124,23 @@ export async function loadFamily(tx: Tx, selfId: string) {
     .map((f) => ({ ...f, partners: f.partners.filter((p) => people.has(p)), children: f.children.filter((c) => people.has(c.id)) }))
     .filter((f) => f.partners.length + f.children.length > 0);
 
+  // Couples among your friends sit in the same tables, so only people linked to you count as relatives.
+  const relatives = new Set([selfId]);
+  for (let grew = true; grew; ) {
+    grew = false;
+    for (const f of live) {
+      const members = [...f.partners, ...f.children.map((c) => c.id)];
+      if (members.some((m) => relatives.has(m)) && members.some((m) => !relatives.has(m))) {
+        members.forEach((m) => relatives.add(m));
+        grew = true;
+      }
+    }
+  }
+
   const index = indexFamilies(live);
   const genderOf = (id: string) => genderFromPronouns(people.get(id)?.pronouns);
   const termFor = (id: string, ego = selfId) => kinship(index, ego, id, genderOf);
-  return { selfId, index, people, termFor };
+  return { selfId, index, people, relatives, termFor };
 }
 
 export type FamilyData = Awaited<ReturnType<typeof loadFamily>>;
@@ -364,4 +379,81 @@ export async function friendOf(tx: Tx, personId: string) {
     .select({ id: contacts.id, firstName: contacts.firstName, isSelf: contacts.isSelf })
     .from(contacts)
     .where(and(inArray(contacts.id, links), isNull(contacts.deletedAt)));
+}
+
+const treeRoles: Partial<Record<PersonRelation, RelativeRole>> = { parent: "parent", child: "child", sibling: "sibling", partner: "partner" };
+
+/** Create someone a file or saved note mentions and link them to the subject: in the tree, as friends, or with a fact saying how. */
+export async function addRelatedPerson(
+  tx: Tx,
+  tenantId: string,
+  subjectId: string,
+  subjectFirstName: string,
+  p: { firstName: string; lastName: string | null; relation: PersonRelation; relationLabel: string | null },
+) {
+  const id = await insertContact(tx, tenantId, {
+    firstName: p.firstName,
+    lastName: p.lastName || null,
+    // Like other imports, new people don't start nudging you.
+    closeness: "acquaintance",
+    keepInTouchDays: null,
+  });
+  const role = treeRoles[p.relation];
+  if (role) await connectRelative(tx, tenantId, { anchorId: subjectId, personId: id, role });
+  else if (p.relation === "friend") await connectFriends(tx, tenantId, subjectId, id);
+  // Coworkers and anyone the tree can't place still say how they're connected.
+  if (!role && p.relation !== "friend") {
+    const label = p.relationLabel || (p.relation === "coworker" ? "coworker" : "connection");
+    await insertFact(tx, tenantId, id, { category: p.relation === "coworker" ? "work" : "other", label: "Connected through", value: `${subjectFirstName}'s ${label.toLowerCase()}` });
+  }
+  return id;
+}
+
+export interface HouseholdMember {
+  id: string;
+  name: string;
+  /** "Spouse", "Child", "You". */
+  role: string;
+  /** Ticked to start with: partners who likely live together. */
+  likely: boolean;
+}
+
+const together: FamilyStatus[] = ["married", "partners", "engaged", "unknown"];
+
+/**
+ * People who might share someone's address: their partners in the tree, their kids, and you
+ * when they're your partner (or them when it's you). Offered when an address is added.
+ */
+export async function householdOf(tx: Tx, contactId: string): Promise<HouseholdMember[]> {
+  const out = new Map<string, Omit<HouseholdMember, "name">>();
+  for (const f of await familyRows(tx)) {
+    if (!f.partners.includes(contactId) || !together.includes(f.status)) continue;
+    for (const p of f.partners) if (p !== contactId) out.set(p, { id: p, role: f.status === "married" ? "Spouse" : "Partner", likely: true });
+    for (const c of f.children) if (c.childId !== contactId && !out.has(c.childId)) out.set(c.childId, { id: c.childId, role: "Child", likely: false });
+  }
+
+  const [self] = await tx.select({ id: contacts.id }).from(contacts).where(eq(contacts.isSelf, true));
+  const current = await tx
+    .select({ contactId: partnerships.contactId, isNesting: partnerships.isNesting })
+    .from(partnerships)
+    .where(eq(partnerships.status, "current"));
+  if (self && self.id !== contactId) {
+    const mine = current.find((p) => p.contactId === contactId);
+    if (mine) out.set(self.id, { id: self.id, role: "You", likely: mine.isNesting });
+  } else if (self) {
+    for (const p of current) {
+      const known = out.get(p.contactId);
+      out.set(p.contactId, { id: p.contactId, role: known?.role ?? "Partner", likely: p.isNesting || (known?.likely ?? false) });
+    }
+  }
+
+  out.delete(contactId);
+  if (out.size === 0) return [];
+  const rows = await tx
+    .select({ id: contacts.id, firstName: contacts.firstName, lastName: contacts.lastName, isSelf: contacts.isSelf })
+    .from(contacts)
+    .where(and(inArray(contacts.id, [...out.keys()]), isNull(contacts.deletedAt), eq(contacts.isDeceased, false)));
+  return rows
+    .map((r) => ({ ...out.get(r.id)!, name: r.isSelf ? "You" : fullName(r) }))
+    .sort((a, b) => Number(b.likely) - Number(a.likely) || a.name.localeCompare(b.name));
 }

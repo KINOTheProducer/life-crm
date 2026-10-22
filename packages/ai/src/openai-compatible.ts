@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { buildDocumentMessage, DOCUMENT_SYSTEM_PROMPT, documentSchema, sanitizeDocument, type DocumentExtraction, type DocumentInput } from "./document";
+import { buildResortMessage, RESORT_SYSTEM_PROMPT, resortSchema, sanitizeResort, type Resort, type ResortInput } from "./resort";
 import { extractionSchema, sanitizeExtraction, type Extraction, type ExtractionInput } from "./extraction";
 import { parsePartialJson, type PartialExtraction } from "./progress";
 import { buildExtractionMessage, EXTRACTION_SYSTEM_PROMPT } from "./prompt";
@@ -22,7 +24,13 @@ async function readError(res: Response): Promise<AiError> {
 }
 
 // JSON Schema for response_format; some servers reject the $schema key.
-const { $schema: _ignored, ...extractionJsonSchema } = z.toJSONSchema(extractionSchema);
+function jsonSchemaFor(schema: z.ZodType) {
+  const { $schema: _ignored, ...rest } = z.toJSONSchema(schema);
+  return rest;
+}
+const extractionJsonSchema = jsonSchemaFor(extractionSchema);
+const documentJsonSchema = jsonSchemaFor(documentSchema);
+const resortJsonSchema = jsonSchemaFor(resortSchema);
 
 /**
  * Read a streamed chat completion (server-sent events), calling `onText` with everything so
@@ -73,18 +81,39 @@ export class OpenAiCompatibleExtractor implements Extractor {
   }
 
   async extract(input: ExtractionInput, onPartial?: (partial: PartialExtraction) => void): Promise<Extraction> {
+    const output = await this.run(extractionSchema, { name: "extraction", schema: extractionJsonSchema }, EXTRACTION_SYSTEM_PROMPT, buildExtractionMessage(input), onPartial);
+    return sanitizeExtraction(output, input);
+  }
+
+  async readDocument(input: DocumentInput): Promise<DocumentExtraction> {
+    const output = await this.run(documentSchema, { name: "document", schema: documentJsonSchema }, DOCUMENT_SYSTEM_PROMPT, buildDocumentMessage(input));
+    return sanitizeDocument(output, input);
+  }
+
+  async resort(input: ResortInput): Promise<Resort> {
+    const output = await this.run(resortSchema, { name: "resort", schema: resortJsonSchema }, RESORT_SYSTEM_PROMPT, buildResortMessage(input));
+    return sanitizeResort(output, input);
+  }
+
+  private async run<S extends z.ZodType>(
+    schema: S,
+    format: { name: string; schema: Record<string, unknown> },
+    system: string,
+    message: string,
+    onPartial?: (partial: PartialExtraction) => void,
+  ): Promise<z.infer<S>> {
     const res = await this.fetch(`${this.config.baseUrl.replace(/\/$/, "")}/chat/completions`, {
       method: "POST",
       headers: { "Content-Type": "application/json", ...headers(this.config.apiKey) },
       body: JSON.stringify({
         model: this.config.model,
         messages: [
-          { role: "system", content: EXTRACTION_SYSTEM_PROMPT },
-          { role: "user", content: buildExtractionMessage(input) },
+          { role: "system", content: system },
+          { role: "user", content: message },
         ],
         response_format: {
           type: "json_schema",
-          json_schema: { name: "extraction", strict: true, schema: extractionJsonSchema },
+          json_schema: { name: format.name, strict: true, schema: format.schema },
         },
         ...(onPartial ? { stream: true } : {}),
       }),
@@ -104,9 +133,9 @@ export class OpenAiCompatibleExtractor implements Extractor {
     } catch {
       throw new AiError("The model returned invalid JSON.", true);
     }
-    const parsed = extractionSchema.safeParse(json);
+    const parsed = schema.safeParse(json);
     if (!parsed.success) throw new AiError("The model's output didn't match the expected format.", true);
-    return sanitizeExtraction(parsed.data, input);
+    return parsed.data;
   }
 }
 

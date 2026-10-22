@@ -1,19 +1,26 @@
 import "server-only";
-import type { Extraction, Extractor } from "@life-crm/ai";
-import { birthdayInText, type FactCategory, type PartialDate } from "@life-crm/core";
-import { and, eq, isNull, schema, type Tx } from "@life-crm/db";
+import type { DocumentExtraction, Extractor, KnownPerson } from "@life-crm/ai";
+import { birthdayInText, partnerPrompts, type FactCategory, type PartialDate } from "@life-crm/core";
+import { and, eq, inArray, isNull, ne, schema, type Tx } from "@life-crm/db";
 import {
   itemDuplicate,
-  itemProblem,
+  SUBJECT,
   type Destination,
   type ExistingProfile,
+  type ImportInput,
   type ImportItem,
+  type ImportPerson,
 } from "@/lib/import-items";
+import type { ResortSuggestion } from "@/lib/resort-items";
 import { birthdayOf, setBirthday } from "./contacts";
+import { formatPartialDate } from "./dates";
 import { insertFact, insertInteraction, insertNote } from "./entries";
+import { addRelatedPerson, connectFriends } from "./family";
+import { addMilestone, partnershipFor } from "./partners";
+import { savedAbout, savedLines, suggestResort } from "./resort";
 import { recordTimeline } from "./timeline";
 
-const { contacts, facts } = schema;
+const { contacts, facts, importantDates, partnershipMilestones } = schema;
 
 export const MAX_IMPORT_CHARS = 50_000;
 
@@ -28,45 +35,89 @@ export async function existingProfile(tx: Tx, contactId: string): Promise<Existi
     .select({ category: facts.category, label: facts.label, value: facts.value })
     .from(facts)
     .where(and(eq(facts.contactId, contactId), isNull(facts.archivedAt)));
-  return { ...contact, birthday: birthday && { year: birthday.year, month: birthday.month, day: birthday.day }, facts: known };
+  const dates = await tx
+    .select({ type: importantDates.type, label: importantDates.label, month: importantDates.month, day: importantDates.day })
+    .from(importantDates)
+    .where(and(eq(importantDates.contactId, contactId), ne(importantDates.type, "birthday")));
+  const partnership = await partnershipFor(tx, contactId);
+  const current = partnership?.status === "current" ? partnership : null;
+  const milestones = current
+    ? await tx
+        .select({ kind: partnershipMilestones.kind, month: partnershipMilestones.month, day: partnershipMilestones.day })
+        .from(partnershipMilestones)
+        .where(eq(partnershipMilestones.partnershipId, current.id))
+    : [];
+  return {
+    ...contact,
+    birthday: birthday && { year: birthday.year, month: birthday.month, day: birthday.day },
+    facts: known,
+    dates,
+    milestones,
+    partnerLabel: current?.label ?? null,
+  };
+}
+
+/** Everyone else, to match names in a file against. */
+export async function knownPeople(tx: Tx, exceptId: string): Promise<KnownPerson[]> {
+  const rows = await tx
+    .select({ id: contacts.id, firstName: contacts.firstName, lastName: contacts.lastName, nickname: contacts.nickname })
+    .from(contacts)
+    .where(and(isNull(contacts.deletedAt), eq(contacts.isSelf, false), ne(contacts.id, exceptId)))
+    .limit(1000);
+  return rows.map((r) => ({ id: r.id, name: [r.firstName, r.lastName].filter(Boolean).join(" "), nickname: r.nickname }));
 }
 
 let counter = 0;
-function item(destination: Destination, fields: Partial<ImportItem>, today: string): ImportItem {
+function item(person: string, destination: Destination, fields: Partial<ImportItem>, today: string): ImportItem {
   return {
     id: `i${++counter}`,
+    person,
     destination,
     text: "",
     label: "",
     category: "interest",
     date: null,
+    dateKind: "custom",
+    milestone: "custom",
     on: today,
     type: "in_person",
     ...fields,
   };
 }
 
-/** Turn an extraction into items for the one person being imported into. */
-function itemsFromExtraction(extraction: Extraction, contactId: string, today: string) {
-  const person = extraction.people.find((p) => p.existingContactId === contactId) ?? extraction.people[0];
-  if (!person) return { items: [] as ImportItem[], nameInFile: null, others: [] as string[] };
+const toDate = (d: { month: number; day: number; year: number | null }): PartialDate => ({ month: d.month, day: d.day, year: d.year });
+
+/** Turn what the model read into items, for the subject and for each person the file mentions. */
+export function itemsFromDocument(doc: DocumentExtraction, today: string) {
   const items: ImportItem[] = [];
-  if (person.birthday) items.push(item("birthday", { date: person.birthday, text: "" }, today));
-  if (person.nickname) items.push(item("nickname", { text: person.nickname }, today));
-  if (person.pronouns) items.push(item("pronouns", { text: person.pronouns }, today));
-  if (person.howMet) items.push(item("howMet", { text: person.howMet }, today));
-  for (const f of person.facts) items.push(item("fact", { label: f.label, text: f.value, category: f.category }, today));
-  if (person.note) items.push(item("note", { text: person.note }, today));
-  const ix = extraction.interaction;
-  if (ix && ix.participantRefs.includes(person.ref)) {
-    items.push(item("catchup", { text: ix.summary, on: ix.date > today ? today : ix.date, type: ix.type }, today));
+  const s = doc.subject;
+  if (s.birthday) items.push(item(SUBJECT, "birthday", { date: toDate(s.birthday) }, today));
+  if (s.nickname) items.push(item(SUBJECT, "nickname", { text: s.nickname }, today));
+  if (s.pronouns) items.push(item(SUBJECT, "pronouns", { text: s.pronouns }, today));
+  if (s.howMet) items.push(item(SUBJECT, "howMet", { text: s.howMet }, today));
+  for (const m of s.milestones) items.push(item(SUBJECT, "milestone", { milestone: m.kind, label: m.label ?? "", date: toDate(m) }, today));
+  for (const d of s.dates) items.push(item(SUBJECT, "date", { dateKind: d.kind, label: d.label, date: toDate(d) }, today));
+  for (const f of s.facts) items.push(item(SUBJECT, "fact", { label: f.label, text: f.value, category: f.category }, today));
+  for (const n of s.notes) items.push(item(SUBJECT, "note", { text: n }, today));
+  for (const c of s.catchups) items.push(item(SUBJECT, "catchup", { text: c.summary, on: c.date, type: c.type }, today));
+
+  const people: ImportPerson[] = [];
+  for (const o of doc.others) {
+    people.push({
+      ref: o.ref,
+      firstName: o.firstName,
+      lastName: o.lastName ?? "",
+      contactId: o.existingContactId,
+      skip: false,
+      relation: o.relation,
+      relationLabel: o.relationLabel ?? "",
+    });
+    if (o.birthday) items.push(item(o.ref, "birthday", { date: toDate(o.birthday) }, today));
+    for (const d of o.dates) items.push(item(o.ref, "date", { dateKind: d.kind, label: d.label, date: toDate(d) }, today));
+    for (const f of o.facts) items.push(item(o.ref, "fact", { label: f.label, text: f.value, category: f.category }, today));
+    if (o.note) items.push(item(o.ref, "note", { text: o.note }, today));
   }
-  const name = [person.firstName, person.lastName].filter(Boolean).join(" ");
-  return {
-    items,
-    nameInFile: person.existingContactId === contactId ? null : name,
-    others: extraction.people.filter((p) => p !== person).map((p) => [p.firstName, p.lastName].filter(Boolean).join(" ")),
-  };
+  return { items, people };
 }
 
 const categoryWords: [RegExp, FactCategory][] = [
@@ -88,22 +139,28 @@ function guessCategory(label: string): FactCategory {
   return categoryWords.find(([re]) => re.test(l))?.[1] ?? "interest";
 }
 
-function fromLabel(label: string, value: string, today: string): ImportItem {
+function fromLabel(label: string, value: string, today: string, isPartner: boolean): ImportItem {
   const l = label.toLowerCase().trim();
   if (/^(birthday|bday|b-day|born|dob|date of birth)$/.test(l)) {
-    return item("birthday", { date: birthdayInText(`birthday ${value}`), text: value }, today);
+    return item(SUBJECT, "birthday", { date: birthdayInText(`birthday ${value}`), text: value }, today);
   }
-  if (/^(nickname|nick|goes by)$/.test(l)) return item("nickname", { text: value }, today);
-  if (/^pronouns?$/.test(l)) return item("pronouns", { text: value }, today);
-  if (/^how (we|i) met$|^met$/.test(l)) return item("howMet", { text: value }, today);
-  return item("fact", { label: label.trim(), text: value, category: guessCategory(label) }, today);
+  if (/anniversary|started dating|got together/.test(l)) {
+    const date = birthdayInText(`birthday ${value}`);
+    return isPartner
+      ? item(SUBJECT, "milestone", { milestone: "official", date, text: value }, today)
+      : item(SUBJECT, "date", { dateKind: "anniversary", label: label.trim(), date, text: value }, today);
+  }
+  if (/^(nickname|nick|goes by)$/.test(l)) return item(SUBJECT, "nickname", { text: value }, today);
+  if (/^pronouns?$/.test(l)) return item(SUBJECT, "pronouns", { text: value }, today);
+  if (/^how (we|i) met$|^met$/.test(l)) return item(SUBJECT, "howMet", { text: value }, today);
+  return item(SUBJECT, "fact", { label: label.trim(), text: value, category: guessCategory(label) }, today);
 }
 
 /**
  * Sort a file without AI: "Label: value" lines and short lines under a heading become fields
  * or facts, everything else becomes notes.
  */
-export function itemsFromRules(text: string, today: string): ImportItem[] {
+export function itemsFromRules(text: string, today: string, isPartner = false): ImportItem[] {
   const items: ImportItem[] = [];
   let section: string | null = null;
   let paragraph: string[] = [];
@@ -116,11 +173,11 @@ export function itemsFromRules(text: string, today: string): ImportItem[] {
     const label = section;
     section = null;
     if (label && !body.includes("\n") && body.length <= 120) {
-      items.push(fromLabel(label, body, today));
+      items.push(fromLabel(label, body, today, isPartner));
       return;
     }
     const birthday = birthdayInText(body);
-    items.push(birthday ? item("birthday", { date: birthday, text: body }, today) : item("note", { text: body }, today));
+    items.push(birthday ? item(SUBJECT, "birthday", { date: birthday, text: body }, today) : item(SUBJECT, "note", { text: body }, today));
   };
 
   for (const raw of text.replace(/\r\n?/g, "\n").split("\n")) {
@@ -138,7 +195,7 @@ export function itemsFromRules(text: string, today: string): ImportItem[] {
     const kv = /^(?:[-*•]\s*)?\**([^:]{1,40}?)\**\s*:\s*(.+)$/.exec(line);
     if (kv && !/^https?$/i.test(kv[1]!)) {
       flush();
-      items.push(fromLabel(kv[1]!, kv[2]!.trim(), today));
+      items.push(fromLabel(kv[1]!, kv[2]!.trim(), today, isPartner));
       continue;
     }
     paragraph.push(line.replace(/^[-*•]\s+/, ""));
@@ -149,72 +206,143 @@ export function itemsFromRules(text: string, today: string): ImportItem[] {
 
 export interface ImportPreview {
   items: ImportItem[];
+  /** Better homes for what's already saved, offered alongside the file. */
+  resort: ResortSuggestion[];
+  /** Everyone else the file mentions. */
+  people: ImportPerson[];
   /** The name the file seems to be about, when it isn't this person. */
   nameInFile: string | null;
-  /** Other people the file mentions, which this import leaves out. */
-  others: string[];
   sortedBy: "ai" | "rules";
+}
+
+/** Whether a name in the file plausibly refers to this contact. */
+function sameName(nameInFile: string, contact: { name: string; nickname: string | null }) {
+  const words = (s: string) => s.toLowerCase().split(/[^\p{L}'-]+/u).filter(Boolean);
+  const theirs = new Set([...words(contact.name), ...words(contact.nickname ?? "")]);
+  return words(nameInFile).some((w) => theirs.has(w));
 }
 
 /** `extractor` is null when AI is off for this user; the rules below still run. */
 export async function readImport(
   text: string,
-  contact: { id: string; name: string; nickname: string | null },
+  contact: { id: string; name: string; nickname: string | null; partnerLabel: string | null },
+  others: KnownPerson[],
+  saved: Awaited<ReturnType<typeof savedAbout>>,
   today: string,
   timeZone: string,
   extractor: Extractor | null,
 ): Promise<ImportPreview> {
   if (extractor) {
+    const subject = { id: contact.id, name: contact.name, nickname: contact.nickname, partnerLabel: contact.partnerLabel };
+    // A re-import also looks again at what's saved, so the file and the profile end up sorted the same way.
+    const resorting = suggestResort(extractor, saved, subject, others, today).catch((error) => {
+      console.warn("Re-sort during import failed", error);
+      return [];
+    });
     try {
-      const known = { id: contact.id, name: contact.name, nickname: contact.nickname };
-      const extraction = await extractor.extract({ transcript: text, today, timeZone, knownPeople: [known], contextPerson: known });
-      const result = itemsFromExtraction(extraction, contact.id, today);
-      if (result.items.length > 0) return { ...result, sortedBy: "ai" };
+      const doc = await extractor.readDocument({ text, today, timeZone, subject, knownPeople: others, partnerPrompts, alreadySaved: savedLines(saved) });
+      const result = itemsFromDocument(doc, today);
+      const resort = await resorting;
+      if (result.items.length > 0 || result.people.length > 0 || resort.length > 0) {
+        const nameInFile = doc.nameInFile && !sameName(doc.nameInFile, contact) ? doc.nameInFile : null;
+        return { ...result, resort, nameInFile, sortedBy: "ai" };
+      }
     } catch (error) {
       // AI failed. Simple rules still get most structured notes right.
       console.warn("Import extraction failed, using rules", error);
     }
   }
-  return { items: itemsFromRules(text, today), nameInFile: null, others: [], sortedBy: "rules" };
+  return { items: itemsFromRules(text, today, !!contact.partnerLabel), people: [], resort: [], nameInFile: null, sortedBy: "rules" };
 }
 
-const single: Destination[] = ["birthday", "nickname", "pronouns", "howMet"];
-
-/** Check the reviewed items, or say what's wrong with them. */
-export function importProblem(items: ImportItem[], today: string): string | null {
-  for (const d of single) {
-    if (items.filter((i) => i.destination === d).length > 1) return `Only one item can go to ${d === "howMet" ? "How you met" : d}`;
+/** Find or create each mentioned person and link them to the subject. Returns their contact ids by ref. */
+async function resolvePeople(tx: Tx, tenantId: string, subjectId: string, subjectFirstName: string, people: ImportPerson[]) {
+  const ids = new Map<string, string>();
+  const chosen = people.filter((p) => !p.skip && p.contactId && p.contactId !== subjectId).map((p) => p.contactId!);
+  if (chosen.length) {
+    // Checked before writing anything, so a stale page can't leave half an import behind.
+    const found = await tx
+      .select({ id: contacts.id })
+      .from(contacts)
+      .where(and(inArray(contacts.id, chosen), isNull(contacts.deletedAt)));
+    if (found.length !== new Set(chosen).size) throw new ImportError("One of the people in the file no longer exists. Reload and try again.");
   }
-  for (const i of items) {
-    const problem = itemProblem(i, today);
-    if (problem) return problem;
+  for (const p of people) {
+    if (p.skip || p.contactId === subjectId) continue;
+    if (p.contactId) {
+      ids.set(p.ref, p.contactId);
+      // People already in the tree keep their links; only friendships are safe to add twice.
+      if (p.relation === "friend") await connectFriends(tx, tenantId, subjectId, p.contactId);
+      continue;
+    }
+    ids.set(p.ref, await addRelatedPerson(tx, tenantId, subjectId, subjectFirstName, p));
   }
-  return null;
+  return ids;
 }
 
-/** Save what the person approved. Replaces single fields that differ; skips facts already saved. */
-export async function commitImport(tx: Tx, tenantId: string, contactId: string, items: ImportItem[], existing: ExistingProfile) {
+
+/** An error whose message is safe to show. */
+export class ImportError extends Error {}
+
+/**
+ * Save what the user approved. On the subject, single fields that differ are replaced; on other
+ * people, birthdays and fields only fill blanks. Facts, dates and milestones already saved are skipped.
+ */
+export async function commitImport(tx: Tx, tenantId: string, contactId: string, input: ImportInput, existing: ExistingProfile) {
+  const ids = await resolvePeople(tx, tenantId, contactId, existing.firstName, input.people);
+  ids.set(SUBJECT, contactId);
+  const partnership = existing.partnerLabel ? await partnershipFor(tx, contactId) : null;
+
   let saved = 0;
   const fields: { nickname?: string; pronouns?: string; howMet?: string } = {};
-  for (const i of items) {
-    if (i.destination === "skip" || itemDuplicate(i, existing)) continue;
+  for (const i of input.items) {
+    const target = ids.get(i.person);
+    if (!target || i.destination === "skip" || itemDuplicate(i, existing)) continue;
+    const isSubject = i.person === SUBJECT;
     switch (i.destination) {
       case "birthday":
-        await setBirthday(tx, tenantId, contactId, i.date as PartialDate);
+        if (isSubject || !(await birthdayOf(tx, target))) await setBirthday(tx, tenantId, target, i.date as PartialDate);
         break;
       case "nickname":
       case "pronouns":
       case "howMet":
-        fields[i.destination] = i.text;
+        if (isSubject) fields[i.destination] = i.text;
         break;
-      case "fact":
-        await insertFact(tx, tenantId, contactId, { category: i.category, label: i.label, value: i.text.slice(0, 500) });
+      case "fact": {
+        if (!isSubject) {
+          const [dupe] = await tx
+            .select({ id: facts.id })
+            .from(facts)
+            .where(and(eq(facts.contactId, target), eq(facts.category, i.category), eq(facts.value, i.text), isNull(facts.archivedAt)));
+          if (dupe) continue;
+        }
+        await insertFact(tx, tenantId, target, { category: i.category, label: i.label, value: i.text.slice(0, 500) });
+        break;
+      }
+      case "date": {
+        const d = i.date as PartialDate;
+        const [dupe] = await tx
+          .select({ id: importantDates.id })
+          .from(importantDates)
+          .where(and(eq(importantDates.contactId, target), eq(importantDates.type, i.dateKind), eq(importantDates.month, d.month), eq(importantDates.day, d.day)));
+        if (dupe) continue;
+        const [row] = await tx
+          .insert(importantDates)
+          .values({ tenantId, contactId: target, type: i.dateKind, label: i.label, year: d.year ?? null, month: d.month, day: d.day })
+          .returning({ id: importantDates.id });
+        await recordTimeline(tx, [{ tenantId, contactId: target, kind: "date", occurredAt: new Date(), title: `${i.label} added`, body: formatPartialDate(d), refId: row!.id }]);
+        break;
+      }
+      case "milestone":
+        if (!isSubject || !partnership) continue;
+        await addMilestone(tx, { tenantId, partnershipId: partnership.id, contactId }, { kind: i.milestone, label: i.milestone === "custom" ? i.label || null : null, date: i.date as PartialDate });
         break;
       case "note":
-        await insertNote(tx, tenantId, contactId, i.text);
+        await insertNote(tx, tenantId, target, i.text);
         break;
       case "catchup":
-        await insertInteraction(tx, tenantId, contactId, { type: i.type, date: i.on, location: null, summary: i.text.slice(0, 2000) });
+        if (!isSubject) continue;
+        await insertInteraction(tx, tenantId, target, { type: i.type, date: i.on, location: null, summary: i.text.slice(0, 2000) });
         break;
     }
     saved++;

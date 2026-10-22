@@ -15,6 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { ContactInfo } from "@/lib/data/contact-info";
+import type { HouseholdMember } from "@/lib/data/family";
 import { selectClass } from "@/lib/forms";
 import { submitKeepingValues } from "@/lib/submit";
 import { cn } from "@/lib/utils";
@@ -36,11 +37,14 @@ export function ContactCard({
   info,
   company,
   jobTitle,
+  household = [],
 }: {
   contactId: string;
   info: ContactInfo;
   company: string | null;
   jobTitle: string | null;
+  /** People who might live with them, offered the same address. */
+  household?: HouseholdMember[];
 }) {
   const [adding, setAdding] = useState<"method" | "address" | "work" | null>(null);
   const [kind, setKind] = useState<ContactMethodKind>("phone");
@@ -182,6 +186,8 @@ export function ContactCard({
         </form>
       )}
 
+      {adding !== "address" && addrState.message && <p className="text-[13px] text-muted-foreground">{addrState.message}</p>}
+
       {adding === "address" && (
         <form onSubmit={submitKeepingValues(addrAction)} className="grid gap-2 border-t border-border pt-4">
           <select name="label" aria-label="Label" defaultValue="home" className={selectClass}>
@@ -199,6 +205,18 @@ export function ContactCard({
             <Input name="postalCode" placeholder="Postal code" aria-label="Postal code" maxLength={20} autoComplete="off" />
             <Input name="country" placeholder="Country" aria-label="Country" defaultValue="Canada" maxLength={200} autoComplete="off" />
           </div>
+          {household.length > 0 && (
+            <fieldset className="grid gap-1.5 pt-1">
+              <legend className="pb-1 text-[13px] text-muted-foreground">Also add it for</legend>
+              {household.map((m) => (
+                <label key={m.id} className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" name="alsoFor" value={m.id} defaultChecked={m.likely} className="size-4 accent-foreground" />
+                  {m.name}
+                  <span className="text-muted-foreground">{m.role === "You" ? "" : m.role.toLowerCase()}</span>
+                </label>
+              ))}
+            </fieldset>
+          )}
           {addrState.error && <p className="text-destructive">{addrState.error}</p>}
           <div className="flex gap-2">
             <Button type="submit" size="sm" disabled={addrPending}>

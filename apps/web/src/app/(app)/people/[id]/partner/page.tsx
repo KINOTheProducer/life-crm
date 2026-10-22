@@ -1,4 +1,4 @@
-import { anniversaryName, milestoneLabels, todayIn, type PartnerPromptSection } from "@life-crm/core";
+import { anniversaryName, milestoneLabels, partnerPrompts, todayIn, type PartnerPromptSection } from "@life-crm/core";
 import { and, eq, isNull, schema } from "@life-crm/db";
 import { ArrowLeft, Heart, Star } from "lucide-react";
 import Link from "next/link";
@@ -94,6 +94,8 @@ export default async function PartnerPage({ params }: PageProps<"/people/[id]/pa
   const past = partnership.status === "past";
   const byCategory = (c: string) => facts.filter((f) => f.category === c);
   const answers = (c: string) => Object.fromEntries(byCategory(c).map((f) => [f.label, f.value]));
+  // Facts in a section that don't answer one of its prompts, e.g. from a voice note or an import.
+  const extras = (s: PartnerPromptSection) => byCategory(s).filter((f) => !(partnerPrompts[s] as readonly string[]).includes(f.label));
 
   const year = today.slice(0, 4);
   const thisYear = dates.filter((d) => d.occurredOn.startsWith(year));
@@ -281,6 +283,16 @@ export default async function PartnerPage({ params }: PageProps<"/people/[id]/pa
               </CardHeader>
               <CardContent>
                 <PromptsForm contactId={id} section={s.key} answers={answers(s.key)} />
+                {extras(s.key).length > 0 && (
+                  <dl className="mt-5 grid gap-2 border-t border-border pt-4 text-sm sm:grid-cols-[180px_1fr]">
+                    {extras(s.key).map((f) => (
+                      <div key={f.id} className="contents">
+                        <dt className="text-muted-foreground">{f.label}</dt>
+                        <dd>{f.value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                )}
               </CardContent>
             </Card>
           ))}
