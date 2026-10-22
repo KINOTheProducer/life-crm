@@ -6,6 +6,7 @@ import { Bloom, EffectComposer, N8AO, Vignette } from "@react-three/postprocessi
 import { type RefObject, useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { lerp, segment, smooth, type ProgressRef } from "./progress";
+import { type Part, sculpt } from "./figure";
 import { appScreen, glowPool, portrait, stickyNote } from "./textures";
 
 export const SCENE_BG = "#24170d";
@@ -278,133 +279,82 @@ function Chair() {
   );
 }
 
-type V3 = [number, number, number];
+// One soft cream tone with small shifts between shirt, trousers and skin, like the figures in an
+// architect's model. Sculpted as smooth melted shapes so it reads as one body, not parts.
+const SHIRT = "#f2e8dd";
+const SKIN = "#efe4d7";
+const TROUSERS = "#dccbb6";
+const SHOES = "#e4d6c4";
 
-/** Tapered limb segment with a rounded joint at each end, for a slimmer, more human silhouette than capsules. */
-function Segment({ from, to, r0, r1, color }: { from: V3; to: V3; r0: number; r1: number; color: string }) {
-  const { pos, quat, len } = useMemo(() => {
-    const a = new THREE.Vector3(...from);
-    const b = new THREE.Vector3(...to);
-    const dir = b.clone().sub(a);
-    const len = dir.length();
-    const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize());
-    return { pos: a.add(b).multiplyScalar(0.5), quat, len };
-  }, [from, to]);
+const lowerBody: Part[] = [
+  { kind: "blob", c: [0.06, 0.62, 0], r: [0.16, 0.1, 0.17], color: TROUSERS },
+  ...[-0.09, 0.09].flatMap((z): Part[] => [
+    { kind: "cone", a: [0.05, 0.62, z], b: [-0.36, 0.62, z * 1.1], ra: 0.085, rb: 0.066, color: TROUSERS },
+    { kind: "cone", a: [-0.36, 0.62, z * 1.1], b: [-0.39, 0.1, z * 1.1], ra: 0.063, rb: 0.058, color: TROUSERS },
+    { kind: "cone", a: [-0.38, 0.045, z * 1.1], b: [-0.5, 0.035, z * 1.1], ra: 0.045, rb: 0.035, color: SHOES },
+  ]),
+];
+
+// Upper body is built around the hips (its pivot), so it can lean.
+const upperBody: Part[] = [
+  { kind: "blob", c: [0, 0.13, 0], r: [0.13, 0.17, 0.165], color: SHIRT },
+  { kind: "blob", c: [-0.01, 0.31, 0], r: [0.125, 0.16, 0.19], color: SHIRT },
+  { kind: "cone", a: [0, 0.42, -0.16], b: [0, 0.42, 0.16], ra: 0.075, rb: 0.075, color: SHIRT },
+  { kind: "cone", a: [-0.01, 0.45, 0], b: [-0.02, 0.57, 0], ra: 0.046, rb: 0.042, color: SKIN },
+  { kind: "blob", c: [-0.03, 0.67, 0], r: [0.088, 0.105, 0.076], color: SKIN },
+  { kind: "blob", c: [-0.065, 0.615, 0], r: [0.055, 0.055, 0.055], color: SKIN },
+  ...[-1, 1].map((s): Part => ({ kind: "blob", c: [-0.02, 0.665, s * 0.074], r: [0.018, 0.028, 0.012], color: SKIN })),
+];
+
+const SHOULDER = [0, 0.42, 0.185] as const;
+
+/** Arm from the shoulder (its pivot), so it can drop to the lap. */
+const armParts = (s: number): Part[] => [
+  { kind: "cone", a: [0, 0, 0], b: [-0.1, -0.26, s * 0.03], ra: 0.06, rb: 0.05, color: SHIRT },
+  { kind: "cone", a: [-0.1, -0.26, s * 0.03], b: [-0.33, -0.2, s * -0.04], ra: 0.047, rb: 0.038, color: SHIRT },
+  { kind: "blob", c: [-0.4, -0.205, s * -0.05], r: [0.058, 0.022, 0.034], color: SKIN },
+];
+
+function Figure({ geometry }: { geometry: THREE.BufferGeometry }) {
   return (
-    <>
-      <mesh position={pos} quaternion={quat}>
-        <cylinderGeometry args={[r1, r0, len, 20]} />
-        <Clay color={color} />
-      </mesh>
-      <mesh position={from}>
-        <sphereGeometry args={[r0, 16, 12]} />
-        <Clay color={color} />
-      </mesh>
-      <mesh position={to}>
-        <sphereGeometry args={[r1, 16, 12]} />
-        <Clay color={color} />
-      </mesh>
-    </>
+    <mesh geometry={geometry}>
+      <meshStandardMaterial vertexColors roughness={0.85} metalness={0} envMapIntensity={0.6} />
+    </mesh>
   );
 }
-
-// One soft cream tone with small shifts between clothes, skin and hair, like an architect's model figure.
-const BODY = "#eee2d3";
-const TOP = "#f3eadf";
-const PANTS = "#d9c7b2";
-const HAIR = "#cbb59d";
-
-/** Upper body: waist, chest and shoulders. Lathed, then squashed front to back. */
-const torsoGeometry = (() => {
-  const pts = [
-    [0, 0],
-    [0.12, 0],
-    [0.13, 0.08],
-    [0.12, 0.2],
-    [0.14, 0.32],
-    [0.15, 0.4],
-    [0.14, 0.45],
-    [0.09, 0.5],
-    [0, 0.51],
-  ].map(([x, y]) => new THREE.Vector2(x, y));
-  return new THREE.LatheGeometry(pts, 36);
-})();
 
 // Turned a little toward the camera so the figure reads side on, not from behind.
 const SEAT_TURN = 0.35;
 
 function Person({ p }: { p: ProgressRef }) {
   const upper = useRef<THREE.Group>(null);
-  const head = useRef<THREE.Group>(null);
   const arms = useRef<(THREE.Group | null)[]>([]);
+  const geo = useMemo(
+    () => ({
+      lower: sculpt(lowerBody, [-0.2, 0.36, 0], 0.4, 64, 0.06),
+      upper: sculpt(upperBody, [-0.01, 0.41, 0], 0.41, 72, 0.07),
+      arms: [-1, 1].map((s) => sculpt(armParts(s), [-0.19, -0.12, 0], 0.29, 48, 0.04)),
+    }),
+    [],
+  );
   useFrame(({ clock }) => {
-    const t = clock.elapsedTime;
     // Leaning in while there's a lot going on, sitting back once it's all in.
     const ease = smooth(segment(p.current, 0.7, 0.9));
     if (upper.current) {
       upper.current.rotation.z = lerp(0.1, -0.08, ease);
-      upper.current.position.y = 0.56 + Math.sin(t * 1.6) * 0.003;
+      upper.current.position.y = 0.56 + Math.sin(clock.elapsedTime * 1.6) * 0.003;
     }
-    // Looks up from the screen at the end.
-    if (head.current) head.current.rotation.z = lerp(0.1, -0.12, ease) + Math.sin(t * 0.7) * 0.015;
     // Hands come off the keyboard and rest in their lap.
     arms.current.forEach((a) => a && (a.rotation.z = lerp(0, 0.36, ease)));
   });
   return (
     <group>
-      {/* Pelvis and legs */}
-      <RoundedBox args={[0.28, 0.16, 0.32]} radius={0.075} smoothness={4} position={[0.05, 0.6, 0]}>
-        <Clay color={PANTS} />
-      </RoundedBox>
-      {[-0.085, 0.085].map((z) => (
-        <group key={z}>
-          <Segment from={[0.04, 0.6, z]} to={[-0.38, 0.6, z * 1.1]} r0={0.078} r1={0.058} color={PANTS} />
-          <Segment from={[-0.38, 0.6, z * 1.1]} to={[-0.41, 0.07, z * 1.1]} r0={0.055} r1={0.045} color={PANTS} />
-          <RoundedBox args={[0.22, 0.065, 0.095]} radius={0.03} position={[-0.45, 0.035, z * 1.1]}>
-            <Clay color={HAIR} />
-          </RoundedBox>
-        </group>
-      ))}
-      <group ref={upper} position={[0.05, 0.56, 0]}>
-        <mesh geometry={torsoGeometry} scale={[0.72, 1, 1.32]}>
-          <Clay color={TOP} />
-        </mesh>
-        <mesh position={[-0.01, 0.53, 0]}>
-          <cylinderGeometry args={[0.04, 0.046, 0.1, 18]} />
-          <Clay color={BODY} />
-        </mesh>
-        <group ref={head} position={[-0.015, 0.58, 0]}>
-          {/* Head, jaw and a hint of a nose; no face, like a model figure */}
-          <mesh position={[-0.01, 0.11, 0]} scale={[1.05, 1.22, 0.9]}>
-            <sphereGeometry args={[0.09, 32, 24]} />
-            <Clay color={BODY} />
-          </mesh>
-          <mesh position={[-0.04, 0.06, 0]} scale={[1, 0.8, 0.8]}>
-            <sphereGeometry args={[0.07, 24, 18]} />
-            <Clay color={BODY} />
-          </mesh>
-          <mesh position={[-0.1, 0.1, 0]} scale={[1, 1.3, 0.8]}>
-            <sphereGeometry args={[0.014, 10, 8]} />
-            <Clay color={BODY} />
-          </mesh>
-          {/* Short hair moulded on, swept back */}
-          <mesh position={[0.012, 0.135, 0]} scale={[1.08, 1.12, 0.95]} rotation={[0, 0, 0.25]}>
-            <sphereGeometry args={[0.093, 32, 20, 0, Math.PI * 2, 0, Math.PI * 0.5]} />
-            <Clay color={HAIR} rough={0.9} />
-          </mesh>
-          <mesh position={[0.03, 0.1, 0]} scale={[0.9, 1.05, 0.86]}>
-            <sphereGeometry args={[0.085, 28, 20]} />
-            <Clay color={HAIR} rough={0.9} />
-          </mesh>
-        </group>
-        {/* Arms: shoulder, elbow, wrist, hand */}
+      <Figure geometry={geo.lower} />
+      <group ref={upper} position={[0.06, 0.56, 0]}>
+        <Figure geometry={geo.upper} />
         {[-1, 1].map((s, i) => (
-          <group key={s} ref={(el) => void (arms.current[i] = el)} position={[0, 0.44, s * 0.18]}>
-            <Segment from={[0, 0, 0]} to={[-0.1, -0.27, s * 0.04]} r0={0.054} r1={0.044} color={TOP} />
-            <Segment from={[-0.1, -0.27, s * 0.04]} to={[-0.33, -0.22, s * -0.05]} r0={0.042} r1={0.034} color={TOP} />
-            <RoundedBox args={[0.11, 0.032, 0.058]} radius={0.015} position={[-0.4, -0.225, s * -0.06]} rotation={[0, s * 0.15, 0]}>
-              <Clay color={BODY} />
-            </RoundedBox>
+          <group key={s} ref={(el) => void (arms.current[i] = el)} position={[SHOULDER[0], SHOULDER[1], s * SHOULDER[2]]}>
+            <Figure geometry={geo.arms[i]!} />
           </group>
         ))}
       </group>
