@@ -10,7 +10,7 @@ import { submitKeepingValues } from "@/lib/submit";
 import { cn } from "@/lib/utils";
 
 type Provider = "server" | "anthropic" | "openai_compatible" | "off";
-type Stt = "server" | "openai_compatible" | "off";
+type Stt = "server" | "same_as_ai" | "openai_compatible" | "off";
 
 export interface AiFormValues {
   provider: Provider;
@@ -110,7 +110,7 @@ export function AiSettingsForm({ values, server }: { values: AiFormValues; serve
   const [stt, setStt] = useState<Stt>(values.sttProvider);
   const form = useRef<HTMLFormElement>(null);
   // Pulled lists belong to the provider they came from; picking another clears them.
-  const [aiModels, setAiModels] = useState<{ provider: Provider; models: ModelOption[] } | null>(null);
+  const [aiModels, setAiModels] = useState<{ provider: Provider; models: ModelOption[]; speech: ModelOption[] } | null>(null);
   const [sttModels, setSttModels] = useState<ModelOption[] | null>(null);
   const [pullError, setPullError] = useState<{ kind: "ai" | "stt"; message: string } | null>(null);
   const [pullingAi, startPullAi] = useTransition();
@@ -128,11 +128,15 @@ export function AiSettingsForm({ values, server }: { values: AiFormValues; serve
           : { kind, provider: "openai_compatible", baseUrl: field("sttBaseUrl"), apiKey: field("sttApiKey") },
       );
       if (res.error || !res.models) setPullError({ kind, message: res.error ?? "No models found" });
-      else if (kind === "ai") setAiModels({ provider, models: res.models });
+      else if (kind === "ai") setAiModels({ provider, models: res.models, speech: res.speech ?? [] });
       else setSttModels(res.models);
     });
   };
   const pulled = aiModels?.provider === provider ? aiModels.models : null;
+  // Only an OpenAI-style endpoint can also transcribe; with anything else, sharing falls back to the server.
+  const canShare = provider === "openai_compatible";
+  const sttChoice: Stt = stt === "same_as_ai" && !canShare ? "server" : stt;
+  const sttFromAi = sttChoice === "same_as_ai";
 
   return (
     <form ref={form} onSubmit={submitKeepingValues(action)} className="grid gap-6">
@@ -165,7 +169,7 @@ export function AiSettingsForm({ values, server }: { values: AiFormValues; serve
           </label>
           <div className="flex flex-wrap items-center gap-3 sm:col-span-2">
             <PullButton onPull={() => pull("ai")} pending={pullingAi} />
-            {pulled && <span className="text-[13px] text-muted-foreground">{pulled.length} models</span>}
+            {pulled && <span className="text-[13px] text-muted-foreground">{new Set([...pulled, ...(aiModels?.speech ?? [])].map((m) => m.id)).size} models, used for every dropdown below</span>}
             {pullError?.kind === "ai" && <span className="text-[13px] text-destructive">{pullError.message}</span>}
           </div>
           <ModelField
@@ -194,18 +198,41 @@ export function AiSettingsForm({ values, server }: { values: AiFormValues; serve
 
       <fieldset className="grid gap-2">
         <legend className="mb-2 text-sm font-medium">Speech to text</legend>
-        <Choice name="sttProvider" value="server" current={stt} onPick={setStt} title="This server's setup" detail={server.stt} />
+        {canShare && (
+          <Choice
+            name="sttProvider"
+            value="same_as_ai"
+            current={sttChoice}
+            onPick={setStt}
+            title="Same endpoint as above"
+            detail="Pick a whisper or other transcription model from the same server."
+          />
+        )}
+        <Choice name="sttProvider" value="server" current={sttChoice} onPick={setStt} title="This server's setup" detail={server.stt} />
         <Choice
           name="sttProvider"
           value="openai_compatible"
-          current={stt}
+          current={sttChoice}
           onPick={setStt}
-          title="My own"
+          title="A different endpoint"
           detail="Any /audio/transcriptions endpoint: a local Whisper (speaches), OpenAI, Groq."
         />
-        <Choice name="sttProvider" value="off" current={stt} onPick={setStt} title="Off" detail="Voice notes are turned off." />
+        <Choice name="sttProvider" value="off" current={sttChoice} onPick={setStt} title="Off" detail="Voice notes are turned off." />
       </fieldset>
-      {stt === "openai_compatible" && (
+      {sttFromAi && (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <ModelField
+            name="sttModel"
+            label="Speech to text model"
+            defaultValue={values.sttProvider === "same_as_ai" ? values.sttModel : ""}
+            models={aiModels?.provider === provider ? aiModels.speech : null}
+            placeholder="whisper-1"
+            required
+          />
+          <p className="self-end pb-2 text-[13px] text-muted-foreground">{pulled ? "From the models pulled above." : "Pull models above to pick from a list."}</p>
+        </div>
+      )}
+      {sttChoice === "openai_compatible" && (
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="grid gap-1.5 text-[13px] text-muted-foreground sm:col-span-2">
             Base URL
@@ -223,7 +250,7 @@ export function AiSettingsForm({ values, server }: { values: AiFormValues; serve
           <ModelField
             name="sttModel"
             label="Model"
-            defaultValue={values.sttModel}
+            defaultValue={values.sttProvider === "openai_compatible" ? values.sttModel : ""}
             models={sttModels}
             placeholder="Systran/faster-whisper-small"
             required

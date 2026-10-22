@@ -66,6 +66,8 @@ export async function saveAiSettings(_prev: AiState, form: FormData): Promise<Ai
   const d = parsed.data;
   if (d.provider === "openai_compatible" && (!d.baseUrl || !d.model)) return { error: "Add the base URL and model for your provider" };
   if (d.sttProvider === "openai_compatible" && (!d.sttBaseUrl || !d.sttModel)) return { error: "Add the base URL and model for speech to text" };
+  if (d.sttProvider === "same_as_ai" && d.provider !== "openai_compatible") return { error: "Speech to text can only share the AI endpoint when that's an OpenAI-style provider" };
+  if (d.sttProvider === "same_as_ai" && !d.sttModel) return { error: "Pick a speech to text model" };
   // On the hosted service, keep requests off our own network.
   if (env.DEPLOY_MODE === "cloud") {
     try {
@@ -87,7 +89,7 @@ export async function saveAiSettings(_prev: AiState, form: FormData): Promise<Ai
       apiKeyEnc: d.apiKey ? encryptSecret(d.apiKey) : existing?.provider === d.provider ? existing.apiKeyEnc : null,
       sttProvider: d.sttProvider,
       sttBaseUrl: d.sttProvider === "openai_compatible" ? d.sttBaseUrl : null,
-      sttModel: d.sttProvider === "openai_compatible" ? d.sttModel : null,
+      sttModel: d.sttProvider === "openai_compatible" || d.sttProvider === "same_as_ai" ? d.sttModel : null,
       sttApiKeyEnc: d.sttApiKey ? encryptSecret(d.sttApiKey) : existing?.sttProvider === d.sttProvider ? existing.sttApiKeyEnc : null,
     };
     await tx
@@ -125,6 +127,8 @@ export async function testAi(): Promise<AiState> {
 
 export interface ModelsState {
   models?: ModelOption[];
+  /** From the same list: the ones that look like speech to text, for the shared endpoint. */
+  speech?: ModelOption[];
   error?: string;
 }
 
@@ -171,9 +175,13 @@ export async function pullModels(input: { kind: "ai" | "stt"; provider: string; 
       d.provider === "anthropic"
         ? await listAnthropicModels({ apiKey })
         : await listOpenAiCompatibleModels({ baseUrl: d.baseUrl!, apiKey });
-    const out = d.kind === "stt" ? speechModelsFirst(models) : models;
-    if (out.length === 0) return { error: "That server didn't list any models." };
-    return { models: out };
+    if (models.length === 0) return { error: "That server didn't list any models." };
+    if (d.kind === "stt") return { models: speechModelsFirst(models) };
+    // One endpoint can serve everything; keep whisper and TTS out of the chat lists when it does.
+    const speech = speechModelsFirst(models);
+    const isSpeech = new Set(speech.length < models.length ? speech.map((m) => m.id) : []);
+    const text = models.filter((m) => !isSpeech.has(m.id) && !/^tts|[-_]tts/i.test(m.id));
+    return { models: text.length ? text : models, speech };
   } catch (err) {
     if (err instanceof AiError) return { error: err.message };
     throw err;

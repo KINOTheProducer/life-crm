@@ -117,7 +117,8 @@ export const dismissedSuggestions = pgTable(
 ).enableRLS();
 
 export const aiProviders = ["server", "anthropic", "openai_compatible", "off"] as const;
-export const sttProviders = ["server", "openai_compatible", "off"] as const;
+/** "same_as_ai" uses the AI provider's base URL and key, with its own model. */
+export const sttProviders = ["server", "same_as_ai", "openai_compatible", "off"] as const;
 
 /**
  * A user's AI choices. "server" means whatever the instance is configured with in its

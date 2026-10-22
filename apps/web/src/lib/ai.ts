@@ -73,6 +73,10 @@ export async function aiEnabledFor(tx: Tx, userId: string) {
 export async function transcriberForUser(tx: Tx, userId: string): Promise<Transcriber> {
   const s = await aiSettingsFor(tx, userId);
   if (s?.sttProvider === "off") throw new AiError("Speech to text is turned off in Settings.");
+  if (s?.sttProvider === "same_as_ai") {
+    if (s.provider !== "openai_compatible" || !s.baseUrl || !s.sttModel) throw new AiError("Speech to text needs an OpenAI-style AI provider and a model in Settings.");
+    return new OpenAiCompatibleTranscriber({ baseUrl: s.baseUrl, model: s.sttModel, apiKey: s.apiKeyEnc ? decryptSecret(s.apiKeyEnc) : undefined });
+  }
   if (s?.sttProvider === "openai_compatible") {
     if (!s.sttBaseUrl || !s.sttModel) throw new AiError("Speech to text needs a base URL and model in Settings.");
     return new OpenAiCompatibleTranscriber({ baseUrl: s.sttBaseUrl, model: s.sttModel, apiKey: s.sttApiKeyEnc ? decryptSecret(s.sttApiKeyEnc) : undefined });
