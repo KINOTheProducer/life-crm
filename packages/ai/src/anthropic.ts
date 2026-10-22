@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import type { z } from "zod";
 import { buildDocumentMessage, DOCUMENT_SYSTEM_PROMPT, documentSchema, sanitizeDocument, type DocumentExtraction, type DocumentInput } from "./document";
+import { buildResortMessage, RESORT_SYSTEM_PROMPT, resortSchema, sanitizeResort, type Resort, type ResortInput } from "./resort";
 import { extractionSchema, sanitizeExtraction, type Extraction, type ExtractionInput } from "./extraction";
 import { parsePartialJson, type PartialExtraction } from "./progress";
 import { buildExtractionMessage, EXTRACTION_SYSTEM_PROMPT } from "./prompt";
@@ -28,6 +29,11 @@ export class AnthropicExtractor implements Extractor {
   async readDocument(input: DocumentInput): Promise<DocumentExtraction> {
     const output = await this.run(documentSchema, DOCUMENT_SYSTEM_PROMPT, buildDocumentMessage(input));
     return sanitizeDocument(output, input);
+  }
+
+  async resort(input: ResortInput): Promise<Resort> {
+    const output = await this.run(resortSchema, RESORT_SYSTEM_PROMPT, buildResortMessage(input));
+    return sanitizeResort(output, input);
   }
 
   private async run<S extends z.ZodType>(schema: S, system: string, message: string, onPartial?: (partial: PartialExtraction) => void): Promise<z.infer<S>> {

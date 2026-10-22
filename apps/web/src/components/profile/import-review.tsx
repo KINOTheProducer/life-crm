@@ -20,6 +20,7 @@ import { AlertTriangle, FileText } from "lucide-react";
 import { useState, useTransition } from "react";
 import { previewImport, saveImport } from "@/app/(app)/people/[id]/import/actions";
 import { PartialDateFields } from "@/components/partial-date-fields";
+import { ResortList, toggled } from "@/components/profile/resort-list";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useSteps, WorkingSteps } from "@/components/working-steps";
@@ -42,6 +43,7 @@ import {
   type ImportItem,
   type ImportPerson,
 } from "@/lib/import-items";
+import type { ResortSuggestion } from "@/lib/resort-items";
 import { cn } from "@/lib/utils";
 
 const maxBytes = 200_000;
@@ -74,6 +76,8 @@ export function ImportReview({
   const [preview, setPreview] = useState<Pick<ImportPreview, "nameInFile" | "sortedBy"> | null>(null);
   const [items, setItems] = useState<ImportItem[]>([]);
   const [people, setPeople] = useState<ImportPerson[]>([]);
+  const [resort, setResort] = useState<ResortSuggestion[]>([]);
+  const [accepted, setAccepted] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [showProblems, setShowProblems] = useState(false);
   const [pasted, setPasted] = useState("");
@@ -100,7 +104,7 @@ export function ImportReview({
         setError(result.error);
         return;
       }
-      if (result.items.length === 0) {
+      if (result.items.length === 0 && result.resort.length === 0) {
         setError("Couldn't find anything to import in that file.");
         return;
       }
@@ -108,6 +112,8 @@ export function ImportReview({
       // Things already on the profile word for word start out skipped.
       setItems(result.items.map((i) => (itemDuplicate(i, existing) ? { ...i, destination: "skip" } : i)));
       setPeople(result.people);
+      setResort(result.resort);
+      setAccepted(new Set(result.resort.map((r) => r.key)));
       setShowProblems(false);
     });
   }
@@ -198,7 +204,11 @@ export function ImportReview({
     if (active.some(problemFor) || people.some(personProblem)) return setError("Fix the items marked below first.");
     setError(null);
     startSaving(async () => {
-      const result = await saveImport(contactId, { items, people });
+      const result = await saveImport(
+        contactId,
+        { items, people },
+        resort.filter((r) => accepted.has(r.key)),
+      );
       if (result?.error) setError(result.error);
     });
   }
@@ -410,10 +420,32 @@ export function ImportReview({
         );
       })}
 
+      {resort.length > 0 && (
+        <section className="grid gap-3">
+          <div className="grid gap-1">
+            <h2 className="type-display text-[1.625rem]">Already saved</h2>
+            <p className="text-sm text-muted-foreground">
+              Things on {firstName}&apos;s profile that would sit better somewhere else. Ticked ones are moved when you import, never copied.
+            </p>
+          </div>
+          <ResortList suggestions={resort} accepted={accepted} onToggle={(key, on) => setAccepted((all) => toggled(all, key, on))} />
+        </section>
+      )}
+
       {error && <p className="text-sm text-destructive">{error}</p>}
       <div className="flex flex-wrap items-center gap-2">
-        <Button type="button" size="lg" variant={conflicts > 0 ? "destructive" : "default"} disabled={saving || (active.length === 0 && people.every((p) => p.skip))} onClick={save}>
-          {saving ? "Importing…" : conflicts > 0 ? `Import ${active.length} and replace ${conflicts}` : `Import ${active.length} ${active.length === 1 ? "item" : "items"}`}
+        <Button
+          type="button"
+          size="lg"
+          variant={conflicts > 0 ? "destructive" : "default"}
+          disabled={saving || (active.length === 0 && people.every((p) => p.skip) && accepted.size === 0)}
+          onClick={save}
+        >
+          {saving
+            ? "Importing…"
+            : conflicts > 0
+              ? `Import ${active.length} and replace ${conflicts}`
+              : `Import ${active.length} ${active.length === 1 ? "item" : "items"}${accepted.size ? `, move ${accepted.size}` : ""}`}
         </Button>
         <Button
           type="button"
@@ -423,6 +455,7 @@ export function ImportReview({
             setPreview(null);
             setItems([]);
             setPeople([]);
+            setResort([]);
             setError(null);
           }}
         >

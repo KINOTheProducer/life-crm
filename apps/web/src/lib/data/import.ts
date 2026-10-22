@@ -11,11 +11,13 @@ import {
   type ImportItem,
   type ImportPerson,
 } from "@/lib/import-items";
+import type { ResortSuggestion } from "@/lib/resort-items";
 import { birthdayOf, insertContact, setBirthday } from "./contacts";
 import { formatPartialDate } from "./dates";
 import { insertFact, insertInteraction, insertNote } from "./entries";
 import { connectFriends, connectRelative, type RelativeRole } from "./family";
 import { addMilestone, partnershipFor } from "./partners";
+import { savedAbout, savedLines, suggestResort } from "./resort";
 import { recordTimeline } from "./timeline";
 
 const { contacts, facts, importantDates, partnershipMilestones } = schema;
@@ -204,6 +206,8 @@ export function itemsFromRules(text: string, today: string, isPartner = false): 
 
 export interface ImportPreview {
   items: ImportItem[];
+  /** Better homes for what's already saved, offered alongside the file. */
+  resort: ResortSuggestion[];
   /** Everyone else the file mentions. */
   people: ImportPerson[];
   /** The name the file seems to be about, when it isn't this person. */
@@ -223,31 +227,32 @@ export async function readImport(
   text: string,
   contact: { id: string; name: string; nickname: string | null; partnerLabel: string | null },
   others: KnownPerson[],
+  saved: Awaited<ReturnType<typeof savedAbout>>,
   today: string,
   timeZone: string,
   extractor: Extractor | null,
 ): Promise<ImportPreview> {
   if (extractor) {
+    const subject = { id: contact.id, name: contact.name, nickname: contact.nickname, partnerLabel: contact.partnerLabel };
+    // A re-import also looks again at what's saved, so the file and the profile end up sorted the same way.
+    const resorting = suggestResort(extractor, saved, subject, others, today).catch((error) => {
+      console.warn("Re-sort during import failed", error);
+      return [];
+    });
     try {
-      const doc = await extractor.readDocument({
-        text,
-        today,
-        timeZone,
-        subject: { id: contact.id, name: contact.name, nickname: contact.nickname, partnerLabel: contact.partnerLabel },
-        knownPeople: others,
-        partnerPrompts,
-      });
+      const doc = await extractor.readDocument({ text, today, timeZone, subject, knownPeople: others, partnerPrompts, alreadySaved: savedLines(saved) });
       const result = itemsFromDocument(doc, today);
-      if (result.items.length > 0 || result.people.length > 0) {
+      const resort = await resorting;
+      if (result.items.length > 0 || result.people.length > 0 || resort.length > 0) {
         const nameInFile = doc.nameInFile && !sameName(doc.nameInFile, contact) ? doc.nameInFile : null;
-        return { ...result, nameInFile, sortedBy: "ai" };
+        return { ...result, resort, nameInFile, sortedBy: "ai" };
       }
     } catch (error) {
       // AI failed. Simple rules still get most structured notes right.
       console.warn("Import extraction failed, using rules", error);
     }
   }
-  return { items: itemsFromRules(text, today, !!contact.partnerLabel), people: [], nameInFile: null, sortedBy: "rules" };
+  return { items: itemsFromRules(text, today, !!contact.partnerLabel), people: [], resort: [], nameInFile: null, sortedBy: "rules" };
 }
 
 const treeRoles: Partial<Record<ImportPerson["relation"], RelativeRole>> = { parent: "parent", child: "child", sibling: "sibling", partner: "partner" };
@@ -337,8 +342,11 @@ export async function commitImport(tx: Tx, tenantId: string, contactId: string, 
           .from(importantDates)
           .where(and(eq(importantDates.contactId, target), eq(importantDates.type, i.dateKind), eq(importantDates.month, d.month), eq(importantDates.day, d.day)));
         if (dupe) continue;
-        await tx.insert(importantDates).values({ tenantId, contactId: target, type: i.dateKind, label: i.label, year: d.year ?? null, month: d.month, day: d.day });
-        await recordTimeline(tx, [{ tenantId, contactId: target, kind: "date", occurredAt: new Date(), title: `${i.label} added`, body: formatPartialDate(d) }]);
+        const [row] = await tx
+          .insert(importantDates)
+          .values({ tenantId, contactId: target, type: i.dateKind, label: i.label, year: d.year ?? null, month: d.month, day: d.day })
+          .returning({ id: importantDates.id });
+        await recordTimeline(tx, [{ tenantId, contactId: target, kind: "date", occurredAt: new Date(), title: `${i.label} added`, body: formatPartialDate(d), refId: row!.id }]);
         break;
       }
       case "milestone":

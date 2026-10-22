@@ -81,6 +81,8 @@ export interface DocumentInput {
   knownPeople: KnownPerson[];
   /** Labels the partner profile asks about, by fact category, so matching facts land in its fields. */
   partnerPrompts?: Record<string, readonly string[]>;
+  /** What's already saved about the subject, one line each, so a re-import doesn't repeat it. */
+  alreadySaved?: string[];
 }
 
 // Kept byte-stable so it can be prompt-cached across requests.
@@ -98,6 +100,7 @@ Rules:
 - When the subject is my partner, dates about our relationship (met, first date, got together or started dating, moved in, engaged, married, other moments of ours) go in milestones, not dates. Otherwise milestones is empty. When a fact answers one of the partner prompts in the message, use that prompt's label exactly, with its category.
 - Catch-ups are specific past occasions I spent with the subject and a full date ("Oct 3 we went to the AGO"). Not general background, not plans.
 - Notes are for what's worth keeping and isn't a fact or date. Don't repeat facts in notes.
+- Leave out anything the message lists as already saved about the subject, even when the file words it differently. Only include it when the file says something new or different about it.
 - Write in plain, natural English, in first person as the user would ("I met her at Waterloo"). Never write "the user". Never use em dashes.`;
 
 export function buildDocumentMessage(input: DocumentInput): string {
@@ -112,10 +115,12 @@ export function buildDocumentMessage(input: DocumentInput): string {
           .join("\n")}\n`
       : "";
 
+  const saved = input.alreadySaved?.length ? `\nAlready saved about the subject:\n${input.alreadySaved.map((l) => `- ${l}`).join("\n")}\n` : "";
+
   return `Today is ${input.today} (${input.timeZone}).
 
 Subject: ${subject}
-${prompts}
+${prompts}${saved}
 Known people:
 ${knownList}
 

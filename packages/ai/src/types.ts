@@ -1,5 +1,6 @@
 import type { DocumentExtraction, DocumentInput } from "./document";
 import type { Extraction, ExtractionInput } from "./extraction";
+import type { Resort, ResortInput } from "./resort";
 import type { PartialExtraction } from "./progress";
 
 export interface Extractor {
@@ -8,6 +9,8 @@ export interface Extractor {
   extract(input: ExtractionInput, onPartial?: (partial: PartialExtraction) => void): Promise<Extraction>;
   /** Sort a file of notes about one person, and anyone else it mentions. */
   readDocument(input: DocumentInput): Promise<DocumentExtraction>;
+  /** Suggest better homes for what's already saved about one person. */
+  resort(input: ResortInput): Promise<Resort>;
 }
 
 export interface Transcriber {

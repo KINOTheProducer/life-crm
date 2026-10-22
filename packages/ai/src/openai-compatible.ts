@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { buildDocumentMessage, DOCUMENT_SYSTEM_PROMPT, documentSchema, sanitizeDocument, type DocumentExtraction, type DocumentInput } from "./document";
+import { buildResortMessage, RESORT_SYSTEM_PROMPT, resortSchema, sanitizeResort, type Resort, type ResortInput } from "./resort";
 import { extractionSchema, sanitizeExtraction, type Extraction, type ExtractionInput } from "./extraction";
 import { parsePartialJson, type PartialExtraction } from "./progress";
 import { buildExtractionMessage, EXTRACTION_SYSTEM_PROMPT } from "./prompt";
@@ -29,6 +30,7 @@ function jsonSchemaFor(schema: z.ZodType) {
 }
 const extractionJsonSchema = jsonSchemaFor(extractionSchema);
 const documentJsonSchema = jsonSchemaFor(documentSchema);
+const resortJsonSchema = jsonSchemaFor(resortSchema);
 
 /**
  * Read a streamed chat completion (server-sent events), calling `onText` with everything so
@@ -86,6 +88,11 @@ export class OpenAiCompatibleExtractor implements Extractor {
   async readDocument(input: DocumentInput): Promise<DocumentExtraction> {
     const output = await this.run(documentSchema, { name: "document", schema: documentJsonSchema }, DOCUMENT_SYSTEM_PROMPT, buildDocumentMessage(input));
     return sanitizeDocument(output, input);
+  }
+
+  async resort(input: ResortInput): Promise<Resort> {
+    const output = await this.run(resortSchema, { name: "resort", schema: resortJsonSchema }, RESORT_SYSTEM_PROMPT, buildResortMessage(input));
+    return sanitizeResort(output, input);
   }
 
   private async run<S extends z.ZodType>(
