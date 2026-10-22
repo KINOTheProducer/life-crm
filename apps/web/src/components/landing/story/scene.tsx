@@ -3,20 +3,24 @@
 import { Environment, Lightformer, RoundedBox, SoftShadows } from "@react-three/drei";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { Bloom, EffectComposer, N8AO, Vignette } from "@react-three/postprocessing";
-import { useLayoutEffect, useMemo, useRef } from "react";
+import { type RefObject, useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
-import { backOut, lerp, segment, smooth, type ProgressRef } from "./progress";
-import { calendarPage, glowPool, phoneScreen } from "./textures";
+import { lerp, segment, smooth, type ProgressRef } from "./progress";
+import { appScreen, glowPool, portrait, stickyNote } from "./textures";
 
 export const SCENE_BG = "#24170d";
 
 const C = {
   clay: "#ece2d2",
   clayShade: "#e2d9ca",
+  wall: "#e9dfcf",
+  sofa: "#d8c3ab",
   ink: "#2b2723",
   coral: "#ff5a36",
   peach: "#f4c3a1",
   sage: "#c4d8ae",
+  leaf: "#7f9b5c",
+  terracotta: "#c9825f",
   lilac: "#d6c8f0",
   sky: "#bed6ee",
   butter: "#f3df98",
@@ -29,11 +33,6 @@ function Clay({ color, rough = 0.78 }: { color: string; rough?: number }) {
   return <meshStandardMaterial color={color} roughness={rough} metalness={0} envMapIntensity={0.6} />;
 }
 
-/** Bright, unlit-looking material for things that glow (bloom picks these up). */
-function Glow({ color, intensity = 3 }: { color: string; intensity?: number }) {
-  return <meshStandardMaterial color={color} emissive={color} emissiveIntensity={intensity} toneMapped={false} />;
-}
-
 /** Eased progress that trails the scroll position, so jumps animate instead of snapping. */
 function useEased(progress: ProgressRef) {
   const eased = useRef(progress.current);
@@ -43,414 +42,545 @@ function useEased(progress: ProgressRef) {
   return eased;
 }
 
-function usePop(p: ProgressRef, a: number, b: number) {
-  const ref = useRef<THREE.Group>(null);
-  useFrame(() => {
-    const t = segment(p.current, a, b);
-    ref.current?.scale.setScalar(t === 0 ? 0.0001 : Math.max(0.0001, backOut(t)));
-  });
-  return ref;
+/** Dusk falls over the last chapter. */
+const duskAt = (t: number) => smooth(segment(t, 0.72, 0.92));
+
+// A cutaway room like an architect's model: floor slab, back wall with a window, left wall.
+const W = 6.6;
+const D = 5.2;
+const H = 2.9;
+const T = 0.22;
+const GROUND_Y = -0.35;
+const BACK = -D / 2 + T;
+const LEFT = -W / 2 + T;
+const WINDOW = { x0: 0.4, x1: 2.6, y0: 1.05, y1: 2.4 };
+
+function roundedRect(path: THREE.Path, x0: number, y0: number, x1: number, y1: number, r: number) {
+  path.moveTo(x0 + r, y0);
+  path.lineTo(x1 - r, y0);
+  path.quadraticCurveTo(x1, y0, x1, y0 + r);
+  path.lineTo(x1, y1 - r);
+  path.quadraticCurveTo(x1, y1, x1 - r, y1);
+  path.lineTo(x0 + r, y1);
+  path.quadraticCurveTo(x0, y1, x0, y1 - r);
+  path.lineTo(x0, y0 + r);
+  path.quadraticCurveTo(x0, y0, x0 + r, y0);
 }
 
-const W = 6.4;
-const D = 4.2;
-const FLOOR_Y = -1.5;
+/** A wall slab with its open end's top corner rounded off, optionally with a window cut out. */
+function wallGeometry(len: number, roundEnd: "start" | "end", hole?: typeof WINDOW) {
+  const s = new THREE.Shape();
+  const L = len / 2;
+  const r = 0.55;
+  s.moveTo(-L, 0);
+  s.lineTo(L, 0);
+  if (roundEnd === "end") {
+    s.lineTo(L, H - r);
+    s.quadraticCurveTo(L, H, L - r, H);
+    s.lineTo(-L, H);
+  } else {
+    s.lineTo(L, H);
+    s.lineTo(-L + r, H);
+    s.quadraticCurveTo(-L, H, -L, H - r);
+  }
+  s.lineTo(-L, 0);
+  if (hole) {
+    const h = new THREE.Path();
+    roundedRect(h, hole.x0, hole.y0, hole.x1, hole.y1, 0.2);
+    s.holes.push(h);
+  }
+  return new THREE.ExtrudeGeometry(s, { depth: T, bevelEnabled: true, bevelSize: 0.035, bevelThickness: 0.035, bevelSegments: 4, curveSegments: 20 });
+}
 
-function Counter({ p }: { p: ProgressRef }) {
-  const flutes = useRef<THREE.InstancedMesh>(null);
-  const strip = useRef<THREE.MeshStandardMaterial>(null);
+function Room({ p }: { p: ProgressRef }) {
+  const back = useMemo(() => wallGeometry(W, "end", WINDOW), []);
+  const left = useMemo(() => wallGeometry(D, "start"), []);
+  const sky = useRef<THREE.MeshBasicMaterial>(null);
   const pool = useRef<THREE.MeshBasicMaterial>(null);
   const poolTex = useMemo(() => glowPool(), []);
-
-  // Tightly packed vertical flutes around the skirt, like a fluted bar counter.
-  const spots = useMemo(() => {
-    const out: [number, number][] = [];
-    const w = W - 0.45;
-    const d = D - 0.45;
-    const step = 0.118;
-    for (let x = -w / 2; x <= w / 2 + 1e-6; x += step) out.push([x, d / 2], [x, -d / 2]);
-    for (let z = -d / 2 + step; z < d / 2 - 1e-6; z += step) out.push([w / 2, z], [-w / 2, z]);
-    return out;
-  }, []);
-
-  useLayoutEffect(() => {
-    const m = new THREE.Matrix4();
-    spots.forEach(([x, z], i) => {
-      m.setPosition(x, -0.92, z);
-      flutes.current!.setMatrixAt(i, m);
-    });
-    flutes.current!.instanceMatrix.needsUpdate = true;
-  }, [spots]);
+  const day = useMemo(() => new THREE.Color("#f6dfc4"), []);
+  const night = useMemo(() => new THREE.Color("#2f3149"), []);
 
   useFrame(() => {
-    const dusk = smooth(segment(p.current, 0.7, 0.95));
-    if (strip.current) strip.current.emissiveIntensity = lerp(1.2, 4, dusk);
-    if (pool.current) pool.current.opacity = lerp(0.35, 0.85, dusk);
+    const dusk = duskAt(p.current);
+    sky.current?.color.lerpColors(day, night, dusk);
+    if (pool.current) pool.current.opacity = lerp(0.25, 0.7, dusk);
   });
+
+  const winW = WINDOW.x1 - WINDOW.x0;
+  const winH = WINDOW.y1 - WINDOW.y0;
+  const winX = (WINDOW.x0 + WINDOW.x1) / 2;
+  const winY = (WINDOW.y0 + WINDOW.y1) / 2;
 
   return (
     <group>
-      <RoundedBox args={[W, 0.3, D]} radius={0.15} smoothness={5} position={[0, -0.15, 0]}>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, GROUND_Y, 0]}>
+        <planeGeometry args={[80, 80]} />
+        <meshStandardMaterial color={SCENE_BG} roughness={1} />
+      </mesh>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, GROUND_Y + 0.005, 0]} userData={{ noShadow: true }}>
+        <planeGeometry args={[W * 2.2, D * 2.4]} />
+        <meshBasicMaterial ref={pool} map={poolTex} transparent opacity={0.25} blending={THREE.AdditiveBlending} depthWrite={false} />
+      </mesh>
+      <RoundedBox args={[W, -GROUND_Y, D]} radius={0.16} smoothness={5} position={[0, GROUND_Y / 2, 0]}>
         <Clay color={C.clay} />
       </RoundedBox>
-      <instancedMesh ref={flutes} args={[undefined, undefined, spots.length]}>
-        <cylinderGeometry args={[0.064, 0.064, 1.08, 14]} />
-        <Clay color={C.clayShade} />
-      </instancedMesh>
-      {/* Core behind the flutes so there are no gaps to see through. */}
-      <mesh position={[0, -0.92, 0]}>
-        <boxGeometry args={[W - 0.6, 1.08, D - 0.6]} />
-        <Clay color={C.clayShade} />
+      <mesh geometry={back} position={[0, 0, -D / 2]}>
+        <Clay color={C.wall} />
       </mesh>
-      {/* LED strip under the lip. */}
-      <mesh position={[0, -0.33, 0]} userData={{ noShadow: true }}>
-        <boxGeometry args={[W - 0.32, 0.03, D - 0.32]} />
-        <meshStandardMaterial ref={strip} color={C.warm} emissive={C.warm} emissiveIntensity={1.2} toneMapped={false} />
+      <mesh geometry={left} position={[-W / 2, 0, 0]} rotation={[0, Math.PI / 2, 0]}>
+        <Clay color={C.wall} />
       </mesh>
-      {/* Warm pool of light on the floor. */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, FLOOR_Y + 0.005, 0]} userData={{ noShadow: true }}>
-        <planeGeometry args={[W * 2.1, D * 2.4]} />
-        <meshBasicMaterial ref={pool} map={poolTex} transparent opacity={0.35} blending={THREE.AdditiveBlending} depthWrite={false} />
+      {/* Sky through the window: warm afternoon, then dusk. */}
+      <mesh position={[winX, winY, -D / 2 + 0.02]} userData={{ noShadow: true }}>
+        <planeGeometry args={[winW, winH]} />
+        <meshBasicMaterial ref={sky} color={day} toneMapped={false} />
+      </mesh>
+      <mesh position={[winX, winY, -D / 2 + T / 2]}>
+        <boxGeometry args={[0.05, winH, 0.05]} />
+        <Clay color={C.cream} />
+      </mesh>
+      <mesh position={[winX, winY + 0.15, -D / 2 + T / 2]}>
+        <boxGeometry args={[winW, 0.05, 0.05]} />
+        <Clay color={C.cream} />
+      </mesh>
+      <RoundedBox args={[winW + 0.2, 0.06, 0.24]} radius={0.025} position={[winX, WINDOW.y0 - 0.03, BACK + 0.08]}>
+        <Clay color={C.cream} rough={0.6} />
+      </RoundedBox>
+      {/* Rug */}
+      <mesh position={[0.5, 0.012, 0.7]} scale={[1, 1, 0.74]}>
+        <cylinderGeometry args={[1.65, 1.65, 0.024, 64]} />
+        <Clay color="#e6c7ad" rough={1} />
       </mesh>
     </group>
   );
 }
 
-function Floor() {
+const SIDEBOARD = { x: 1.5, w: 2.1, d: 0.8, h: 0.75 };
+
+function Sideboard() {
+  const z = BACK + SIDEBOARD.d / 2;
   return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, FLOOR_Y, 0]}>
-      <planeGeometry args={[80, 80]} />
-      <meshStandardMaterial color={SCENE_BG} roughness={1} />
+    <group position={[SIDEBOARD.x, 0, z]}>
+      <RoundedBox args={[SIDEBOARD.w, SIDEBOARD.h - 0.1, SIDEBOARD.d]} radius={0.06} smoothness={4} position={[0, 0.1 + (SIDEBOARD.h - 0.1) / 2, 0]}>
+        <Clay color={C.cream} rough={0.6} />
+      </RoundedBox>
+      {/* Door seams and pulls */}
+      {[-0.35, 0.35].map((x) => (
+        <mesh key={x} position={[x, 0.42, SIDEBOARD.d / 2 + 0.005]}>
+          <boxGeometry args={[0.012, 0.5, 0.01]} />
+          <Clay color={C.clayShade} />
+        </mesh>
+      ))}
+      {[-0.5, 0.2, 0.5].map((x) => (
+        <mesh key={x} position={[x, 0.55, SIDEBOARD.d / 2 + 0.02]} rotation={[Math.PI / 2, 0, 0]}>
+          <cylinderGeometry args={[0.025, 0.025, 0.03, 12]} />
+          <Clay color={C.bark} />
+        </mesh>
+      ))}
+      {[-0.85, 0.85].map((x) => (
+        <mesh key={x} position={[x, 0.05, 0]}>
+          <boxGeometry args={[0.06, 0.1, SIDEBOARD.d - 0.2]} />
+          <Clay color={C.bark} />
+        </mesh>
+      ))}
+      {/* A stack of books and a vase */}
+      {[C.sky, C.peach, C.sage].map((tone, i) => (
+        <RoundedBox key={tone} args={[0.42 - i * 0.03, 0.07, 0.3]} radius={0.015} position={[0.72, SIDEBOARD.h + 0.035 + i * 0.07, -0.05]} rotation={[0, i * 0.18, 0]}>
+          <Clay color={tone} />
+        </RoundedBox>
+      ))}
+      <mesh position={[0.72, SIDEBOARD.h + 0.33, -0.05]}>
+        <cylinderGeometry args={[0.06, 0.09, 0.2, 20]} />
+        <Clay color={C.terracotta} rough={0.6} />
+      </mesh>
+    </group>
+  );
+}
+
+// The desk sits against the left wall; whoever's at it faces the wall (-x), so the camera sees the screen.
+const DESK = { x: LEFT + 0.42, z: -0.3, top: 0.75 };
+const CHAIR_X = LEFT + 1.35;
+const SCREEN = new THREE.Vector3(LEFT + 0.27, 1.37, DESK.z);
+const HEAD = new THREE.Vector3(CHAIR_X - 0.03, 1.42, DESK.z);
+
+function Desk() {
+  return (
+    <group position={[DESK.x, 0, DESK.z]}>
+      <RoundedBox args={[0.8, 0.05, 1.7]} radius={0.02} smoothness={3} position={[0, DESK.top - 0.025, 0]}>
+        <Clay color={C.cream} rough={0.55} />
+      </RoundedBox>
+      {[-1, 1].flatMap((sx) =>
+        [-1, 1].map((sz) => (
+          <mesh key={`${sx}${sz}`} position={[sx * 0.33, (DESK.top - 0.05) / 2, sz * 0.78]}>
+            <cylinderGeometry args={[0.025, 0.025, DESK.top - 0.05, 10]} />
+            <Clay color={C.bark} />
+          </mesh>
+        )),
+      )}
+      {/* Keyboard and a mug */}
+      <RoundedBox args={[0.18, 0.02, 0.6]} radius={0.008} position={[0.2, DESK.top + 0.01, 0]}>
+        <Clay color="#ffffff" rough={0.5} />
+      </RoundedBox>
+      <mesh position={[0.05, DESK.top + 0.06, 0.62]}>
+        <cylinderGeometry args={[0.05, 0.045, 0.12, 20]} />
+        <Clay color={C.coral} rough={0.45} />
+      </mesh>
+    </group>
+  );
+}
+
+function Monitor({ glow }: { glow: RefObject<THREE.PointLight | null> }) {
+  return (
+    <group position={[LEFT + 0.22, DESK.top, DESK.z]}>
+      <RoundedBox args={[0.22, 0.02, 0.3]} radius={0.008} position={[0, 0.01, 0]}>
+        <Clay color={C.ink} rough={0.4} />
+      </RoundedBox>
+      <mesh position={[0, 0.17, 0]}>
+        <boxGeometry args={[0.04, 0.32, 0.06]} />
+        <Clay color={C.ink} rough={0.4} />
+      </mesh>
+      <RoundedBox args={[0.05, 0.62, 1.04]} radius={0.02} position={[0, SCREEN.y - DESK.top, 0]}>
+        <Clay color={C.ink} rough={0.35} />
+      </RoundedBox>
+      <pointLight ref={glow} position={[0.7, SCREEN.y - DESK.top - 0.2, 0]} color="#e6eeff" intensity={0.4} distance={2.5} decay={2} />
+    </group>
+  );
+}
+
+function Screen({ tex }: { tex: THREE.Texture }) {
+  return (
+    <mesh position={[SCREEN.x, SCREEN.y, SCREEN.z]} rotation={[0, Math.PI / 2, 0]} userData={{ noShadow: true }}>
+      <planeGeometry args={[0.98, 0.56]} />
+      <meshStandardMaterial map={tex} emissiveMap={tex} emissive="#ffffff" emissiveIntensity={0.45} roughness={0.9} />
     </mesh>
   );
 }
 
-function Phone({ p }: { p: ProgressRef }) {
-  const group = useRef<THREE.Group>(null);
-  const bars = useRef<THREE.Group>(null);
-  const screen = useMemo(() => phoneScreen(), []);
+function Chair() {
+  return (
+    <group position={[CHAIR_X, 0, DESK.z]}>
+      <mesh position={[0.05, 0.03, 0]}>
+        <cylinderGeometry args={[0.26, 0.28, 0.04, 24]} />
+        <Clay color={C.ink} rough={0.4} />
+      </mesh>
+      <mesh position={[0.05, 0.25, 0]}>
+        <cylinderGeometry args={[0.03, 0.03, 0.42, 10]} />
+        <Clay color={C.ink} rough={0.4} />
+      </mesh>
+      <RoundedBox args={[0.5, 0.07, 0.5]} radius={0.03} position={[0.05, 0.48, 0]}>
+        <Clay color={C.sofa} />
+      </RoundedBox>
+      <RoundedBox args={[0.07, 0.55, 0.46]} radius={0.03} position={[0.33, 0.85, 0]}>
+        <Clay color={C.sofa} />
+      </RoundedBox>
+    </group>
+  );
+}
 
+type V3 = [number, number, number];
+
+/** Capsule from one point to another, for arms and legs. */
+function Limb({ from, to, r, color }: { from: V3; to: V3; r: number; color: string }) {
+  const { pos, quat, len } = useMemo(() => {
+    const a = new THREE.Vector3(...from);
+    const b = new THREE.Vector3(...to);
+    const dir = b.clone().sub(a);
+    const len = dir.length();
+    const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize());
+    return { pos: a.add(b).multiplyScalar(0.5), quat, len };
+  }, [from, to]);
+  return (
+    <mesh position={pos} quaternion={quat}>
+      <capsuleGeometry args={[r, Math.max(0.001, len - r * 2), 6, 14]} />
+      <Clay color={color} />
+    </mesh>
+  );
+}
+
+const SKIN = "#e8b894";
+const SWEATER = C.sage;
+const PANTS = "#5b4a3c";
+
+function Person({ p }: { p: ProgressRef }) {
+  const upper = useRef<THREE.Group>(null);
   useFrame(({ clock }) => {
-    const t = clock.elapsedTime;
-    const talk = 1 - segment(p.current, 0.24, 0.36);
-    const aside = smooth(segment(p.current, 0.48, 0.62));
-    if (group.current) {
-      group.current.position.x = lerp(-1.75, -2.45, aside);
-      group.current.position.z = lerp(0.35, 0.15, aside);
-      group.current.rotation.y = lerp(0.55, 0.85, aside);
+    // Hunched over the desk while it's all in their head, sitting back once it's out.
+    const ease = smooth(segment(p.current, 0.7, 0.9));
+    if (upper.current) {
+      upper.current.rotation.z = lerp(0.14, -0.1, ease);
+      upper.current.position.y = 0.62 + Math.sin(clock.elapsedTime * 1.6) * 0.004;
     }
-    bars.current?.children.forEach((bar, i) => {
-      const h = (0.3 + 0.7 * Math.abs(Math.sin(t * 2.6 + i * 0.85))) * talk;
-      bar.visible = talk > 0.02;
-      bar.scale.set(1, Math.max(0.001, h), 1);
-      bar.position.y = 0.12 + 0.42 * h;
-    });
-  });
-
-  return (
-    <group ref={group} position={[-1.75, 0, 0.35]} rotation={[0, 0.55, 0]}>
-      {/* Little stand */}
-      <RoundedBox args={[0.62, 0.12, 0.5]} radius={0.05} position={[0, 0.06, 0.02]}>
-        <Clay color={C.clayShade} />
-      </RoundedBox>
-      <group position={[0, 0.98, -0.05]} rotation={[-0.16, 0, 0]}>
-        <RoundedBox args={[0.96, 1.86, 0.13]} radius={0.12} smoothness={6}>
-          <meshStandardMaterial color={C.ink} roughness={0.35} metalness={0.1} />
-        </RoundedBox>
-        <mesh position={[0, 0, 0.068]} userData={{ noShadow: true }}>
-          <planeGeometry args={[0.84, 1.72]} />
-          <meshStandardMaterial map={screen} emissiveMap={screen} emissive="#ffffff" emissiveIntensity={0.9} roughness={0.25} toneMapped={false} />
-        </mesh>
-        <mesh position={[0, 0.79, 0.07]} userData={{ noShadow: true }}>
-          <planeGeometry args={[0.22, 0.06]} />
-          <meshBasicMaterial color="#0d0c0b" />
-        </mesh>
-      </group>
-      <group ref={bars} position={[0.75, 0, 0.55]}>
-        {Array.from({ length: 8 }, (_, i) => (
-          <mesh key={i} position={[i * 0.17, 0.5, 0]}>
-            <capsuleGeometry args={[0.05, 0.85, 6, 12]} />
-            <meshStandardMaterial color={C.coral} emissive={C.coral} emissiveIntensity={0.55} roughness={0.5} />
-          </mesh>
-        ))}
-      </group>
-    </group>
-  );
-}
-
-const cardTones = [C.peach, C.butter, C.sage];
-
-function Cards({ p }: { p: ProgressRef }) {
-  const refs = useRef<(THREE.Group | null)[]>([]);
-  useFrame(({ clock }) => {
-    refs.current.forEach((g, i) => {
-      if (!g) return;
-      const t = smooth(segment(p.current, 0.27 + i * 0.05, 0.42 + i * 0.05));
-      const from = new THREE.Vector3(-1.45, 1.1, 0.6);
-      const to = new THREE.Vector3(-0.1 + i * 0.14, 0.04 + i * 0.075, -0.6 - i * 0.05);
-      g.position.lerpVectors(from, to, t);
-      g.position.y += Math.sin(t * Math.PI) * 0.8 + Math.sin(clock.elapsedTime * 1.3 + i) * 0.008;
-      g.rotation.set(lerp(-0.4, 0, t), lerp(0.9, -0.3 + i * 0.24, t), lerp(0.25, 0, t));
-      g.scale.setScalar(Math.max(0.0001, Math.min(1, t * 3)));
-    });
   });
   return (
-    <>
-      {cardTones.map((tone, i) => (
-        <group key={tone} ref={(el) => void (refs.current[i] = el)}>
-          <RoundedBox args={[1.35, 0.06, 0.9]} radius={0.025} smoothness={3}>
-            <Clay color="#ffffff" rough={0.6} />
-          </RoundedBox>
-          <mesh position={[-0.47, 0.034, -0.2]}>
-            <cylinderGeometry args={[0.13, 0.13, 0.012, 24]} />
-            <Clay color={tone} />
-          </mesh>
-          {[0, 1, 2].map((l) => (
-            <RoundedBox key={l} args={[l === 0 ? 0.55 : 1 - l * 0.22, 0.012, 0.06]} radius={0.006} position={[l === 0 ? 0.0 : -0.08 + l * 0.0, 0.034, -0.24 + l * 0.2]}>
-              <Clay color={l === 0 ? C.ink : C.clayShade} />
-            </RoundedBox>
-          ))}
-        </group>
-      ))}
-    </>
-  );
-}
-
-function Cake({ p }: { p: ProgressRef }) {
-  const ref = usePop(p, 0.5, 0.6);
-  const flames = useRef<THREE.Group>(null);
-  const light = useRef<THREE.PointLight>(null);
-  const drips = useMemo(
-    () => Array.from({ length: 14 }, (_, i) => ({ a: (i / 14) * Math.PI * 2, len: 0.06 + ((i * 37) % 7) * 0.025 })),
-    [],
-  );
-  useFrame(({ clock }) => {
-    const lit = smooth(segment(p.current, 0.58, 0.66));
-    flames.current?.children.forEach((f, i) => {
-      f.visible = lit > 0.02;
-      f.scale.set(lit, lit * (1 + 0.18 * Math.sin(clock.elapsedTime * 11 + i * 2)), lit);
-    });
-    if (light.current) light.current.intensity = lit * 3;
-  });
-  return (
-    <group ref={ref} position={[1.6, 0, 0.75]}>
-      <mesh position={[0, 0.025, 0]}>
-        <cylinderGeometry args={[0.82, 0.86, 0.05, 48]} />
-        <Clay color="#ffffff" rough={0.4} />
-      </mesh>
-      <mesh position={[0, 0.27, 0]}>
-        <cylinderGeometry args={[0.64, 0.64, 0.44, 48]} />
-        <Clay color={C.peach} />
-      </mesh>
-      {/* Drip icing on the bottom tier */}
-      <mesh position={[0, 0.48, 0]}>
-        <cylinderGeometry args={[0.655, 0.655, 0.06, 48]} />
-        <Clay color={C.cream} rough={0.5} />
-      </mesh>
-      {drips.map((d) => (
-        <mesh key={d.a} position={[Math.cos(d.a) * 0.645, 0.45 - d.len / 2, Math.sin(d.a) * 0.645]}>
-          <capsuleGeometry args={[0.035, d.len, 4, 8]} />
-          <Clay color={C.cream} rough={0.5} />
-        </mesh>
-      ))}
-      <mesh position={[0, 0.66, 0]}>
-        <cylinderGeometry args={[0.42, 0.42, 0.32, 48]} />
-        <Clay color={C.cream} rough={0.55} />
-      </mesh>
-      {[0, 1, 2, 3, 4, 5].map((i) => (
-        <mesh key={i} position={[Math.cos(i * 1.05) * 0.3, 0.86, Math.sin(i * 1.05) * 0.3]}>
-          <sphereGeometry args={[0.055, 16, 16]} />
-          <Clay color={C.coral} rough={0.35} />
-        </mesh>
-      ))}
-      <group>
-        {[-0.12, 0.05, 0.16].map((x, i) => (
-          <mesh key={x} position={[x, 1.0, i === 1 ? -0.1 : 0.06]}>
-            <cylinderGeometry args={[0.022, 0.022, 0.28, 10]} />
-            <Clay color={i === 1 ? C.sky : C.lilac} />
-          </mesh>
-        ))}
-      </group>
-      <group ref={flames}>
-        {[-0.12, 0.05, 0.16].map((x, i) => (
-          <mesh key={x} position={[x, 1.2, i === 1 ? -0.1 : 0.06]} userData={{ noShadow: true }}>
-            <coneGeometry args={[0.035, 0.12, 12]} />
-            <Glow color={C.warm} intensity={6} />
-          </mesh>
-        ))}
-      </group>
-      <pointLight ref={light} position={[0, 1.4, 0]} color={C.warm} intensity={0} distance={5} decay={2} />
-    </group>
-  );
-}
-
-function Calendar({ p }: { p: ProgressRef }) {
-  const ref = usePop(p, 0.54, 0.64);
-  const page = useMemo(() => calendarPage(), []);
-  return (
-    <group ref={ref} position={[2.2, 0, -1.05]} rotation={[0, -0.55, 0]}>
-      <group position={[0, 0.6, 0]} rotation={[-0.14, 0, 0]}>
-        <RoundedBox args={[1.05, 1.15, 0.14]} radius={0.05}>
-          <Clay color="#ffffff" />
-        </RoundedBox>
-        <mesh position={[0, 0, 0.072]}>
-          <planeGeometry args={[0.95, 1.04]} />
-          <meshStandardMaterial map={page} roughness={0.7} />
-        </mesh>
-        {[-0.3, 0.3].map((x) => (
-          <mesh key={x} position={[x, 0.6, 0]} rotation={[Math.PI / 2, 0, 0]}>
-            <torusGeometry args={[0.05, 0.015, 8, 20]} />
-            <meshStandardMaterial color="#b9b2a6" roughness={0.3} metalness={0.6} />
-          </mesh>
-        ))}
-      </group>
-    </group>
-  );
-}
-
-function Gift({ p }: { p: ProgressRef }) {
-  const ref = usePop(p, 0.56, 0.66);
-  return (
-    <group ref={ref} position={[0.2, 0, 1.2]} rotation={[0, 0.45, 0]}>
-      <RoundedBox args={[0.72, 0.58, 0.72]} radius={0.05} position={[0, 0.29, 0]}>
-        <Clay color={C.lilac} />
-      </RoundedBox>
-      <RoundedBox args={[0.78, 0.12, 0.78]} radius={0.04} position={[0, 0.6, 0]}>
-        <Clay color={C.lilac} />
-      </RoundedBox>
-      <mesh position={[0, 0.33, 0]}>
-        <boxGeometry args={[0.8, 0.68, 0.11]} />
-        <Clay color={C.coral} rough={0.45} />
-      </mesh>
-      <mesh position={[0, 0.33, 0]}>
-        <boxGeometry args={[0.11, 0.68, 0.8]} />
-        <Clay color={C.coral} rough={0.45} />
-      </mesh>
-      {[-1, 1].map((s) => (
-        <mesh key={s} position={[s * 0.11, 0.74, 0]} rotation={[0, 0, s * 0.7]}>
-          <torusGeometry args={[0.1, 0.035, 10, 24]} />
-          <Clay color={C.coral} rough={0.45} />
-        </mesh>
-      ))}
-    </group>
-  );
-}
-
-/** Triangular prism for gable roofs. */
-const roofGeometry = (() => {
-  const shape = new THREE.Shape();
-  shape.moveTo(-0.42, 0);
-  shape.lineTo(0, 0.34);
-  shape.lineTo(0.42, 0);
-  shape.lineTo(-0.42, 0);
-  const g = new THREE.ExtrudeGeometry(shape, { depth: 0.74, bevelEnabled: true, bevelSize: 0.02, bevelThickness: 0.02, bevelSegments: 2 });
-  g.translate(0, 0, -0.37);
-  return g;
-})();
-
-const houses = [
-  { x: -2.55, z: -1.45, tone: C.peach, h: 0.5, r: 0.2 },
-  { x: -1.6, z: -1.55, tone: C.sky, h: 0.68, r: -0.1 },
-  { x: -0.65, z: -1.45, tone: C.sage, h: 0.55, r: 0.15 },
-  { x: -1.3, z: 1.45, tone: C.lilac, h: 0.6, r: 0.35 },
-  { x: -2.45, z: 1.55, tone: C.butter, h: 0.48, r: -0.25 },
-];
-const trees = [
-  { x: 0.35, z: -1.6, s: 1 },
-  { x: -0.55, z: 0.95, s: 0.8 },
-  { x: 2.7, z: 1.6, s: 0.9 },
-];
-
-function Neighbourhood({ p }: { p: ProgressRef }) {
-  const houseRefs = useRef<(THREE.Group | null)[]>([]);
-  const treeRefs = useRef<(THREE.Group | null)[]>([]);
-  const windows = useRef<(THREE.MeshStandardMaterial | null)[]>([]);
-  const lamp = useRef<THREE.MeshStandardMaterial>(null);
-  const lampLight = useRef<THREE.PointLight>(null);
-  const lampGroup = useRef<THREE.Group>(null);
-
-  useFrame(() => {
-    houseRefs.current.forEach((g, i) => {
-      const t = segment(p.current, 0.7 + i * 0.022, 0.79 + i * 0.022);
-      g?.scale.setScalar(t === 0 ? 0.0001 : Math.max(0.0001, backOut(t)));
-    });
-    treeRefs.current.forEach((g, i) => {
-      const t = segment(p.current, 0.74 + i * 0.03, 0.83 + i * 0.03);
-      g?.scale.setScalar(t === 0 ? 0.0001 : Math.max(0.0001, backOut(t) * trees[i]!.s));
-    });
-    const lt = segment(p.current, 0.76, 0.84);
-    lampGroup.current?.scale.setScalar(lt === 0 ? 0.0001 : Math.max(0.0001, backOut(lt)));
-    windows.current.forEach((m, i) => {
-      if (!m) return;
-      // One window at a time comes on, like people getting back in touch.
-      const on = smooth(segment(p.current, 0.82 + i * 0.03, 0.86 + i * 0.03));
-      m.emissiveIntensity = on * 5;
-      m.color.set(on > 0.05 ? C.warm : "#5b4a3c");
-    });
-    const dusk = smooth(segment(p.current, 0.8, 0.92));
-    if (lamp.current) lamp.current.emissiveIntensity = dusk * 6;
-    if (lampLight.current) lampLight.current.intensity = dusk * 2.5;
-  });
-
-  return (
-    <>
-      {houses.map((h, i) => (
-        <group key={i} ref={(el) => void (houseRefs.current[i] = el)} position={[h.x, 0, h.z]} rotation={[0, h.r, 0]}>
-          <RoundedBox args={[0.7, h.h, 0.66]} radius={0.04} position={[0, h.h / 2, 0]}>
-            <Clay color={h.tone} />
-          </RoundedBox>
-          <mesh geometry={roofGeometry} position={[0, h.h, 0]}>
-            <Clay color={C.cream} rough={0.6} />
-          </mesh>
-          <RoundedBox args={[0.1, 0.22, 0.1]} radius={0.02} position={[0.2, h.h + 0.22, -0.12]}>
-            <Clay color={C.bark} />
-          </RoundedBox>
-          <RoundedBox args={[0.16, 0.26, 0.03]} radius={0.015} position={[-0.17, 0.13, 0.335]}>
+    <group position={[CHAIR_X, 0, DESK.z]}>
+      {[-0.11, 0.11].map((z) => (
+        <group key={z}>
+          <Limb from={[0.08, 0.6, z]} to={[-0.38, 0.58, z]} r={0.085} color={PANTS} />
+          <Limb from={[-0.38, 0.58, z]} to={[-0.42, 0.1, z]} r={0.07} color={PANTS} />
+          <RoundedBox args={[0.24, 0.08, 0.12]} radius={0.035} position={[-0.48, 0.04, z]}>
             <Clay color={C.ink} />
           </RoundedBox>
-          <mesh position={[0.14, h.h * 0.58, 0.333]} userData={{ noShadow: true }}>
-            <planeGeometry args={[0.18, 0.18]} />
-            <meshStandardMaterial ref={(m) => void (windows.current[i] = m)} color="#5b4a3c" emissive={C.warm} emissiveIntensity={0} toneMapped={false} />
-          </mesh>
         </group>
       ))}
-      {trees.map((t, i) => (
-        <group key={i} ref={(el) => void (treeRefs.current[i] = el)} position={[t.x, 0, t.z]}>
-          <mesh position={[0, 0.18, 0]}>
-            <cylinderGeometry args={[0.05, 0.065, 0.36, 10]} />
-            <Clay color={C.bark} />
-          </mesh>
-          <mesh position={[0, 0.52, 0]}>
-            <sphereGeometry args={[0.28, 20, 20]} />
-            <Clay color={C.sage} />
-          </mesh>
-          <mesh position={[0.08, 0.76, 0.02]}>
-            <sphereGeometry args={[0.19, 20, 20]} />
-            <Clay color={C.sage} />
-          </mesh>
-        </group>
-      ))}
-      <group ref={lampGroup} position={[0.85, 0, -1.65]}>
-        <mesh position={[0, 0.5, 0]}>
-          <cylinderGeometry args={[0.022, 0.03, 1, 10]} />
-          <Clay color={C.ink} rough={0.4} />
+      <group ref={upper} position={[0.05, 0.62, 0]}>
+        <Limb from={[0, 0, 0]} to={[-0.04, 0.5, 0]} r={0.18} color={SWEATER} />
+        <Limb from={[-0.06, 0.6, 0]} to={[-0.07, 0.68, 0]} r={0.05} color={SKIN} />
+        <mesh position={[-0.08, 0.8, 0]}>
+          <sphereGeometry args={[0.15, 28, 20]} />
+          <Clay color={SKIN} />
         </mesh>
-        <mesh position={[0, 1.04, 0]} userData={{ noShadow: true }}>
-          <sphereGeometry args={[0.08, 16, 16]} />
-          <meshStandardMaterial ref={lamp} color={C.cream} emissive={C.warm} emissiveIntensity={0} toneMapped={false} />
+        <mesh position={[-0.05, 0.84, 0]} scale={[1, 0.88, 1.02]}>
+          <sphereGeometry args={[0.152, 28, 20, 0, Math.PI * 2, 0, Math.PI * 0.62]} />
+          <Clay color={C.bark} />
         </mesh>
-        <pointLight ref={lampLight} position={[0, 1.05, 0]} color={C.warm} intensity={0} distance={3} decay={2} />
+        {[-1, 1].map((s) => (
+          <group key={s}>
+            <Limb from={[-0.03, 0.45, s * 0.2]} to={[-0.25, 0.22, s * 0.25]} r={0.065} color={SWEATER} />
+            <Limb from={[-0.25, 0.22, s * 0.25]} to={[-0.7, 0.16, s * 0.15]} r={0.055} color={SWEATER} />
+            <mesh position={[-0.74, 0.16, s * 0.14]}>
+              <sphereGeometry args={[0.05, 14, 12]} />
+              <Clay color={SKIN} />
+            </mesh>
+          </group>
+        ))}
       </group>
+    </group>
+  );
+}
+
+/** Tiny deterministic random, so the mess is the same on every visit. */
+function rng(seed: number) {
+  return () => {
+    seed = (seed * 16807) % 2147483647;
+    return (seed - 1) / 2147483646;
+  };
+}
+
+const noteTones = [C.butter, C.butter, C.peach, C.sage, C.sky, C.lilac];
+
+interface Note {
+  pos: THREE.Vector3;
+  rot: THREE.Quaternion;
+  tone: number;
+  leave: number;
+}
+
+/** Sticky notes on every surface: the floor, the walls, the desk and the sideboard. */
+function scatterNotes() {
+  const r = rng(11);
+  const flat = (yaw: number) => new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI / 2, 0, yaw));
+  const onBack = (tilt: number) => new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, tilt));
+  const onLeft = (tilt: number) => new THREE.Quaternion().setFromEuler(new THREE.Euler(0, Math.PI / 2, tilt));
+  const out: Omit<Note, "leave">[] = [];
+  const add = (x: number, y: number, z: number, rot: THREE.Quaternion) => out.push({ pos: new THREE.Vector3(x, y, z), rot, tone: Math.floor(r() * noteTones.length) });
+  for (let i = 0; i < 12; i++) add(lerp(-1.6, 2.9, r()), 0.03 + i * 0.001, lerp(-1.0, 2.4, r()), flat(r() * Math.PI * 2));
+  for (let i = 0; i < 7; i++) add(lerp(-2.7, 0.1, r()), lerp(0.5, 2.5, r()), BACK + 0.07, onBack((r() - 0.5) * 0.6));
+  for (let i = 0; i < 5; i++) add(LEFT + 0.012, lerp(1.0, 2.4, r()), lerp(-1.3, 0.9, r()), onLeft((r() - 0.5) * 0.6));
+  for (let i = 0; i < 4; i++) add(lerp(DESK.x - 0.25, DESK.x + 0.3, r()), DESK.top + 0.008 + i * 0.002, DESK.z + lerp(-0.8, 0.8, r()), flat(r() * Math.PI * 2));
+  for (let i = 0; i < 3; i++) add(lerp(0.6, 2.4, r()), SIDEBOARD.h + 0.008 + i * 0.002, BACK + lerp(0.2, 0.6, r()), flat(r() * Math.PI * 2));
+  // Leave in a shuffled order, spread across the middle chapters.
+  const order = out.map((_, i) => i).sort(() => r() - 0.5);
+  return out.map((n, i) => ({ ...n, leave: 0.34 + 0.38 * (order.indexOf(i) / out.length) }));
+}
+
+const HEAD_NOTES = 12;
+const FLIGHT = 0.08;
+const facingScreen = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, Math.PI / 2, 0));
+
+/** Moves a note toward the screen along an arc; returns false once it's gone in. */
+function fly(o: THREE.Object3D, from: THREE.Vector3, fromRot: THREE.Quaternion, e: number, size: number, arc: number) {
+  if (e >= 1) {
+    o.visible = false;
+    return false;
+  }
+  o.visible = true;
+  const k = smooth(e);
+  o.position.lerpVectors(from, SCREEN, k);
+  o.position.y += Math.sin(k * Math.PI) * arc;
+  o.quaternion.slerpQuaternions(fromRot, facingScreen, k);
+  o.scale.setScalar(Math.max(0.0001, size * (1 - smooth(segment(e, 0.7, 1)))));
+  return true;
+}
+
+/** Room notes and the little ones circling the person's head, all heading into the computer. */
+function Notes({ p, onArrived }: { p: ProgressRef; onArrived: (share: number) => void }) {
+  const notes = useMemo(() => scatterNotes(), []);
+  const textures = useMemo(() => noteTones.map((t) => stickyNote(t)), []);
+  const roomRefs = useRef<(THREE.Mesh | null)[]>([]);
+  const headRefs = useRef<(THREE.Mesh | null)[]>([]);
+  const orbit = useMemo(() => new THREE.Vector3(), []);
+  const spin = useMemo(() => new THREE.Quaternion(), []);
+  const euler = useMemo(() => new THREE.Euler(), []);
+
+  useFrame(({ clock }) => {
+    const t = p.current;
+    const time = clock.elapsedTime;
+    let arrived = 0;
+    notes.forEach((n, i) => {
+      const o = roomRefs.current[i];
+      if (o && !fly(o, n.pos, n.rot, segment(t, n.leave, n.leave + FLIGHT), 1, 0.7)) arrived++;
+    });
+    headRefs.current.forEach((o, i) => {
+      if (!o) return;
+      // A busy little swirl of thoughts, until each one leaves for the screen.
+      const a = (i / HEAD_NOTES) * Math.PI * 2 + time * (0.5 + (i % 3) * 0.12);
+      const rad = 0.36 + 0.08 * Math.sin(i * 1.7);
+      orbit.set(HEAD.x + Math.cos(a) * rad, HEAD.y + 0.36 + 0.1 * Math.sin(time * 1.5 + i), HEAD.z + Math.sin(a) * rad);
+      spin.setFromEuler(euler.set(Math.sin(time + i) * 0.4, -a, Math.cos(time * 0.8 + i) * 0.3));
+      const leave = 0.16 + 0.32 * (i / HEAD_NOTES);
+      if (!fly(o, orbit, spin, segment(t, leave, leave + FLIGHT), 1, 0.25)) arrived++;
+    });
+    onArrived(arrived / (notes.length + HEAD_NOTES));
+  });
+
+  return (
+    <>
+      {notes.map((n, i) => (
+        <mesh key={i} ref={(el) => void (roomRefs.current[i] = el)} position={n.pos} quaternion={n.rot}>
+          <boxGeometry args={[0.26, 0.26, 0.008]} />
+          <meshStandardMaterial map={textures[n.tone]} roughness={0.85} />
+        </mesh>
+      ))}
+      {Array.from({ length: HEAD_NOTES }, (_, i) => (
+        <mesh key={i} ref={(el) => void (headRefs.current[i] = el)} userData={{ noShadow: true }}>
+          <boxGeometry args={[0.15, 0.15, 0.005]} />
+          <meshStandardMaterial map={textures[i % textures.length]} roughness={0.85} side={THREE.DoubleSide} />
+        </mesh>
+      ))}
     </>
   );
 }
 
-/** Where the camera looks in each chapter, and how close. */
+/** Desk, person, computer and notes. The screen fills up with people as the notes go in. */
+function Workspace({ p }: { p: ProgressRef }) {
+  const screen = useMemo(() => appScreen(), []);
+  const glow = useRef<THREE.PointLight>(null);
+  const onArrived = (share: number) => {
+    screen.draw(Math.round(share * 7));
+    if (glow.current) glow.current.intensity = 0.3 + share * 1.2;
+  };
+  return (
+    <>
+      <Desk />
+      <Monitor glow={glow} />
+      <Screen tex={screen.tex} />
+      <Chair />
+      <Person p={p} />
+      <Notes p={p} onArrived={onArrived} />
+    </>
+  );
+}
+
+const leaves = Array.from({ length: 7 }, (_, i) => ({
+  a: (i / 7) * Math.PI * 2 + (i % 2) * 0.3,
+  tilt: 0.5 + (i % 3) * 0.25,
+  h: 0.75 + ((i * 5) % 4) * 0.12,
+}));
+
+function Plant() {
+  return (
+    <group position={[W / 2 - 0.4, 0, BACK + 0.45]}>
+      <mesh position={[0, 0.2, 0]}>
+        <cylinderGeometry args={[0.24, 0.18, 0.4, 28]} />
+        <Clay color={C.terracotta} rough={0.7} />
+      </mesh>
+      <mesh position={[0, 0.39, 0]}>
+        <cylinderGeometry args={[0.22, 0.22, 0.02, 28]} />
+        <Clay color={C.bark} rough={1} />
+      </mesh>
+      {leaves.map((l, i) => (
+        <group key={i} position={[0, 0.38, 0]} rotation={[0, l.a, 0]}>
+          <mesh position={[0, l.h / 2, 0.12]} rotation={[0.25, 0, 0]}>
+            <cylinderGeometry args={[0.012, 0.015, l.h, 6]} />
+            <Clay color={C.leaf} />
+          </mesh>
+          <mesh position={[0, l.h, 0.3]} rotation={[l.tilt, 0, 0]} scale={[0.26, 0.03, 0.34]}>
+            <sphereGeometry args={[1, 20, 14]} />
+            <Clay color={C.leaf} rough={0.6} />
+          </mesh>
+        </group>
+      ))}
+    </group>
+  );
+}
+
+function FloorLamp({ p }: { p: ProgressRef }) {
+  const bulb = useRef<THREE.MeshStandardMaterial>(null);
+  const light = useRef<THREE.PointLight>(null);
+  useFrame(() => {
+    const on = smooth(segment(p.current, 0.78, 0.86));
+    if (bulb.current) bulb.current.emissiveIntensity = on * 4;
+    if (light.current) light.current.intensity = on * 3;
+  });
+  return (
+    <group position={[LEFT + 0.38, 0, 1.95]}>
+      <mesh position={[0, 0.02, 0]}>
+        <cylinderGeometry args={[0.2, 0.22, 0.04, 28]} />
+        <Clay color={C.ink} rough={0.4} />
+      </mesh>
+      <mesh position={[0, 0.8, 0]}>
+        <cylinderGeometry args={[0.02, 0.02, 1.6, 10]} />
+        <Clay color={C.ink} rough={0.4} />
+      </mesh>
+      <mesh position={[0, 1.72, 0]}>
+        <cylinderGeometry args={[0.16, 0.28, 0.3, 32, 1, true]} />
+        <meshStandardMaterial ref={bulb} color={C.cream} emissive={C.warm} emissiveIntensity={0} side={THREE.DoubleSide} roughness={0.8} toneMapped={false} />
+      </mesh>
+      <pointLight ref={light} position={[0, 1.55, 0]} color={C.warm} intensity={0} distance={4} decay={2} />
+    </group>
+  );
+}
+
+const frames = [
+  { x: -2.3, bg: C.peach, fig: "#c98b66" },
+  { x: -1.55, bg: C.sky, fig: "#7f9ab7" },
+  { x: -0.8, bg: C.sage, fig: "#869d6b" },
+];
+
+/** Photos of your people on the back wall, buried under notes at first. Each one warms up in turn once it's clear. */
+function Photos({ p }: { p: ProgressRef }) {
+  const pics = useMemo(() => frames.map((f) => portrait(f.bg, f.fig)), []);
+  const mats = useRef<(THREE.MeshStandardMaterial | null)[]>([]);
+  const lamps = useRef<(THREE.MeshStandardMaterial | null)[]>([]);
+  const faded = useMemo(() => new THREE.Color("#8d857b"), []);
+  const white = useMemo(() => new THREE.Color("#ffffff"), []);
+  useFrame(() => {
+    frames.forEach((_, i) => {
+      const on = smooth(segment(p.current, 0.8 + i * 0.04, 0.85 + i * 0.04));
+      mats.current[i]?.color.lerpColors(faded, white, on);
+      if (mats.current[i]) mats.current[i]!.emissiveIntensity = on * 0.35;
+      if (lamps.current[i]) lamps.current[i]!.emissiveIntensity = on * 5;
+    });
+  });
+  return (
+    <group position={[0, 0, BACK + 0.03]}>
+      {frames.map((f, i) => (
+        <group key={f.x} position={[f.x, 1.78 + (i === 1 ? 0.1 : 0), 0]}>
+          <RoundedBox args={[0.58, 0.72, 0.05]} radius={0.02}>
+            <Clay color="#ffffff" rough={0.5} />
+          </RoundedBox>
+          <mesh position={[0, 0, 0.027]}>
+            <planeGeometry args={[0.46, 0.6]} />
+            <meshStandardMaterial ref={(m) => void (mats.current[i] = m)} map={pics[i]} emissiveMap={pics[i]} emissive="#ffffff" emissiveIntensity={0} color={faded} roughness={0.6} />
+          </mesh>
+          {/* Picture light */}
+          <mesh position={[0, 0.46, 0.07]} rotation={[0, 0, Math.PI / 2]} userData={{ noShadow: true }}>
+            <capsuleGeometry args={[0.02, 0.28, 4, 10]} />
+            <meshStandardMaterial ref={(m) => void (lamps.current[i] = m)} color="#b9a588" emissive={C.warm} emissiveIntensity={0} metalness={0.4} roughness={0.4} toneMapped={false} />
+          </mesh>
+        </group>
+      ))}
+    </group>
+  );
+}
+
+/** Where the camera looks in each chapter, and how close. Kept wide so the room reads as a model. */
 const shots = [
-  { at: 0.0, target: new THREE.Vector3(-0.95, 0.75, 0.55), zoom: 1.6 },
-  { at: 0.3, target: new THREE.Vector3(-0.35, 0.45, -0.1), zoom: 1.35 },
-  { at: 0.56, target: new THREE.Vector3(1.25, 0.5, 0.25), zoom: 1.5 },
-  { at: 0.8, target: new THREE.Vector3(0, 0.15, 0), zoom: 0.86 },
+  { at: 0.0, target: new THREE.Vector3(0.3, 0.9, 0.3), zoom: 0.95 },
+  { at: 0.3, target: new THREE.Vector3(-1.6, 1.2, -0.1), zoom: 1.3 },
+  { at: 0.56, target: new THREE.Vector3(0, 0.95, 0.1), zoom: 1.05 },
+  { at: 0.8, target: new THREE.Vector3(0.3, 0.9, 0.3), zoom: 0.95 },
 ];
 
 function Rig({ p }: { p: ProgressRef }) {
@@ -469,42 +599,44 @@ function Rig({ p }: { p: ProgressRef }) {
     target.lerpVectors(a.target, b.target, k);
     const zoomMul = lerp(a.zoom, b.zoom, k);
 
-    const az = THREE.MathUtils.degToRad(40 + (t - 0.5) * 18);
-    const el = THREE.MathUtils.degToRad(31);
+    // Stays close to a true isometric angle so both walls always read as a cutaway.
+    const az = THREE.MathUtils.degToRad(44 + (t - 0.5) * 10);
+    const el = THREE.MathUtils.degToRad(32);
     const r = 16;
     camera.position.set(target.x + r * Math.cos(el) * Math.sin(az), target.y + r * Math.sin(el), target.z + r * Math.cos(el) * Math.cos(az));
     camera.lookAt(target);
     const ortho = camera as THREE.OrthographicCamera;
-    const base = size.width < 640 ? Math.min(size.width / 7.8, size.height / 5) : Math.min(size.width / 8.6, size.height / 6.4);
-    ortho.zoom = base * (size.width < 640 ? Math.min(zoomMul, 1.35) : zoomMul);
-    // On wide screens the canvas spans the whole section; push the diorama right of the text.
+    const base = size.width < 640 ? Math.min(size.width / 9, size.height / 5.6) : Math.min(size.width / 11, size.height / 7.4);
+    ortho.zoom = base * (size.width < 640 ? Math.min(zoomMul, 1.2) : zoomMul);
+    // On wide screens the canvas spans the whole section; push the room right of the text.
     if (size.width >= 1024) ortho.setViewOffset(size.width, size.height, -size.width * 0.21, 0, size.width, size.height);
     else ortho.clearViewOffset();
     ortho.updateProjectionMatrix();
 
-    const dusk = smooth(segment(t, 0.72, 0.95));
-    if (key.current) key.current.intensity = lerp(1.9, 0.8, dusk);
-    if (hemi.current) hemi.current.intensity = lerp(0.55, 0.3, dusk);
+    const dusk = duskAt(t);
+    if (key.current) key.current.intensity = lerp(1.9, 0.6, dusk);
+    if (hemi.current) hemi.current.intensity = lerp(0.6, 0.28, dusk);
   });
 
   return (
     <>
-      <hemisphereLight ref={hemi} args={["#fff3e2", "#4a3220", 0.55]} />
+      <hemisphereLight ref={hemi} args={["#fff3e2", "#4a3220", 0.6]} />
+      {/* Sun from the front right, so the walls catch shadows like a model on a desk. */}
       <directionalLight
         ref={key}
-        position={[-5, 9, 4]}
+        position={[6, 10, 7]}
         intensity={1.9}
         color="#ffe6c8"
         castShadow
         shadow-mapSize={[2048, 2048]}
         shadow-bias={-0.0004}
         shadow-normalBias={0.02}
-        shadow-camera-left={-7}
-        shadow-camera-right={7}
-        shadow-camera-top={7}
-        shadow-camera-bottom={-7}
+        shadow-camera-left={-8}
+        shadow-camera-right={8}
+        shadow-camera-top={8}
+        shadow-camera-bottom={-8}
         shadow-camera-near={1}
-        shadow-camera-far={30}
+        shadow-camera-far={32}
       />
     </>
   );
@@ -530,23 +662,21 @@ function Story({ progress }: { progress: ProgressRef }) {
   return (
     <>
       <color attach="background" args={[SCENE_BG]} />
-      <fog attach="fog" args={[SCENE_BG, 16, 30]} />
+      <fog attach="fog" args={[SCENE_BG, 18, 34]} />
       <Rig p={p} />
       {/* Soft studio fill from above and the sides; no HDR file needed. */}
       <Environment resolution={128}>
         <Lightformer form="rect" intensity={1.5} color="#ffeedb" position={[0, 6, 2]} scale={[10, 4, 1]} rotation-x={Math.PI / 2} />
-        <Lightformer form="rect" intensity={0.8} color="#ffd9b0" position={[-6, 2, 3]} scale={[4, 3, 1]} rotation-y={Math.PI / 2} />
-        <Lightformer form="rect" intensity={0.5} color="#c8d8ff" position={[6, 2, -3]} scale={[4, 3, 1]} rotation-y={-Math.PI / 2} />
+        <Lightformer form="rect" intensity={0.8} color="#ffd9b0" position={[6, 2, 3]} scale={[4, 3, 1]} rotation-y={-Math.PI / 2} />
+        <Lightformer form="rect" intensity={0.5} color="#c8d8ff" position={[2, 2, 6]} scale={[4, 3, 1]} />
       </Environment>
       <group ref={root}>
-        <Floor />
-        <Counter p={p} />
-        <Phone p={p} />
-        <Cards p={p} />
-        <Cake p={p} />
-        <Calendar p={p} />
-        <Gift p={p} />
-        <Neighbourhood p={p} />
+        <Room p={p} />
+        <Photos p={p} />
+        <Plant />
+        <FloorLamp p={p} />
+        <Sideboard />
+        <Workspace p={p} />
       </group>
     </>
   );

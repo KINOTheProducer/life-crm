@@ -1,6 +1,6 @@
 import { ArrowRight, Bell, CalendarDays, Camera, Clock3, Lock, Mic } from "lucide-react";
-import Image from "next/image";
 import Link from "next/link";
+import { HeroReveal } from "@/components/landing/hero-reveal";
 import { BirthdayCard, DriftingCard, VoiceNoteCard } from "@/components/landing/product-cards";
 import { StorySection } from "@/components/landing/story/story-section";
 import { buttonVariants } from "@/components/ui/button";
@@ -53,67 +53,68 @@ export default function LandingPage() {
     <div className="bg-background">
       {/* Hero */}
       <section className="relative isolate min-h-[min(100vh,920px)] overflow-hidden bg-[#2a211b] text-white">
-        <Image src={hero} alt="Friends sharing dinner at a long table" fill priority placeholder="blur" sizes="100vw" className="-z-20 object-cover object-[center_40%]" />
         {/* Strong scrim on the left and bottom so the copy always reads, whatever the photo does. */}
         <div className="absolute inset-0 -z-10 bg-gradient-to-r from-black/85 via-black/55 to-black/5" />
         <div className="absolute inset-0 -z-10 bg-gradient-to-t from-black/60 via-transparent to-black/30" />
         {/* On narrow screens the copy spans the whole photo, so darken all of it. */}
         <div className="absolute inset-0 -z-10 bg-black/40 lg:hidden" />
 
-        <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 pt-6 lg:px-10">
-          <Link href="/" className="type-display text-[1.75rem] italic">
-            {APP_NAME}
-          </Link>
-          <div className="hidden items-center gap-8 text-sm text-white/85 md:flex">
-            <a href="#how" className="hover:text-white">How it works</a>
-            <a href="#features" className="hover:text-white">Features</a>
-            <a href="#self-host" className="hover:text-white">Self-host</a>
-          </div>
-          <div className="flex items-center gap-2">
-            <Link href="/sign-in" className="rounded-full px-4 py-2 text-sm text-white/90 hover:text-white">
-              Sign in
+        <HeroReveal src={hero} alt="Friends sharing dinner at a long table">
+          <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 pt-6 lg:px-10">
+            <Link href="/" className="type-display text-[1.75rem] italic">
+              {APP_NAME}
             </Link>
-            <Link href="/sign-up" className={cn(buttonVariants(), "bg-white text-foreground hover:bg-white/90")}>
-              Get started
-            </Link>
-          </div>
-        </nav>
-
-        <div className="mx-auto grid max-w-7xl items-end gap-12 px-6 pt-24 pb-20 lg:grid-cols-[1.15fr_1fr] lg:px-10 lg:pt-40">
-          <div className="max-w-2xl [text-shadow:0_1px_24px_rgb(0_0_0/0.35)]">
-            <p className="mb-5 inline-flex items-center gap-2 rounded-full bg-white/15 px-3.5 py-1.5 text-sm backdrop-blur">
-              <span className="size-1.5 rounded-full bg-coral" />
-              A personal CRM for friends and family
-            </p>
-            <h1 className="type-display text-[3.5rem] leading-[0.98] sm:text-[4.75rem] lg:text-[5.5rem]">
-              Remember the people <em className="text-[#ffd4c4]">you love.</em>
-            </h1>
-            <p className="mt-6 max-w-xl text-lg leading-relaxed text-white/90">
-              {APP_NAME} keeps track of birthdays, kids&apos; names, what everyone&apos;s up to and when you last caught up. Record a
-              quick voice note after you see someone, and it&apos;s all there next time.
-            </p>
-            <div className="mt-8 flex flex-wrap gap-3">
-              <Link href="/sign-up" className={cn(buttonVariants({ size: "lg" }), "bg-white text-foreground hover:bg-white/90")}>
-                Start for free
-                <ArrowRight />
-              </Link>
-              <a href="#self-host" className={cn(buttonVariants({ size: "lg", variant: "outline" }), "border-white/40 bg-white/10 text-white backdrop-blur hover:bg-white/20 hover:text-white")}>
-                Self-host it
-              </a>
+            <div className="hidden items-center gap-8 text-sm text-white/85 md:flex">
+              <a href="#how" className="hover:text-white">How it works</a>
+              <a href="#features" className="hover:text-white">Features</a>
+              <a href="#self-host" className="hover:text-white">Self-host</a>
             </div>
-            <ul className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-sm text-white/85">
-              <li>Birthday reminders</li>
-              <li>Voice notes</li>
-              <li>Keep-in-touch nudges</li>
-              <li>Immich photos</li>
-            </ul>
+            <div className="flex items-center gap-2">
+              <Link href="/sign-in" className="rounded-full px-4 py-2 text-sm text-white/90 hover:text-white">
+                Sign in
+              </Link>
+              <Link href="/sign-up" className={cn(buttonVariants(), "bg-white text-foreground hover:bg-white/90")}>
+                Get started
+              </Link>
+            </div>
+          </nav>
+
+          <div className="mx-auto grid max-w-7xl items-end gap-12 px-6 pt-24 pb-20 lg:grid-cols-[1.15fr_1fr] lg:px-10 lg:pt-40">
+            <div className="max-w-2xl [text-shadow:0_1px_24px_rgb(0_0_0/0.35)]">
+              <p className="mb-5 inline-flex items-center gap-2 rounded-full bg-white/15 px-3.5 py-1.5 text-sm backdrop-blur">
+                <span className="size-1.5 rounded-full bg-coral" />
+                A personal CRM for friends and family
+              </p>
+              <h1 className="type-display text-[3.5rem] leading-[0.98] sm:text-[4.75rem] lg:text-[5.5rem]">
+                Remember the people <em className="text-[#ffd4c4]">you love.</em>
+              </h1>
+              <p className="mt-6 max-w-xl text-lg leading-relaxed text-white/90">
+                {APP_NAME} keeps track of birthdays, kids&apos; names, what everyone&apos;s up to and when you last caught up. Record a
+                quick voice note after you see someone, and it&apos;s all there next time.
+              </p>
+              <div className="mt-8 flex flex-wrap gap-3">
+                <Link href="/sign-up" className={cn(buttonVariants({ size: "lg" }), "bg-white text-foreground hover:bg-white/90")}>
+                  Start for free
+                  <ArrowRight />
+                </Link>
+                <a href="#self-host" className={cn(buttonVariants({ size: "lg", variant: "outline" }), "border-white/40 bg-white/10 text-white backdrop-blur hover:bg-white/20 hover:text-white")}>
+                  Self-host it
+                </a>
+              </div>
+              <ul className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-sm text-white/85">
+                <li>Birthday reminders</li>
+                <li>Voice notes</li>
+                <li>Keep-in-touch nudges</li>
+                <li>Immich photos</li>
+              </ul>
+            </div>
+            <div aria-hidden className="relative hidden h-[500px] lg:block">
+              <BirthdayCard className="absolute top-0 right-4 rotate-[1.5deg]" />
+              <VoiceNoteCard className="absolute top-40 -left-4 z-10 -rotate-2" />
+              <DriftingCard className="absolute right-0 bottom-0" />
+            </div>
           </div>
-          <div aria-hidden className="relative hidden h-[500px] lg:block">
-            <BirthdayCard className="absolute top-0 right-4 rotate-[1.5deg]" />
-            <VoiceNoteCard className="absolute top-40 -left-4 z-10 -rotate-2" />
-            <DriftingCard className="absolute right-0 bottom-0" />
-          </div>
-        </div>
+        </HeroReveal>
       </section>
 
       {/* How it works: scroll-driven 3D story */}
