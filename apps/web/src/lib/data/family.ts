@@ -7,10 +7,12 @@ import {
   type Family,
   type FamilyStatus,
   type PartialDate,
+  type PersonRelation,
 } from "@life-crm/core";
 import { and, asc, eq, inArray, isNotNull, isNull, or, schema, sql, type Tx } from "@life-crm/db";
 import { immichAvatarRef } from "@/lib/immich-urls";
 import { fullName, insertContact } from "./contacts";
+import { insertFact } from "./entries";
 
 const { connections, contactFaces, contacts, families, familyChildren, immichConnections, importantDates, partnerships } = schema;
 
@@ -364,4 +366,32 @@ export async function friendOf(tx: Tx, personId: string) {
     .select({ id: contacts.id, firstName: contacts.firstName, isSelf: contacts.isSelf })
     .from(contacts)
     .where(and(inArray(contacts.id, links), isNull(contacts.deletedAt)));
+}
+
+const treeRoles: Partial<Record<PersonRelation, RelativeRole>> = { parent: "parent", child: "child", sibling: "sibling", partner: "partner" };
+
+/** Create someone a file or saved note mentions and link them to the subject: in the tree, as friends, or with a fact saying how. */
+export async function addRelatedPerson(
+  tx: Tx,
+  tenantId: string,
+  subjectId: string,
+  subjectFirstName: string,
+  p: { firstName: string; lastName: string | null; relation: PersonRelation; relationLabel: string | null },
+) {
+  const id = await insertContact(tx, tenantId, {
+    firstName: p.firstName,
+    lastName: p.lastName || null,
+    // Like other imports, new people don't start nudging you.
+    closeness: "acquaintance",
+    keepInTouchDays: null,
+  });
+  const role = treeRoles[p.relation];
+  if (role) await connectRelative(tx, tenantId, { anchorId: subjectId, personId: id, role });
+  else if (p.relation === "friend") await connectFriends(tx, tenantId, subjectId, id);
+  // Coworkers and anyone the tree can't place still say how they're connected.
+  if (!role && p.relation !== "friend") {
+    const label = p.relationLabel || (p.relation === "coworker" ? "coworker" : "connection");
+    await insertFact(tx, tenantId, id, { category: p.relation === "coworker" ? "work" : "other", label: "Connected through", value: `${subjectFirstName}'s ${label.toLowerCase()}` });
+  }
+  return id;
 }

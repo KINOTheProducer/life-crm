@@ -12,10 +12,10 @@ import {
   type ImportPerson,
 } from "@/lib/import-items";
 import type { ResortSuggestion } from "@/lib/resort-items";
-import { birthdayOf, insertContact, setBirthday } from "./contacts";
+import { birthdayOf, setBirthday } from "./contacts";
 import { formatPartialDate } from "./dates";
 import { insertFact, insertInteraction, insertNote } from "./entries";
-import { connectFriends, connectRelative, type RelativeRole } from "./family";
+import { addRelatedPerson, connectFriends } from "./family";
 import { addMilestone, partnershipFor } from "./partners";
 import { savedAbout, savedLines, suggestResort } from "./resort";
 import { recordTimeline } from "./timeline";
@@ -255,8 +255,6 @@ export async function readImport(
   return { items: itemsFromRules(text, today, !!contact.partnerLabel), people: [], resort: [], nameInFile: null, sortedBy: "rules" };
 }
 
-const treeRoles: Partial<Record<ImportPerson["relation"], RelativeRole>> = { parent: "parent", child: "child", sibling: "sibling", partner: "partner" };
-
 /** Find or create each mentioned person and link them to the subject. Returns their contact ids by ref. */
 async function resolvePeople(tx: Tx, tenantId: string, subjectId: string, subjectFirstName: string, people: ImportPerson[]) {
   const ids = new Map<string, string>();
@@ -277,25 +275,11 @@ async function resolvePeople(tx: Tx, tenantId: string, subjectId: string, subjec
       if (p.relation === "friend") await connectFriends(tx, tenantId, subjectId, p.contactId);
       continue;
     }
-    const id = await insertContact(tx, tenantId, {
-      firstName: p.firstName,
-      lastName: p.lastName || null,
-      // Like other imports, new people don't start nudging you.
-      closeness: "acquaintance",
-      keepInTouchDays: null,
-    });
-    ids.set(p.ref, id);
-    const role = treeRoles[p.relation];
-    if (role) await connectRelative(tx, tenantId, { anchorId: subjectId, personId: id, role });
-    else if (p.relation === "friend") await connectFriends(tx, tenantId, subjectId, id);
-    // Coworkers and anyone the tree can't place still say how they're connected.
-    if (!role && p.relation !== "friend") {
-      const label = p.relationLabel || (p.relation === "coworker" ? "coworker" : "connection");
-      await insertFact(tx, tenantId, id, { category: p.relation === "coworker" ? "work" : "other", label: "Connected through", value: `${subjectFirstName}'s ${label.toLowerCase()}` });
-    }
+    ids.set(p.ref, await addRelatedPerson(tx, tenantId, subjectId, subjectFirstName, p));
   }
   return ids;
 }
+
 
 /** An error whose message is safe to show. */
 export class ImportError extends Error {}
