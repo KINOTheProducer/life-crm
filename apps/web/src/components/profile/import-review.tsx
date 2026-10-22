@@ -7,6 +7,7 @@ import { previewImport, saveImport } from "@/app/(app)/people/[id]/import/action
 import { PartialDateFields } from "@/components/partial-date-fields";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useSteps, WorkingSteps } from "@/components/working-steps";
 import type { ImportPreview } from "@/lib/data/import";
 import { monthNames, selectClass, textareaClass } from "@/lib/forms";
 import {
@@ -47,9 +48,19 @@ export function ImportReview({ contactId, firstName, existing, today }: { contac
   const [dragging, setDragging] = useState(false);
   const [reading, startReading] = useTransition();
   const [saving, startSaving] = useTransition();
+  const [lineCount, setLineCount] = useState(0);
+  const steps = useSteps(
+    [
+      `Reading ${lineCount} ${lineCount === 1 ? "line" : "lines"} about ${firstName}`,
+      `Sorting it into facts, dates and catch-ups with ${firstName}`,
+      "Checking for anyone else it mentions",
+    ],
+    reading,
+  );
 
   function read(text: string) {
     setError(null);
+    setLineCount(text.split("\n").filter((l) => l.trim()).length);
     startReading(async () => {
       const result = await previewImport(contactId, text);
       if ("error" in result) {
@@ -119,6 +130,7 @@ export function ImportReview({ contactId, firstName, existing, today }: { contac
             {reading ? "Reading…" : "Read it"}
           </Button>
         </div>
+        <WorkingSteps lines={steps} />
         {error && <p className="text-sm text-destructive">{error}</p>}
       </div>
     );

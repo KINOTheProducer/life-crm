@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { WorkingSteps } from "@/components/working-steps";
 import { formatPartialDate } from "@/lib/data/dates";
 import { cn } from "@/lib/utils";
 
@@ -31,7 +32,12 @@ interface CaptureView {
   status: "transcribing" | "extracting" | "ready" | "committed" | "failed" | "discarded";
   transcript: string | null;
   extraction: Extraction | null;
+  /** What processing has found so far. */
+  progress: string[];
   error: string | null;
+  durationMs: number | null;
+  /** Who was on screen when the note was recorded. */
+  contextName: string | null;
 }
 
 interface FactDraft {
@@ -91,6 +97,11 @@ function toDrafts(extraction: Extraction): { people: PersonDraft[]; interaction:
   };
 }
 
+function formatDuration(ms: number) {
+  const s = Math.round(ms / 1000);
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+}
+
 const fieldClass =
   "w-full rounded-xl border border-input bg-card px-3.5 py-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
 
@@ -142,15 +153,17 @@ export function CaptureReview({ capture, contacts }: { capture: CaptureView; con
   const [error, setError] = useState<string | null>(null);
   const [transcript, setTranscript] = useState(capture.transcript ?? "");
   const [drafts, setDrafts] = useState(() => (capture.extraction ? toDrafts(capture.extraction) : null));
+  const [progress, setProgress] = useState(capture.progress);
   const processing = capture.status === "transcribing" || capture.status === "extracting";
 
-  // Poll while the server works, then pick up the fresh extraction.
+  // Poll while the server works, showing what it's found so far, then pick up the fresh extraction.
   useEffect(() => {
     if (!processing) return;
     const timer = setInterval(async () => {
       const res = await fetch(`/api/captures/${capture.id}`, { cache: "no-store" });
-      const body = (await res.json()) as { status: string };
+      const body = (await res.json()) as { status: string; progress?: string[] };
       if (body.status !== capture.status) router.refresh();
+      else if (body.progress) setProgress(body.progress);
     }, 1500);
     return () => clearInterval(timer);
   }, [processing, capture.id, capture.status, router]);
@@ -219,6 +232,15 @@ export function CaptureReview({ capture, contacts }: { capture: CaptureView; con
           <p className="type-meta text-muted-foreground">
             {capture.status === "transcribing" ? "Step 1 of 2 · Transcribing" : "Step 2 of 2 · Extracting"}
           </p>
+          {capture.status === "transcribing" ? (
+            <WorkingSteps
+              lines={[
+                `Turning your ${capture.durationMs ? `${formatDuration(capture.durationMs)} ` : ""}note${capture.contextName ? ` about ${capture.contextName}` : ""} into text`,
+              ]}
+            />
+          ) : (
+            <WorkingSteps lines={progress} working={progress.length <= 1} className="mt-2 w-full max-w-md" />
+          )}
         </CardContent>
       </Card>
     );

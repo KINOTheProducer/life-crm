@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { extractionSchema, sanitizeExtraction, type Extraction, type ExtractionInput } from "./extraction";
+import { parsePartialJson, type PartialExtraction } from "./progress";
 import { buildExtractionMessage, EXTRACTION_SYSTEM_PROMPT } from "./prompt";
 import { AiError, type Extractor, type Transcriber } from "./types";
 
@@ -23,6 +24,42 @@ async function readError(res: Response): Promise<AiError> {
 // JSON Schema for response_format; some servers reject the $schema key.
 const { $schema: _ignored, ...extractionJsonSchema } = z.toJSONSchema(extractionSchema);
 
+/**
+ * Read a streamed chat completion (server-sent events), calling `onText` with everything so
+ * far. Servers that ignore `stream` and answer with plain JSON are read as-is.
+ */
+export async function readChatStream(res: Response, onText: (snapshot: string) => void): Promise<string> {
+  if (!res.headers.get("content-type")?.includes("text/event-stream") || !res.body) {
+    const body = chatResponse.parse(await res.json());
+    return body.choices[0]?.message.content ?? "";
+  }
+  const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
+  let buffer = "";
+  let text = "";
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += value;
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
+    for (const line of lines) {
+      const data = line.startsWith("data:") ? line.slice(5).trim() : "";
+      if (!data || data === "[DONE]") continue;
+      let delta: string | null | undefined;
+      try {
+        delta = (JSON.parse(data) as { choices?: { delta?: { content?: string | null } }[] }).choices?.[0]?.delta?.content;
+      } catch {
+        continue;
+      }
+      if (delta) {
+        text += delta;
+        onText(text);
+      }
+    }
+  }
+  return text;
+}
+
 const chatResponse = z.object({
   choices: z.array(z.object({ message: z.object({ content: z.string().nullable() }), finish_reason: z.string().nullish() })),
 });
@@ -35,7 +72,7 @@ export class OpenAiCompatibleExtractor implements Extractor {
     this.fetch = config.fetch ?? fetch;
   }
 
-  async extract(input: ExtractionInput): Promise<Extraction> {
+  async extract(input: ExtractionInput, onPartial?: (partial: PartialExtraction) => void): Promise<Extraction> {
     const res = await this.fetch(`${this.config.baseUrl.replace(/\/$/, "")}/chat/completions`, {
       method: "POST",
       headers: { "Content-Type": "application/json", ...headers(this.config.apiKey) },
@@ -49,12 +86,17 @@ export class OpenAiCompatibleExtractor implements Extractor {
           type: "json_schema",
           json_schema: { name: "extraction", strict: true, schema: extractionJsonSchema },
         },
+        ...(onPartial ? { stream: true } : {}),
       }),
     });
     if (!res.ok) throw await readError(res);
 
-    const body = chatResponse.parse(await res.json());
-    const content = body.choices[0]?.message.content;
+    const content = onPartial
+      ? await readChatStream(res, (snapshot) => {
+          const partial = parsePartialJson(snapshot);
+          if (partial) onPartial(partial as PartialExtraction);
+        })
+      : chatResponse.parse(await res.json()).choices[0]?.message.content;
     if (!content) throw new AiError("The model returned an empty response.", true);
     let json: unknown;
     try {

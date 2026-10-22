@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useState, useTransition } from "react";
 import { importGedcomFile, previewGedcomFile, type ImportResult, type PreviewResult } from "@/app/(app)/family/gedcom-actions";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { useSteps, WorkingSteps } from "@/components/working-steps";
 import { selectClass } from "@/lib/forms";
 
 /** Pick a .ged file, see what it holds and who matches, say which one is you, then bring it in. */
@@ -15,6 +16,7 @@ export function GedcomImport() {
   const [result, setResult] = useState<ImportResult | null>(null);
   const [self, setSelf] = useState("");
   const [pending, start] = useTransition();
+  const [importing, setImporting] = useState(false);
 
   const pick = async (file: File | undefined) => {
     if (!file) return;
@@ -28,6 +30,19 @@ export function GedcomImport() {
       if (!("error" in p)) setSelf(p.selfGuess ?? "");
     });
   };
+
+  const ok = preview && !("error" in preview) ? preview : null;
+  const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+  const steps = useSteps(
+    ok
+      ? [
+          `Adding ${plural(ok.people - ok.matched.length, "person", "people")} from ${fileName}`,
+          ...(ok.matched.length ? [`Linking ${plural(ok.matched.length, "person", "people")} you already have`] : []),
+          `Connecting ${plural(ok.families, "family", "families")} into your tree`,
+        ]
+      : [],
+    pending && importing,
+  );
 
   if (result && !("error" in result)) {
     return (
@@ -44,7 +59,6 @@ export function GedcomImport() {
     );
   }
 
-  const ok = preview && !("error" in preview) ? preview : null;
 
   return (
     <div className="grid gap-5">
@@ -55,7 +69,7 @@ export function GedcomImport() {
         <input type="file" accept=".ged,.gedcom,text/plain" className="sr-only" onChange={(e) => pick(e.target.files?.[0])} />
       </label>
 
-      {pending && !ok && <p className="text-sm text-muted-foreground">Reading…</p>}
+      {pending && !ok && <WorkingSteps lines={[`Reading ${fileName}`]} />}
       {preview && "error" in preview && <p className="text-sm text-destructive">{preview.error}</p>}
 
       {ok && (
@@ -87,10 +101,17 @@ export function GedcomImport() {
           <Button
             className="justify-self-start"
             disabled={pending || ok.tooBig || !text}
-            onClick={() => start(async () => setResult(await importGedcomFile(text!, self || null)))}
+            onClick={() => {
+              setImporting(true);
+              start(async () => {
+                setResult(await importGedcomFile(text!, self || null));
+                setImporting(false);
+              });
+            }}
           >
             {pending ? "Importing…" : "Import"}
           </Button>
+          <WorkingSteps lines={steps} />
         </div>
       )}
     </div>

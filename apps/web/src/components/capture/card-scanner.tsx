@@ -6,6 +6,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { readCard, saveCard } from "@/app/(app)/capture/card/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useSteps, WorkingSteps } from "@/components/working-steps";
 import { selectClass, textareaClass } from "@/lib/forms";
 import { cn } from "@/lib/utils";
 
@@ -74,6 +75,14 @@ export function CardScanner() {
   const [result, setResult] = useState<{ card: CardExtraction; match: { id: string; name: string } | null } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [reading, startRead] = useTransition();
+  const steps = useSteps(
+    [
+      images.back ? "Reading the front and back of the card" : "Reading the card",
+      "Picking out a name, numbers and where they work",
+      "Checking whether they're already in your people",
+    ],
+    reading,
+  );
 
   const set = async (side: Side, blob: Blob) => {
     setError(null);
@@ -169,6 +178,7 @@ export function CardScanner() {
       >
         {reading ? "Reading the card…" : "Read card"}
       </Button>
+      <WorkingSteps lines={steps} />
     </div>
   );
 }

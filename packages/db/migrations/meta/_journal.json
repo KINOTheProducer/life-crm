@@ -134,6 +134,13 @@
       "when": 1792631452973,
       "tag": "0018_chat_model",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1792641174166,
+      "tag": "0019_capture_progress",
+      "breakpoints": true
     }
   ]
 }
