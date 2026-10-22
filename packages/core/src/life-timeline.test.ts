@@ -9,12 +9,13 @@ const base: SpanInput = {
   firstInteractionYear: null,
   addedYear: 2026,
   lostTouchYear: null,
+  reconnectedYear: null,
   deathYear: null,
 };
 
 describe("lifeSpan", () => {
   it("uses when you met when it's known", () => {
-    expect(lifeSpan({ ...base, metYear: 2014 }, 2026)).toEqual({ start: 2014, end: 2026, startGuessed: false, ended: null });
+    expect(lifeSpan({ ...base, metYear: 2014 }, 2026)).toEqual({ start: 2014, end: 2026, startGuessed: false, ended: null, gap: null });
   });
 
   it("starts family at the later of their birth and yours", () => {
@@ -31,6 +32,23 @@ describe("lifeSpan", () => {
   it("ends at losing touch or death", () => {
     expect(lifeSpan({ ...base, metYear: 2005, lostTouchYear: 2012 }, 2026)).toMatchObject({ end: 2012, ended: "lost_touch" });
     expect(lifeSpan({ ...base, metYear: 2005, deathYear: 2019, lostTouchYear: 2010 }, 2026)).toMatchObject({ end: 2010, ended: "died" });
+  });
+
+  it("leaves a gap when you caught back up", () => {
+    expect(lifeSpan({ ...base, metYear: 2005, lostTouchYear: 2012, reconnectedYear: 2020 }, 2026)).toMatchObject({
+      start: 2005,
+      end: 2026,
+      ended: null,
+      gap: { from: 2012, to: 2020 },
+    });
+    // Back the next year: no visible gap. Back "before" you lost touch is ignored.
+    expect(lifeSpan({ ...base, metYear: 2005, lostTouchYear: 2012, reconnectedYear: 2013 }, 2026)).toMatchObject({ end: 2026, gap: null });
+    expect(lifeSpan({ ...base, metYear: 2005, lostTouchYear: 2012, reconnectedYear: 2010 }, 2026)).toMatchObject({ end: 2012, ended: "lost_touch" });
+    expect(lifeSpan({ ...base, metYear: 2005, lostTouchYear: 2012, reconnectedYear: 2018, deathYear: 2022 }, 2026)).toMatchObject({
+      end: 2022,
+      ended: "died",
+      gap: { from: 2012, to: 2018 },
+    });
   });
 
   it("never ends before it starts or starts in the future", () => {

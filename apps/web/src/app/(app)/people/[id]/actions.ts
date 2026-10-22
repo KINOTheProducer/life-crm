@@ -225,31 +225,38 @@ const spanYear = z.union([
   z.coerce.number().int("Use a whole year").min(1900, "That's before 1900").max(2100, "That's too far ahead"),
 ]);
 
-/** When you met (year, optionally month) and the year you lost touch, for the life timeline. */
+/** When you met (year, optionally month), the year you lost touch and when you caught back up, for the life timeline. */
 export async function updateSpan(contactId: string, _prev: FormState, form: FormData): Promise<FormState> {
   const parsed = z
     .object({
       metYear: spanYear,
       metMonth: z.union([z.literal("").transform(() => null), z.coerce.number().int().min(1).max(12)]),
       lostTouchYear: spanYear,
+      reconnectedYear: spanYear,
     })
     .safeParse({
       metYear: String(form.get("metYear") ?? "").trim(),
       metMonth: String(form.get("metMonth") ?? "").trim(),
       lostTouchYear: String(form.get("lostTouchYear") ?? "").trim(),
+      // Only counts while "caught back up" is ticked.
+      reconnectedYear: form.get("reconnected") ? String(form.get("reconnectedYear") ?? "").trim() : "",
     });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message };
   const { metYear, metMonth, lostTouchYear } = parsed.data;
+  const reconnectedYear = lostTouchYear == null ? null : parsed.data.reconnectedYear;
   const user = await requireUser();
   const thisYear = todayIn(user.timeZone).year;
   if (metYear != null && metYear > thisYear) return { error: "You can't have met in the future" };
   if (lostTouchYear != null && lostTouchYear > thisYear) return { error: "That year hasn't happened yet" };
   if (metYear != null && lostTouchYear != null && lostTouchYear < metYear) return { error: "You lost touch before you met" };
+  if (form.get("reconnected") && lostTouchYear != null && reconnectedYear == null) return { error: "Add the year you caught back up" };
+  if (reconnectedYear != null && reconnectedYear > thisYear) return { error: "That year hasn't happened yet" };
+  if (lostTouchYear != null && reconnectedYear != null && reconnectedYear < lostTouchYear) return { error: "You caught back up before you lost touch" };
   if (!(await contactExists(contactId))) return { error: "Person not found" };
   await tenantQuery((tx) =>
     tx
       .update(contacts)
-      .set({ metYear, metMonth: metYear == null ? null : metMonth, lostTouchYear })
+      .set({ metYear, metMonth: metYear == null ? null : metMonth, lostTouchYear, reconnectedYear })
       .where(eq(contacts.id, contactId)),
   );
   revalidatePath(`/people/${contactId}`);

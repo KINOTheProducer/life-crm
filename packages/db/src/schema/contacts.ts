@@ -23,6 +23,8 @@ export const contacts = pgTable(
     metMonth: smallint("met_month"),
     /** The year you drifted apart for good, if you did. Ends their bar. */
     lostTouchYear: smallint("lost_touch_year"),
+    /** When you caught back up after losing touch. Their bar picks up again from here. */
+    reconnectedYear: smallint("reconnected_year"),
     company: text("company"),
     jobTitle: text("job_title"),
     /** UID a CardDAV client gave the contact, kept so its vCard round-trips. Defaults to our id. */

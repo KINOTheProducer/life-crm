@@ -395,3 +395,52 @@ export async function addRelatedPerson(
   }
   return id;
 }
+
+export interface HouseholdMember {
+  id: string;
+  name: string;
+  /** "Spouse", "Child", "You". */
+  role: string;
+  /** Ticked to start with: partners who likely live together. */
+  likely: boolean;
+}
+
+const together: FamilyStatus[] = ["married", "partners", "engaged", "unknown"];
+
+/**
+ * People who might share someone's address: their partners in the tree, their kids, and you
+ * when they're your partner (or them when it's you). Offered when an address is added.
+ */
+export async function householdOf(tx: Tx, contactId: string): Promise<HouseholdMember[]> {
+  const out = new Map<string, Omit<HouseholdMember, "name">>();
+  for (const f of await familyRows(tx)) {
+    if (!f.partners.includes(contactId) || !together.includes(f.status)) continue;
+    for (const p of f.partners) if (p !== contactId) out.set(p, { id: p, role: f.status === "married" ? "Spouse" : "Partner", likely: true });
+    for (const c of f.children) if (c.childId !== contactId && !out.has(c.childId)) out.set(c.childId, { id: c.childId, role: "Child", likely: false });
+  }
+
+  const [self] = await tx.select({ id: contacts.id }).from(contacts).where(eq(contacts.isSelf, true));
+  const current = await tx
+    .select({ contactId: partnerships.contactId, isNesting: partnerships.isNesting })
+    .from(partnerships)
+    .where(eq(partnerships.status, "current"));
+  if (self && self.id !== contactId) {
+    const mine = current.find((p) => p.contactId === contactId);
+    if (mine) out.set(self.id, { id: self.id, role: "You", likely: mine.isNesting });
+  } else if (self) {
+    for (const p of current) {
+      const known = out.get(p.contactId);
+      out.set(p.contactId, { id: p.contactId, role: known?.role ?? "Partner", likely: p.isNesting || (known?.likely ?? false) });
+    }
+  }
+
+  out.delete(contactId);
+  if (out.size === 0) return [];
+  const rows = await tx
+    .select({ id: contacts.id, firstName: contacts.firstName, lastName: contacts.lastName, isSelf: contacts.isSelf })
+    .from(contacts)
+    .where(and(inArray(contacts.id, [...out.keys()]), isNull(contacts.deletedAt), eq(contacts.isDeceased, false)));
+  return rows
+    .map((r) => ({ ...out.get(r.id)!, name: r.isSelf ? "You" : fullName(r) }))
+    .sort((a, b) => Number(b.likely) - Number(a.likely) || a.name.localeCompare(b.name));
+}

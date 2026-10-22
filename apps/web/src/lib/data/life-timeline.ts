@@ -35,6 +35,7 @@ export async function lifeTimeline(tx: Tx, user: { tenantId: string; name: strin
       closeness: contacts.closeness,
       metYear: contacts.metYear,
       lostTouchYear: contacts.lostTouchYear,
+      reconnectedYear: contacts.reconnectedYear,
       deathYear: contacts.deathYear,
       createdAt: contacts.createdAt,
     })
@@ -67,6 +68,7 @@ export async function lifeTimeline(tx: Tx, user: { tenantId: string; name: strin
         firstInteractionYear: years.length ? Math.min(...years) : null,
         addedYear: p.createdAt.getUTCFullYear(),
         lostTouchYear: p.lostTouchYear,
+        reconnectedYear: p.reconnectedYear,
         deathYear: p.deathYear ?? tree?.deathYear ?? null,
       },
       currentYear,

@@ -32,7 +32,7 @@ import { summaryFor } from "@/lib/data/assistant";
 import { aiEnabledFor } from "@/lib/ai";
 import { contactInfoFor } from "@/lib/data/contact-info";
 import { facesFor } from "@/lib/data/faces";
-import { ensureSelf, friendOf, loadFamily, relationsOf } from "@/lib/data/family";
+import { ensureSelf, friendOf, householdOf, loadFamily, relationsOf } from "@/lib/data/family";
 import { listMemories } from "@/lib/data/memories";
 import { immichConnection } from "@/lib/immich";
 import { avatarSrc } from "@/lib/immich-urls";
@@ -69,6 +69,7 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
     memories: await listMemories(tx, { contactId: id, limit: 3 }),
     faces: (await facesFor(tx, [id])).get(id) ?? [],
     info: await contactInfoFor(tx, id),
+    household: await householdOf(tx, id),
     immich: Boolean(await immichConnection(tx, user.id)),
     family: relationsOf(await loadFamily(tx, await ensureSelf(tx, user)), id),
     friendOf: await friendOf(tx, id),
@@ -231,7 +232,7 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
               <CardTitle>Contact</CardTitle>
             </CardHeader>
             <CardContent>
-              <ContactCard contactId={contact.id} info={result.info} company={contact.company} jobTitle={contact.jobTitle} />
+              <ContactCard contactId={contact.id} info={result.info} company={contact.company} jobTitle={contact.jobTitle} household={result.household} />
             </CardContent>
           </Card>
           <Card>
@@ -255,11 +256,12 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
               </BirthdayField>
               {!contact.isSelf && (
                 <SpanField
-                  key={`${contact.metYear}-${contact.metMonth}-${contact.lostTouchYear}`}
+                  key={`${contact.metYear}-${contact.metMonth}-${contact.lostTouchYear}-${contact.reconnectedYear}`}
                   contactId={contact.id}
                   metYear={contact.metYear}
                   metMonth={contact.metMonth}
                   lostTouchYear={contact.lostTouchYear}
+                  reconnectedYear={contact.reconnectedYear}
                 />
               )}
               {contact.howMet && (
