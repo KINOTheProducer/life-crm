@@ -46,12 +46,22 @@ export function toCsv(rows: (string | number | null | undefined)[][]): string {
 
 const norm = (h: string) => h.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 
+const knownHeaders = new Set(["first name", "given name", "last name", "family name", "name", "full name", "email", "email address", "e mail address", "phone", "company", "position", "url"]);
+
+/** "https://www.linkedin.com/in/holly-chen/" is "holly-chen". */
+function linkedinHandle(url: string) {
+  return url.match(/linkedin\.com\/in\/([^/?#]+)/i)?.[1] ?? null;
+}
+
 /**
  * Turn a contacts CSV into cards. Understands Google Contacts and Outlook exports, and
  * plain files with columns like "name", "first name", "phone", "email", "birthday".
  */
 export function cardsFromCsv(text: string): { cards: Card[]; columns: string[] } {
-  const [header, ...rows] = parseCsv(text);
+  const all = parseCsv(text);
+  // LinkedIn's Connections.csv starts with a few lines of notes before the real header.
+  const start = Math.max(0, all.slice(0, 10).findIndex((r) => r.map(norm).filter((c) => knownHeaders.has(c)).length >= 2));
+  const [header, ...rows] = all.slice(start);
   if (!header) return { cards: [], columns: [] };
   const h = header.map(norm);
   const col = (...names: string[]) => names.map((n) => h.indexOf(n)).find((i) => i >= 0) ?? -1;
@@ -71,11 +81,12 @@ export function cardsFromCsv(text: string): { cards: Card[]; columns: string[] }
   const nick = col("nickname");
   const bday = col("birthday", "birth date", "date of birth");
   const org = col("organization name", "organization 1 name", "company", "organisation");
-  const title = col("organization title", "organization 1 title", "job title", "title");
+  const title = col("organization title", "organization 1 title", "job title", "title", "position");
   const note = col("notes", "note");
   const phoneCols = [...cols(/^phone \d+ value$/), ...cols(/(^| )(mobile|cell|home|business|work|primary|other)? ?phone( \d+)?$/), ...cols(/^(phone|telephone|mobile)$/)];
   const emailCols = [...cols(/^e ?mail \d+ value$/), ...cols(/^e ?mail( address)?( \d+)?$/), ...cols(/^e ?mail ?\d? address$/)];
   const urlCols = [...cols(/^website \d+ value$/), ...cols(/^(web page|website|url)$/)];
+  const profile = col("profile url");
   const street = cols(/^(address \d+ street|home street|business street|street)$/);
 
   const cards: Card[] = [];
@@ -106,7 +117,15 @@ export function cardsFromCsv(text: string): { cards: Card[]; columns: string[] }
     const split = (v: string) => v.split(/\s*:::\s*/).filter(Boolean);
     for (const i of new Set(phoneCols)) for (const v of split(get(i))) card.phones.push({ label: label(i, "other"), value: v });
     for (const i of new Set(emailCols)) for (const v of split(get(i))) card.emails.push({ label: label(i, "personal"), value: v });
-    for (const i of new Set(urlCols)) for (const v of split(get(i))) card.urls.push({ label: "website", value: v });
+    for (const i of new Set(urlCols)) {
+      for (const v of split(get(i))) {
+        const handle = linkedinHandle(v);
+        if (handle) card.socials.push({ service: "linkedin", value: handle });
+        else card.urls.push({ label: "website", value: v });
+      }
+    }
+    const handle = linkedinHandle(get(profile));
+    if (handle && !card.socials.some((s) => s.service === "linkedin")) card.socials.push({ service: "linkedin", value: handle });
     for (const i of street) {
       const prefix = header[i]!.replace(/street$/i, "");
       const part = (name: string) => get(h.indexOf(norm(`${prefix}${name}`)));

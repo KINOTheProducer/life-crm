@@ -128,6 +128,19 @@ describe("csv", () => {
     expect(cards[0]!.emails.map((e) => e.value)).toEqual(["holly@example.com", "h.chen@work.com"]);
   });
 
+  it("reads LinkedIn's Connections.csv, notes preamble and all", () => {
+    const csv = [
+      "Notes:",
+      '"When exporting your connection data, you may notice that some of the email addresses are missing."',
+      "",
+      "First Name,Last Name,URL,Email Address,Company,Position,Connected On",
+      "Priya,Shah,https://www.linkedin.com/in/priya-shah-12ab/,,Shopify,Staff Engineer,12 Oct 2021",
+    ].join("\n");
+    const { cards } = cardsFromCsv(csv);
+    expect(cards).toHaveLength(1);
+    expect(cards[0]).toMatchObject({ firstName: "Priya", lastName: "Shah", company: "Shopify", jobTitle: "Staff Engineer", socials: [{ service: "linkedin", value: "priya-shah-12ab" }], urls: [] });
+  });
+
   it("reads a plain spreadsheet with a single name column", () => {
     const { cards } = cardsFromCsv("Name,Phone,Email,Birthday\nMarcus Bell,4165550100,marcus@example.com,1988-07-02\n,,,\n");
     expect(cards).toEqual([expect.objectContaining({ firstName: "Marcus", lastName: "Bell", birthday: { year: 1988, month: 7, day: 2 } })]);

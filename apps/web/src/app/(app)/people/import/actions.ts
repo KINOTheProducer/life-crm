@@ -1,6 +1,6 @@
 "use server";
 
-import { nameMatch, normalizeMethod } from "@life-crm/core";
+import { formatIsoDate, monicaImportSchema, nameMatch, normalizeMethod, todayIn, type MonicaImport } from "@life-crm/core";
 import { cardsFromCsv, parseVcards, type Card } from "@life-crm/dav";
 import { and, eq, isNull, schema, type Tx } from "@life-crm/db";
 import { revalidatePath } from "next/cache";
@@ -9,6 +9,7 @@ import { createFromCard, mergeCard } from "@/lib/data/cards";
 import { contactsWithMethods } from "@/lib/data/contact-info";
 import { fullName } from "@/lib/data/contacts";
 import { formatPartialDate } from "@/lib/data/dates";
+import { applyMonicaLinks, applyMonicaPerson, circleIdsByName, monicaCard } from "@/lib/data/monica";
 import { tenantQuery } from "@/lib/session";
 
 const { contacts } = schema;
@@ -26,7 +27,24 @@ export interface PreviewRow {
   action: ImportAction;
 }
 
-function parse(text: string, filename: string): { cards: Card[]; error?: string } {
+/** Monica exports are read in the browser and arrive here already slimmed down to this shape. */
+function parseMonica(text: string): { cards: Card[]; monica?: MonicaImport; error?: string } {
+  let json: unknown;
+  try {
+    json = JSON.parse(text);
+  } catch {
+    return { cards: [], error: "That file isn't valid JSON." };
+  }
+  const parsed = monicaImportSchema.safeParse(json);
+  if (!parsed.success) return { cards: [], error: "That doesn't look like a Monica export." };
+  const monica = parsed.data;
+  if (monica.people.length === 0) return { cards: [], error: "No people found in that Monica export." };
+  if (monica.people.length > MAX_CARDS) return { cards: [], error: `That's ${monica.people.length} people; import up to ${MAX_CARDS} at a time.` };
+  return { cards: monica.people.map(monicaCard), monica };
+}
+
+function parse(text: string, filename: string): { cards: Card[]; monica?: MonicaImport; error?: string } {
+  if (/\.json$/i.test(filename)) return parseMonica(text);
   if (text.length > MAX_BYTES) return { cards: [], error: "That file is over 5 MB. Split it up and import it in parts." };
   const isCsv = /\.csv$/i.test(filename) || (!/BEGIN:VCARD/i.test(text) && text.includes(","));
   const cards = isCsv ? cardsFromCsv(text).cards : parseVcards(text);
@@ -68,8 +86,19 @@ async function matchCards(tx: Tx, cards: Card[]) {
   });
 }
 
+const plural = (n: number, word: string) => (n ? `${n} ${word}${n === 1 ? "" : "s"}` : null);
+
+/** "4 notes, 2 calls": what else comes across with a Monica person. */
+function monicaExtras(p: MonicaImport["people"][number]) {
+  return (
+    [plural(p.notes.length, "note"), plural(p.calls.length + p.activities.length, "catch-up"), plural(p.lifeEvents.length, "life event"), plural(p.gifts.length, "gift")]
+      .filter(Boolean)
+      .join(", ") || null
+  );
+}
+
 export async function previewImport(text: string, filename: string): Promise<{ rows: PreviewRow[]; error?: string }> {
-  const { cards, error } = parse(text, filename);
+  const { cards, monica, error } = parse(text, filename);
   if (error) return { rows: [], error };
   const matches = await tenantQuery((tx) => matchCards(tx, cards));
   return {
@@ -83,6 +112,7 @@ export async function previewImport(text: string, filename: string): Promise<{ r
           card.emails[0]?.value,
           card.birthday ? `Birthday ${formatPartialDate(card.birthday)}` : null,
           [card.jobTitle, card.company].filter(Boolean).join(", ") || null,
+          monica ? monicaExtras(monica.people[index]!) : null,
         ].filter((d): d is string => !!d),
         match,
         action: match ? "merge" : "create",
@@ -100,15 +130,18 @@ const decisionsSchema = z.array(z.enum(["create", "merge", "skip"])).max(MAX_CAR
 export async function runImport(text: string, filename: string, decisions: ImportAction[]): Promise<{ created: number; merged: number; error?: string }> {
   const parsed = decisionsSchema.safeParse(decisions);
   if (!parsed.success) return { created: 0, merged: 0, error: "Something went wrong with the choices. Try again." };
-  const { cards, error } = parse(text, filename);
+  const { cards, monica, error } = parse(text, filename);
   if (error) return { created: 0, merged: 0, error };
   if (cards.length !== parsed.data.length) return { created: 0, merged: 0, error: "The file changed since the preview. Try again." };
 
-  const source = filename.replace(/^.*[\\/]/, "").slice(0, 80) || "import";
+  const source = monica ? "Monica" : filename.replace(/^.*[\\/]/, "").slice(0, 80) || "import";
   const result = await tenantQuery(async (tx, user) => {
     const matches = await matchCards(tx, cards);
     // Duplicates inside the same file merge into whoever was created first.
     const seenInFile = new Map<string, string>();
+    const monicaIds = new Map<string, string>();
+    const today = formatIsoDate(todayIn(user.timeZone));
+    const circleIds = monica ? await circleIdsByName(tx) : new Map<string, string>();
     let created = 0;
     let merged = 0;
     for (const [i, card] of cards.entries()) {
@@ -127,7 +160,13 @@ export async function runImport(text: string, filename: string, decisions: Impor
         created++;
       }
       for (const k of keys) if (!seenInFile.has(k)) seenInFile.set(k, id);
+      const person = monica?.people[i];
+      if (person) {
+        monicaIds.set(person.key, id);
+        await applyMonicaPerson(tx, user, id, person, { today, circleIds });
+      }
     }
+    if (monica) await applyMonicaLinks(tx, user.tenantId, monica, monicaIds, today);
     return { created, merged };
   });
   revalidatePath("/people");

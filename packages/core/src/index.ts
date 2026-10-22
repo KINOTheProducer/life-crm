@@ -6,6 +6,7 @@ export * from "./gedcom";
 export * from "./gifts";
 export * from "./kinship";
 export * from "./life-timeline";
+export * from "./monica";
 export * from "./names";
 export * from "./partners";
 export * from "./reminders";
