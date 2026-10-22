@@ -200,9 +200,9 @@ function Sideboard() {
 
 // The desk sits against the left wall; whoever's at it faces the wall (-x), so the camera sees the screen.
 const DESK = { x: LEFT + 0.42, z: -0.3, top: 0.75 };
-const CHAIR_X = LEFT + 1.35;
+const CHAIR_X = LEFT + 1.12;
 const SCREEN = new THREE.Vector3(LEFT + 0.27, 1.37, DESK.z);
-const HEAD = new THREE.Vector3(CHAIR_X, 1.31, DESK.z + 0.02);
+const HEAD = new THREE.Vector3(CHAIR_X, 1.25, DESK.z + 0.02);
 
 function Desk() {
   return (
@@ -219,7 +219,7 @@ function Desk() {
         )),
       )}
       {/* Keyboard and a mug */}
-      <RoundedBox args={[0.18, 0.02, 0.6]} radius={0.008} position={[0.2, DESK.top + 0.01, 0]}>
+      <RoundedBox args={[0.18, 0.02, 0.6]} radius={0.008} position={[0.26, DESK.top + 0.01, 0]}>
         <Clay color="#ffffff" rough={0.5} />
       </RoundedBox>
       <mesh position={[0.05, DESK.top + 0.06, 0.62]}>
@@ -269,10 +269,10 @@ function Chair() {
         <Clay color={C.ink} rough={0.4} />
       </mesh>
       <RoundedBox args={[0.5, 0.07, 0.5]} radius={0.03} position={[0.05, 0.48, 0]}>
-        <Clay color={C.sofa} />
+        <Clay color="#a88d73" />
       </RoundedBox>
       <RoundedBox args={[0.07, 0.55, 0.46]} radius={0.03} position={[0.33, 0.85, 0]}>
-        <Clay color={C.sofa} />
+        <Clay color="#a88d73" />
       </RoundedBox>
     </group>
   );
@@ -280,8 +280,8 @@ function Chair() {
 
 type V3 = [number, number, number];
 
-/** Capsule from one point to another, for arms and legs. */
-function Limb({ from, to, r, color }: { from: V3; to: V3; r: number; color: string }) {
+/** Tapered limb segment with a rounded joint at each end, for a slimmer, more human silhouette than capsules. */
+function Segment({ from, to, r0, r1, color }: { from: V3; to: V3; r0: number; r1: number; color: string }) {
   const { pos, quat, len } = useMemo(() => {
     const a = new THREE.Vector3(...from);
     const b = new THREE.Vector3(...to);
@@ -291,35 +291,46 @@ function Limb({ from, to, r, color }: { from: V3; to: V3; r: number; color: stri
     return { pos: a.add(b).multiplyScalar(0.5), quat, len };
   }, [from, to]);
   return (
-    <mesh position={pos} quaternion={quat}>
-      <capsuleGeometry args={[r, Math.max(0.001, len - r * 2), 6, 14]} />
-      <Clay color={color} />
-    </mesh>
+    <>
+      <mesh position={pos} quaternion={quat}>
+        <cylinderGeometry args={[r1, r0, len, 20]} />
+        <Clay color={color} />
+      </mesh>
+      <mesh position={from}>
+        <sphereGeometry args={[r0, 16, 12]} />
+        <Clay color={color} />
+      </mesh>
+      <mesh position={to}>
+        <sphereGeometry args={[r1, 16, 12]} />
+        <Clay color={color} />
+      </mesh>
+    </>
   );
 }
 
-const SKIN = "#e8b894";
-const SWEATER = C.sage;
-const PANTS = "#5b4a3c";
-const HAIR = "#4a3426";
+// One soft cream tone with small shifts between clothes, skin and hair, like an architect's model figure.
+const BODY = "#eee2d3";
+const TOP = "#f3eadf";
+const PANTS = "#d9c7b2";
+const HAIR = "#cbb59d";
 
-/** Sweater torso: narrow at the waist, rounded shoulders. Lathed, then squashed front to back. */
+/** Upper body: waist, chest and shoulders. Lathed, then squashed front to back. */
 const torsoGeometry = (() => {
   const pts = [
     [0, 0],
-    [0.14, 0],
-    [0.16, 0.06],
-    [0.15, 0.2],
-    [0.17, 0.34],
-    [0.19, 0.42],
-    [0.17, 0.48],
-    [0.1, 0.52],
-    [0, 0.53],
+    [0.12, 0],
+    [0.13, 0.08],
+    [0.12, 0.2],
+    [0.14, 0.32],
+    [0.15, 0.4],
+    [0.14, 0.45],
+    [0.09, 0.5],
+    [0, 0.51],
   ].map(([x, y]) => new THREE.Vector2(x, y));
-  return new THREE.LatheGeometry(pts, 32);
+  return new THREE.LatheGeometry(pts, 36);
 })();
 
-// Turned a little toward the camera so we see their face side on, not the back of their head.
+// Turned a little toward the camera so the figure reads side on, not from behind.
 const SEAT_TURN = 0.35;
 
 function Person({ p }: { p: ProgressRef }) {
@@ -331,81 +342,69 @@ function Person({ p }: { p: ProgressRef }) {
     // Leaning in while there's a lot going on, sitting back once it's all in.
     const ease = smooth(segment(p.current, 0.7, 0.9));
     if (upper.current) {
-      upper.current.rotation.z = lerp(0.12, -0.08, ease);
-      upper.current.position.y = 0.55 + Math.sin(t * 1.6) * 0.004;
+      upper.current.rotation.z = lerp(0.1, -0.08, ease);
+      upper.current.position.y = 0.56 + Math.sin(t * 1.6) * 0.003;
     }
     // Looks up from the screen at the end.
-    if (head.current) head.current.rotation.z = lerp(0.08, -0.12, ease) + Math.sin(t * 0.7) * 0.02;
+    if (head.current) head.current.rotation.z = lerp(0.1, -0.12, ease) + Math.sin(t * 0.7) * 0.015;
     // Hands come off the keyboard and rest in their lap.
-    arms.current.forEach((a) => a && (a.rotation.z = lerp(0, 0.42, ease)));
+    arms.current.forEach((a) => a && (a.rotation.z = lerp(0, 0.36, ease)));
   });
   return (
     <group>
-      {/* Hips and legs */}
-      <RoundedBox args={[0.3, 0.16, 0.36]} radius={0.07} smoothness={4} position={[0.06, 0.6, 0]}>
+      {/* Pelvis and legs */}
+      <RoundedBox args={[0.28, 0.16, 0.32]} radius={0.075} smoothness={4} position={[0.05, 0.6, 0]}>
         <Clay color={PANTS} />
       </RoundedBox>
-      {[-0.1, 0.1].map((z) => (
+      {[-0.085, 0.085].map((z) => (
         <group key={z}>
-          <Limb from={[0.04, 0.6, z]} to={[-0.36, 0.6, z]} r={0.08} color={PANTS} />
-          <Limb from={[-0.36, 0.6, z]} to={[-0.4, 0.12, z]} r={0.068} color={PANTS} />
-          <RoundedBox args={[0.26, 0.08, 0.12]} radius={0.035} position={[-0.46, 0.04, z]}>
-            <Clay color={C.ink} />
+          <Segment from={[0.04, 0.6, z]} to={[-0.38, 0.6, z * 1.1]} r0={0.078} r1={0.058} color={PANTS} />
+          <Segment from={[-0.38, 0.6, z * 1.1]} to={[-0.41, 0.07, z * 1.1]} r0={0.055} r1={0.045} color={PANTS} />
+          <RoundedBox args={[0.22, 0.065, 0.095]} radius={0.03} position={[-0.45, 0.035, z * 1.1]}>
+            <Clay color={HAIR} />
           </RoundedBox>
         </group>
       ))}
-      <group ref={upper} position={[0.06, 0.55, 0]}>
-        <mesh geometry={torsoGeometry} scale={[0.72, 1, 1.12]}>
-          <Clay color={SWEATER} />
+      <group ref={upper} position={[0.05, 0.56, 0]}>
+        <mesh geometry={torsoGeometry} scale={[0.72, 1, 1.32]}>
+          <Clay color={TOP} />
         </mesh>
-        {/* Collar and neck */}
-        <mesh position={[0, 0.52, 0]} rotation={[Math.PI / 2, 0, 0]}>
-          <torusGeometry args={[0.065, 0.022, 10, 24]} />
-          <Clay color={SWEATER} />
+        <mesh position={[-0.01, 0.53, 0]}>
+          <cylinderGeometry args={[0.04, 0.046, 0.1, 18]} />
+          <Clay color={BODY} />
         </mesh>
-        <mesh position={[-0.01, 0.58, 0]}>
-          <cylinderGeometry args={[0.05, 0.055, 0.12, 16]} />
-          <Clay color={SKIN} />
-        </mesh>
-        <group ref={head} position={[-0.02, 0.64, 0]} scale={1.12}>
-          <mesh position={[-0.01, 0.12, 0]} scale={[1, 1.12, 0.94]}>
-            <sphereGeometry args={[0.125, 32, 24]} />
-            <Clay color={SKIN} />
+        <group ref={head} position={[-0.015, 0.58, 0]}>
+          {/* Head, jaw and a hint of a nose; no face, like a model figure */}
+          <mesh position={[-0.01, 0.11, 0]} scale={[1.05, 1.22, 0.9]}>
+            <sphereGeometry args={[0.09, 32, 24]} />
+            <Clay color={BODY} />
           </mesh>
-          {/* Nose and ears */}
-          <mesh position={[-0.135, 0.11, 0]}>
-            <sphereGeometry args={[0.022, 12, 10]} />
-            <Clay color={SKIN} />
+          <mesh position={[-0.04, 0.06, 0]} scale={[1, 0.8, 0.8]}>
+            <sphereGeometry args={[0.07, 24, 18]} />
+            <Clay color={BODY} />
           </mesh>
-          {[-1, 1].map((s) => (
-            <mesh key={s} position={[0.0, 0.11, s * 0.118]} scale={[0.7, 1, 0.5]}>
-              <sphereGeometry args={[0.03, 12, 10]} />
-              <Clay color={SKIN} />
-            </mesh>
-          ))}
-          {/* Short hair: a cap over the top and a fuller back */}
-          <mesh position={[0.005, 0.15, 0]} scale={[1.02, 1.02, 0.98]}>
-            <sphereGeometry args={[0.13, 32, 20, 0, Math.PI * 2, 0, Math.PI * 0.42]} />
+          <mesh position={[-0.1, 0.1, 0]} scale={[1, 1.3, 0.8]}>
+            <sphereGeometry args={[0.014, 10, 8]} />
+            <Clay color={BODY} />
+          </mesh>
+          {/* Short hair moulded on, swept back */}
+          <mesh position={[0.012, 0.135, 0]} scale={[1.08, 1.12, 0.95]} rotation={[0, 0, 0.25]}>
+            <sphereGeometry args={[0.093, 32, 20, 0, Math.PI * 2, 0, Math.PI * 0.5]} />
             <Clay color={HAIR} rough={0.9} />
           </mesh>
-          <mesh position={[0.04, 0.12, 0]} scale={[0.95, 1.05, 0.98]}>
-            <sphereGeometry args={[0.12, 28, 20]} />
+          <mesh position={[0.03, 0.1, 0]} scale={[0.9, 1.05, 0.86]}>
+            <sphereGeometry args={[0.085, 28, 20]} />
             <Clay color={HAIR} rough={0.9} />
           </mesh>
         </group>
-        {/* Arms down to the keyboard */}
+        {/* Arms: shoulder, elbow, wrist, hand */}
         {[-1, 1].map((s, i) => (
-          <group key={s} ref={(el) => void (arms.current[i] = el)} position={[0, 0.44, 0]}>
-            <mesh position={[0, 0, s * 0.19]}>
-              <sphereGeometry args={[0.07, 16, 12]} />
-              <Clay color={SWEATER} />
-            </mesh>
-            <Limb from={[0, 0, s * 0.2]} to={[-0.16, -0.24, s * 0.24]} r={0.06} color={SWEATER} />
-            <Limb from={[-0.16, -0.24, s * 0.24]} to={[-0.74, -0.22, s * 0.13]} r={0.052} color={SWEATER} />
-            <mesh position={[-0.8, -0.22, s * 0.12]} scale={[1.3, 0.7, 1]}>
-              <sphereGeometry args={[0.045, 14, 12]} />
-              <Clay color={SKIN} />
-            </mesh>
+          <group key={s} ref={(el) => void (arms.current[i] = el)} position={[0, 0.44, s * 0.18]}>
+            <Segment from={[0, 0, 0]} to={[-0.1, -0.27, s * 0.04]} r0={0.054} r1={0.044} color={TOP} />
+            <Segment from={[-0.1, -0.27, s * 0.04]} to={[-0.33, -0.22, s * -0.05]} r0={0.042} r1={0.034} color={TOP} />
+            <RoundedBox args={[0.11, 0.032, 0.058]} radius={0.015} position={[-0.4, -0.225, s * -0.06]} rotation={[0, s * 0.15, 0]}>
+              <Clay color={BODY} />
+            </RoundedBox>
           </group>
         ))}
       </group>
