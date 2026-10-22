@@ -202,7 +202,12 @@ function Sideboard() {
 // The desk sits against the left wall; whoever's at it faces the wall (-x), so the camera sees the screen.
 const DESK = { x: LEFT + 0.42, z: -0.3, top: 0.75 };
 const CHAIR_X = LEFT + 1.12;
-const SCREEN = new THREE.Vector3(LEFT + 0.27, 1.37, DESK.z);
+// The monitor is angled toward the camera so its screen can be read.
+const MONITOR_TURN = 0.55;
+const MONITOR = new THREE.Vector3(LEFT + 0.4, DESK.top, DESK.z);
+const SCREEN_W = 1.2;
+const SCREEN_H = 0.69;
+const SCREEN = new THREE.Vector3(0.03, 0.66, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), -MONITOR_TURN).add(MONITOR);
 const HEAD = new THREE.Vector3(CHAIR_X, 1.25, DESK.z + 0.02);
 
 function Desk() {
@@ -233,27 +238,28 @@ function Desk() {
 
 function Monitor({ glow }: { glow: RefObject<THREE.PointLight | null> }) {
   return (
-    <group position={[LEFT + 0.22, DESK.top, DESK.z]}>
+    <group position={MONITOR} rotation={[0, -MONITOR_TURN, 0]}>
       <RoundedBox args={[0.22, 0.02, 0.3]} radius={0.008} position={[0, 0.01, 0]}>
         <Clay color={C.ink} rough={0.4} />
       </RoundedBox>
-      <mesh position={[0, 0.17, 0]}>
-        <boxGeometry args={[0.04, 0.32, 0.06]} />
+      <mesh position={[0, 0.2, 0]}>
+        <boxGeometry args={[0.04, 0.4, 0.06]} />
         <Clay color={C.ink} rough={0.4} />
       </mesh>
-      <RoundedBox args={[0.05, 0.62, 1.04]} radius={0.02} position={[0, SCREEN.y - DESK.top, 0]}>
+      <RoundedBox args={[0.05, SCREEN_H + 0.06, SCREEN_W + 0.06]} radius={0.02} position={[0, 0.66, 0]}>
         <Clay color={C.ink} rough={0.35} />
       </RoundedBox>
-      <pointLight ref={glow} position={[0.7, SCREEN.y - DESK.top - 0.2, 0]} color="#e6eeff" intensity={0.4} distance={2.5} decay={2} />
+      <pointLight ref={glow} position={[0.7, 0.46, 0]} color="#e6eeff" intensity={0.4} distance={2.5} decay={2} />
     </group>
   );
 }
 
 function Screen({ tex }: { tex: THREE.Texture }) {
   return (
-    <mesh position={[SCREEN.x, SCREEN.y, SCREEN.z]} rotation={[0, Math.PI / 2, 0]} userData={{ noShadow: true }}>
-      <planeGeometry args={[0.98, 0.56]} />
-      <meshStandardMaterial map={tex} emissiveMap={tex} emissive="#ffffff" emissiveIntensity={0.45} roughness={0.9} />
+    <mesh position={SCREEN} rotation={[0, Math.PI / 2 - MONITOR_TURN, 0]} userData={{ noShadow: true }}>
+      <planeGeometry args={[SCREEN_W, SCREEN_H]} />
+      {/* Unlit and kept under the bloom threshold, so the UI stays readable. */}
+      <meshBasicMaterial map={tex} color="#e4e0da" toneMapped={false} />
     </mesh>
   );
 }
@@ -399,13 +405,13 @@ function scatterNotes() {
 
 const HEAD_NOTES = 12;
 const FLIGHT = 0.08;
-const facingScreen = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, Math.PI / 2, 0));
+const facingScreen = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, Math.PI / 2 - MONITOR_TURN, 0));
 
-/** Moves a note toward the screen along an arc; returns false once it's gone in. */
+/** Moves a note toward the screen along an arc, hiding it once it's gone in. */
 function fly(o: THREE.Object3D, from: THREE.Vector3, fromRot: THREE.Quaternion, e: number, size: number, arc: number) {
   if (e >= 1) {
     o.visible = false;
-    return false;
+    return;
   }
   o.visible = true;
   const k = smooth(e);
@@ -413,7 +419,6 @@ function fly(o: THREE.Object3D, from: THREE.Vector3, fromRot: THREE.Quaternion, 
   o.position.y += Math.sin(k * Math.PI) * arc;
   o.quaternion.slerpQuaternions(fromRot, facingScreen, k);
   o.scale.setScalar(Math.max(0.0001, size * (1 - smooth(segment(e, 0.7, 1)))));
-  return true;
 }
 
 /** Room notes and the little ones circling the person's head, all heading into the computer. */
@@ -432,7 +437,10 @@ function Notes({ p, onArrived }: { p: ProgressRef; onArrived: (share: number) =>
     let arrived = 0;
     notes.forEach((n, i) => {
       const o = roomRefs.current[i];
-      if (o && !fly(o, n.pos, n.rot, segment(t, n.leave, n.leave + FLIGHT), 1, 0.7)) arrived++;
+      const e = segment(t, n.leave, n.leave + FLIGHT);
+      if (o) fly(o, n.pos, n.rot, e, 1, 0.7);
+      // Counts as it sinks into the screen, so the list grows smoothly rather than in steps.
+      arrived += segment(e, 0.6, 1);
     });
     headRefs.current.forEach((o, i) => {
       if (!o) return;
@@ -442,7 +450,9 @@ function Notes({ p, onArrived }: { p: ProgressRef; onArrived: (share: number) =>
       orbit.set(HEAD.x + Math.cos(a) * rad, HEAD.y + 0.36 + 0.1 * Math.sin(time * 1.5 + i), HEAD.z + Math.sin(a) * rad);
       spin.setFromEuler(euler.set(Math.sin(time + i) * 0.4, -a, Math.cos(time * 0.8 + i) * 0.3));
       const leave = 0.16 + 0.32 * (i / HEAD_NOTES);
-      if (!fly(o, orbit, spin, segment(t, leave, leave + FLIGHT), 1, 0.25)) arrived++;
+      const e = segment(t, leave, leave + FLIGHT);
+      fly(o, orbit, spin, e, 1, 0.25);
+      arrived += segment(e, 0.6, 1);
     });
     onArrived(arrived / (notes.length + HEAD_NOTES));
   });
@@ -470,8 +480,8 @@ function Workspace({ p }: { p: ProgressRef }) {
   const screen = useMemo(() => appScreen(), []);
   const glow = useRef<THREE.PointLight>(null);
   const onArrived = (share: number) => {
-    screen.draw(Math.round(share * 7));
-    if (glow.current) glow.current.intensity = 0.3 + share * 1.2;
+    screen.draw(share);
+    if (glow.current) glow.current.intensity = 0.15 + share * 0.5;
   };
   return (
     <>
@@ -594,8 +604,10 @@ function Photos({ p }: { p: ProgressRef }) {
 const shots = [
   { at: 0.0, target: new THREE.Vector3(0.3, 0.9, 0.3), zoom: 0.95 },
   { at: 0.3, target: new THREE.Vector3(-1.6, 1.2, -0.1), zoom: 1.3 },
-  { at: 0.56, target: new THREE.Vector3(0, 0.95, 0.1), zoom: 1.05 },
-  { at: 0.8, target: new THREE.Vector3(0.3, 0.9, 0.3), zoom: 0.95 },
+  // In close on the screen while the list fills up.
+  { at: 0.5, target: SCREEN.clone().add(new THREE.Vector3(0.1, -0.05, 0.1)), zoom: 3.6 },
+  { at: 0.66, target: SCREEN.clone().add(new THREE.Vector3(0.1, -0.05, 0.1)), zoom: 3.6 },
+  { at: 0.84, target: new THREE.Vector3(0.3, 0.9, 0.3), zoom: 0.95 },
 ];
 
 function Rig({ p }: { p: ProgressRef }) {
@@ -622,7 +634,7 @@ function Rig({ p }: { p: ProgressRef }) {
     camera.lookAt(target);
     const ortho = camera as THREE.OrthographicCamera;
     const base = size.width < 640 ? Math.min(size.width / 9, size.height / 5.6) : Math.min(size.width / 11, size.height / 7.4);
-    ortho.zoom = base * (size.width < 640 ? Math.min(zoomMul, 1.2) : zoomMul);
+    ortho.zoom = base * (size.width < 640 && zoomMul < 2 ? Math.min(zoomMul, 1.2) : zoomMul);
     // On wide screens the canvas spans the whole section; push the room right of the text.
     if (size.width >= 1024) ortho.setViewOffset(size.width, size.height, -size.width * 0.21, 0, size.width, size.height);
     else ortho.clearViewOffset();
