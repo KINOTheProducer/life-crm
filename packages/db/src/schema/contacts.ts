@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import { boolean, index, integer, pgTable, smallint, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { tenantId, timestamps } from "./columns";
 import { contactMethodKinds } from "@life-crm/core";
+import { households } from "./households";
 import { tenantIsolation } from "./tenants";
 
 export const contacts = pgTable(
@@ -34,6 +35,7 @@ export const contacts = pgTable(
     /** Where the avatar comes from: "immich-person:<id>", or null for initials. */
     avatarRef: text("avatar_ref"),
     lastInteractionAt: timestamp("last_interaction_at", { withTimezone: true }),
+    householdId: uuid("household_id").references(() => households.id, { onDelete: "set null" }),
     ...timestamps,
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
   },
