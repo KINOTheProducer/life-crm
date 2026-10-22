@@ -131,7 +131,10 @@ export const aiSettings = pgTable(
       .primaryKey()
       .references(() => user.id, { onDelete: "cascade" }),
     provider: text("provider", { enum: aiProviders }).notNull().default("server"),
+    /** Reading voice notes and business cards. */
     model: text("model"),
+    /** Ask and person summaries. Null means the same as `model`. */
+    chatModel: text("chat_model"),
     baseUrl: text("base_url"),
     apiKeyEnc: text("api_key_enc"),
     sttProvider: text("stt_provider", { enum: sttProviders }).notNull().default("server"),

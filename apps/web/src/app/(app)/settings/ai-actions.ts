@@ -1,6 +1,6 @@
 "use server";
 
-import { extractorFor, type AiConfig } from "@life-crm/ai";
+import { AiError, extractorFor, listAnthropicModels, listOpenAiCompatibleModels, speechModelsFirst, type AiConfig, type ModelOption } from "@life-crm/ai";
 import { aiProviders, sttProviders } from "@life-crm/db/schema";
 import { assertPublicHost } from "@life-crm/immich";
 import { schema } from "@life-crm/db";
@@ -8,7 +8,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { aiConfigFor, aiSettingsFor } from "@/lib/ai";
 import { env } from "@/lib/env";
-import { encryptSecret } from "@/lib/secrets";
+import { decryptSecret, encryptSecret } from "@/lib/secrets";
 import { tenantQuery } from "@/lib/session";
 
 export interface AiState {
@@ -33,6 +33,11 @@ const settingsSchema = z.object({
     .trim()
     .max(200)
     .transform((v) => v || null),
+  chatModel: z
+    .string()
+    .trim()
+    .max(200)
+    .transform((v) => v || null),
   baseUrl: url,
   apiKey: z.string().trim().max(500),
   sttProvider: z.enum(sttProviders),
@@ -49,6 +54,7 @@ export async function saveAiSettings(_prev: AiState, form: FormData): Promise<Ai
   const parsed = settingsSchema.safeParse({
     provider: form.get("provider"),
     model: form.get("model") ?? "",
+    chatModel: form.get("chatModel") ?? "",
     baseUrl: form.get("baseUrl") ?? "",
     apiKey: form.get("apiKey") ?? "",
     sttProvider: form.get("sttProvider"),
@@ -74,6 +80,8 @@ export async function saveAiSettings(_prev: AiState, form: FormData): Promise<Ai
     const values = {
       provider: d.provider,
       model: d.model,
+      // "Same as above" is stored as null so it follows the main model.
+      chatModel: d.chatModel && d.chatModel !== d.model ? d.chatModel : null,
       baseUrl: d.provider === "openai_compatible" ? d.baseUrl : null,
       // A blank key field keeps the saved one; switching provider drops it.
       apiKeyEnc: d.apiKey ? encryptSecret(d.apiKey) : existing?.provider === d.provider ? existing.apiKeyEnc : null,
@@ -112,5 +120,62 @@ export async function testAi(): Promise<AiState> {
     return { ok: Date.now(), message: names ? `Works. It found ${names}.` : "It answered, but didn't find the person in the test note." };
   } catch (err) {
     return { error: err instanceof Error ? err.message : "That didn't work" };
+  }
+}
+
+export interface ModelsState {
+  models?: ModelOption[];
+  error?: string;
+}
+
+const pullSchema = z.object({
+  kind: z.enum(["ai", "stt"]),
+  provider: z.enum(["anthropic", "openai_compatible"]),
+  baseUrl: url,
+  apiKey: z.string().trim().max(500),
+});
+
+/**
+ * List the models a provider offers, using what's in the form right now (saved or not).
+ * A blank key falls back to the saved one for the same provider.
+ */
+export async function pullModels(input: { kind: "ai" | "stt"; provider: string; baseUrl: string; apiKey: string }): Promise<ModelsState> {
+  const parsed = pullSchema.safeParse(input);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Check the address and key" };
+  const d = parsed.data;
+  if (d.provider === "openai_compatible" && !d.baseUrl) return { error: "Add the base URL first" };
+  if (env.DEPLOY_MODE === "cloud" && d.baseUrl) {
+    try {
+      await assertPublicHost(d.baseUrl);
+    } catch (err) {
+      return { error: err instanceof Error ? err.message : "That address isn't allowed" };
+    }
+  }
+
+  let apiKey = d.apiKey || undefined;
+  if (!apiKey) {
+    try {
+      apiKey = await tenantQuery(async (tx, user) => {
+        const s = await aiSettingsFor(tx, user.id);
+        if (!s) return undefined;
+        if (d.kind === "stt") return s.sttProvider === "openai_compatible" && s.sttApiKeyEnc ? decryptSecret(s.sttApiKeyEnc) : undefined;
+        return s.provider === d.provider && s.apiKeyEnc ? decryptSecret(s.apiKeyEnc) : undefined;
+      });
+    } catch {
+      return { error: "Couldn't read the saved key. Paste it again." };
+    }
+  }
+
+  try {
+    const models =
+      d.provider === "anthropic"
+        ? await listAnthropicModels({ apiKey })
+        : await listOpenAiCompatibleModels({ baseUrl: d.baseUrl!, apiKey });
+    const out = d.kind === "stt" ? speechModelsFirst(models) : models;
+    if (out.length === 0) return { error: "That server didn't list any models." };
+    return { models: out };
+  } catch (err) {
+    if (err instanceof AiError) return { error: err.message };
+    throw err;
   }
 }

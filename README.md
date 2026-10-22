@@ -45,7 +45,7 @@ Run the worker next to the app: `pnpm --filter @life-crm/worker dev`. It checks 
 Voice notes need two services:
 
 - **Speech to text**: any OpenAI-compatible `/audio/transcriptions` endpoint. Locally, run `docker run -p 8000:8000 ghcr.io/speaches-ai/speaches:latest-cpu` and set `STT_BASE_URL=http://localhost:8000/v1`. Or point it at OpenAI or Groq.
-- **Extraction**: Claude by default (`ANTHROPIC_API_KEY`). For a local model or another provider, set `AI_PROVIDER=openai_compatible`, `AI_BASE_URL`, `AI_MODEL` and optionally `AI_API_KEY`.
+- **Extraction**: Claude by default (`ANTHROPIC_API_KEY`). For a local model or another provider, set `AI_PROVIDER=openai_compatible`, `AI_BASE_URL`, `AI_MODEL` and optionally `AI_API_KEY`. `AI_CHAT_MODEL` picks a different model for Ask and summaries. Each user can also choose their own provider and models in Settings, where "Pull available models" lists what the provider offers.
 
 The same provider writes the summary card on each person, and answers questions on the Ask page from your own notes, citing which ones it used. Retrieval is plain word matching plus a one-line directory of everyone (up to 300 people), so no embeddings service is needed.
 

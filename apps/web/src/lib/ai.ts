@@ -41,6 +41,7 @@ export async function aiConfigFor(tx: Tx, userId: string): Promise<AiConfig | nu
     apiKey: s.apiKeyEnc ? decryptSecret(s.apiKeyEnc) : undefined,
     baseUrl: s.baseUrl ?? undefined,
     model: s.model ?? undefined,
+    chatModel: s.chatModel ?? undefined,
   };
 }
 
@@ -84,7 +85,9 @@ export function describeServerAi() {
   const ai = serverAi();
   const stt = sttConfigFromEnv();
   return {
-    ai: ai ? (ai.provider === "anthropic" ? `Claude (${ai.model})${ai.apiKey ? "" : ", no API key set"}` : `${ai.model} at ${ai.baseUrl}`) : "not set up",
+    ai: ai
+      ? `${ai.provider === "anthropic" ? `Claude (${ai.model})${ai.apiKey ? "" : ", no API key set"}` : `${ai.model} at ${ai.baseUrl}`}${ai.chatModel ? `, ${ai.chatModel} for Ask and summaries` : ""}`
+      : "not set up",
     stt: `${stt.model} at ${stt.baseUrl}`,
   };
 }

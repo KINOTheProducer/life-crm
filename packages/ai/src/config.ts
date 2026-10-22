@@ -22,12 +22,15 @@ export interface AiConfig {
   apiKey?: string;
   baseUrl?: string;
   model?: string;
+  /** For Ask and summaries; falls back to `model`. */
+  chatModel?: string;
 }
 
 export function aiConfigFromEnv(env: Env = process.env): AiConfig {
   const provider = env.AI_PROVIDER ?? "anthropic";
-  if (provider === "anthropic") return { provider, apiKey: env.ANTHROPIC_API_KEY, model: env.AI_MODEL || DEFAULT_CLAUDE_MODEL };
-  if (provider === "openai_compatible") return { provider, apiKey: env.AI_API_KEY, baseUrl: env.AI_BASE_URL, model: env.AI_MODEL };
+  const chatModel = env.AI_CHAT_MODEL || undefined;
+  if (provider === "anthropic") return { provider, apiKey: env.ANTHROPIC_API_KEY, model: env.AI_MODEL || DEFAULT_CLAUDE_MODEL, chatModel };
+  if (provider === "openai_compatible") return { provider, apiKey: env.AI_API_KEY, baseUrl: env.AI_BASE_URL, model: env.AI_MODEL, chatModel };
   throw new AiError(`Unknown AI_PROVIDER "${provider}".`);
 }
 
@@ -37,10 +40,12 @@ export function cardReaderFor(config: AiConfig): CardReader {
   return new OpenAiCompatibleCardReader({ baseUrl: config.baseUrl, apiKey: config.apiKey, model: config.model });
 }
 
+/** Ask and summaries, on the chat model when one is set. */
 export function assistantFor(config: AiConfig): Assistant {
-  if (config.provider === "anthropic") return new AnthropicAssistant({ apiKey: config.apiKey, baseURL: config.baseUrl }, config.model || DEFAULT_CLAUDE_MODEL);
-  if (!config.baseUrl || !config.model) throw new AiError("A base URL and model are needed for an OpenAI-compatible provider.");
-  return new OpenAiCompatibleAssistant({ baseUrl: config.baseUrl, apiKey: config.apiKey, model: config.model });
+  const model = config.chatModel || config.model;
+  if (config.provider === "anthropic") return new AnthropicAssistant({ apiKey: config.apiKey, baseURL: config.baseUrl }, model || DEFAULT_CLAUDE_MODEL);
+  if (!config.baseUrl || !model) throw new AiError("A base URL and model are needed for an OpenAI-compatible provider.");
+  return new OpenAiCompatibleAssistant({ baseUrl: config.baseUrl, apiKey: config.apiKey, model });
 }
 
 /** Build an extractor from explicit settings (a user's own key or local model). */
