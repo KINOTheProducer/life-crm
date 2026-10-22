@@ -1,5 +1,5 @@
 import { closenessLabels, factCategoryLabels, todayIn, upcoming } from "@life-crm/core";
-import { ArrowLeft, FileUp, Heart, Mail, MessageCircle, Mic, Phone, StickyNote } from "lucide-react";
+import { ArrowLeft, FileUp, Heart, NotebookText, Mail, MessageCircle, Mic, Phone, StickyNote } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Avatar } from "@/components/avatar";
@@ -14,6 +14,7 @@ import { FactsPanel } from "@/components/profile/facts-panel";
 import { GiftsCard } from "@/components/profile/gifts-card";
 import { MoneyCard } from "@/components/profile/money-card";
 import { TasksCard } from "@/components/profile/tasks-card";
+import { SummaryCard } from "@/components/profile/summary-card";
 import { CustomReminderList } from "@/components/reminders/custom-reminder-list";
 import { ReminderForm } from "@/components/reminders/reminder-form";
 import { Timeline } from "@/components/profile/timeline";
@@ -27,6 +28,8 @@ import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatPartialDate, toIsoDate } from "@/lib/data/dates";
 import { getProfile, parseKinds } from "@/lib/data/profile";
+import { summaryFor } from "@/lib/data/assistant";
+import { aiEnabledFor } from "@/lib/ai";
 import { contactInfoFor } from "@/lib/data/contact-info";
 import { facesFor } from "@/lib/data/faces";
 import { ensureSelf, friendOf, loadFamily, relationsOf } from "@/lib/data/family";
@@ -75,6 +78,8 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
     settled: await countSettled(tx, id),
     circles: await circlesOf(tx, id),
     allCircles: await circleOptions(tx),
+    summary: await summaryFor(tx, user, id),
+    aiEnabled: await aiEnabledFor(tx, user.id),
     timeZone: user.timeZone,
   }));
   if (!result.profile) notFound();
@@ -168,6 +173,12 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
               Partner profile
             </Link>
           )}
+          {!contact.isSelf && (
+            <Link href={`/people/${contact.id}/brief`} className={buttonVariants({ variant: "ghost" })}>
+              <NotebookText />
+              Brief me
+            </Link>
+          )}
           <Link href={`/people/${contact.id}/import`} className={buttonVariants({ variant: "ghost" })}>
             <FileUp />
             Import
@@ -192,6 +203,15 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
 
       <div className="grid gap-8 lg:grid-cols-[1fr_340px]">
         <div className="grid content-start gap-8">
+          {!contact.isSelf && (
+            <SummaryCard
+              contactId={contact.id}
+              firstName={contact.firstName}
+              view={result.summary.view}
+              sourceCount={result.summary.sourceCount}
+              aiEnabled={result.aiEnabled}
+            />
+          )}
           <Composer contactId={contact.id} firstName={contact.firstName} today={todayIso} />
           {result.faces.length > 0 && result.immich && <PersonPhotosPanel contactId={contact.id} firstName={contact.firstName} isSelf={contact.isSelf} />}
           <Timeline

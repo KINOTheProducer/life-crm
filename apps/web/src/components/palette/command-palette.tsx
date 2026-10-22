@@ -6,8 +6,10 @@ import {
   Home,
   IdCard,
   Images,
+  MessageCircleQuestion,
   Mic,
   Network,
+  NotebookText,
   Plus,
   Search,
   Settings,
@@ -124,14 +126,24 @@ export function CommandPalette() {
     { id: "family", label: "Family tree", icon: Network, to: "/family" },
     { id: "memories", label: "Memories", icon: Images, to: "/memories" },
     { id: "reminders", label: "Reminders", icon: Bell, to: "/reminders" },
+    { id: "ask", label: "Ask about your people", icon: MessageCircleQuestion, to: "/ask" },
     { id: "import", label: "Import contacts", icon: Upload, to: "/people/import" },
     { id: "trash", label: "Trash", icon: Trash2, to: "/people/trash" },
     { id: "settings", label: "Settings", icon: Settings, to: "/settings" },
   ];
   const q = query.trim().toLowerCase();
+  // "who lives in Ottawa?" goes to Ask; anything long enough can.
+  const question = /\?$|^(who|what|when|where|which|how|whose|does|did|is|are)\b/.test(q);
+  const askCommand: Command | null =
+    q.split(/\s+/).length >= 2 ? { id: "ask-q", label: `Ask: ${query.trim()}`, icon: MessageCircleQuestion, to: `/ask?q=${encodeURIComponent(query.trim())}` } : null;
+  const shown = q ? people : [];
+  const brief: Command[] = shown[0] ? [{ id: `b:${shown[0].id}`, label: `Brief me on ${shown[0].name}`, icon: NotebookText, to: `/people/${shown[0].id}/brief` }] : [];
   const results: Command[] = [
-    ...(q ? people : []).map((p) => ({ id: `p:${p.id}`, label: p.name, hint: p.hint ?? undefined, person: p, to: `/people/${p.id}` })),
+    ...(question && askCommand ? [askCommand] : []),
+    ...shown.map((p) => ({ id: `p:${p.id}`, label: p.name, hint: p.hint ?? undefined, person: p, to: `/people/${p.id}` })),
+    ...brief,
     ...actions.filter((a) => !q || a.label.toLowerCase().includes(q)),
+    ...(!question && askCommand ? [askCommand] : []),
   ];
   const selected = Math.min(active, Math.max(results.length - 1, 0));
 

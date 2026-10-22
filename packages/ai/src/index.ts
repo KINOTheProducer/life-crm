@@ -1,4 +1,5 @@
 export * from "./anthropic";
+export * from "./assistant";
 export * from "./card";
 export * from "./config";
 export * from "./extraction";
