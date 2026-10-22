@@ -1,5 +1,6 @@
 "use client";
 
+import { parseMonicaExport } from "@life-crm/core";
 import { FileUp } from "lucide-react";
 import Link from "next/link";
 import { useState, useTransition } from "react";
@@ -22,9 +23,20 @@ export function Importer() {
     setDone(null);
     setRows(null);
     start(async () => {
-      const text = await f.text();
-      setFile({ name: f.name, text });
-      const res = await previewImport(text, f.name);
+      let text = await f.text();
+      let name = f.name;
+      // Monica's export is large and nested; read it here and send only what's used.
+      if (/\.json$/i.test(name)) {
+        try {
+          text = JSON.stringify(parseMonicaExport(JSON.parse(text)));
+          name = "monica.json";
+        } catch (e) {
+          setError(e instanceof SyntaxError ? "That file isn't valid JSON." : e instanceof Error ? e.message : "Couldn't read that file.");
+          return;
+        }
+      }
+      setFile({ name: f.name, text: text });
+      const res = await previewImport(text, name);
       if (res.error) setError(res.error);
       else setRows(res.rows);
     });
@@ -58,11 +70,11 @@ export function Importer() {
         className="grid cursor-pointer justify-items-center gap-2 rounded-3xl border-2 border-dashed border-border bg-card p-10 text-center hover:bg-muted"
       >
         <FileUp className="size-8 text-muted-foreground" />
-        <span className="font-medium">{file ? file.name : "Choose a .vcf or .csv file, or drop it here"}</span>
+        <span className="font-medium">{file ? file.name : "Choose a .vcf, .csv or .json file, or drop it here"}</span>
         <span className="max-w-xl text-sm text-muted-foreground">
-          From iPhone or Mac Contacts (export vCard), Google Contacts (vCard or Google CSV), Outlook, or any spreadsheet with name, phone and email columns.
+          From iPhone or Mac Contacts (export vCard), Google Contacts (vCard or Google CSV), Outlook, LinkedIn (Connections.csv from Get a copy of your data), Monica (Export to JSON, with notes, activities, gifts and relationships), or any spreadsheet with name, phone and email columns.
         </span>
-        <input type="file" accept=".vcf,.vcard,.csv,text/vcard,text/csv" className="sr-only" onChange={(e) => choose(e.target.files?.[0])} />
+        <input type="file" accept=".vcf,.vcard,.csv,.json,text/vcard,text/csv,application/json" className="sr-only" onChange={(e) => choose(e.target.files?.[0])} />
       </label>
 
       {pending && !rows && <p className="text-muted-foreground">Reading {file?.name ?? "the file"}…</p>}
@@ -86,7 +98,7 @@ export function Importer() {
                   start(async () => {
                     const res = await runImport(
                       file!.text,
-                      file!.name,
+                      /\.json$/i.test(file!.name) ? "monica.json" : file!.name,
                       rows.map((r) => r.action),
                     );
                     if (res.error) setError(res.error);
