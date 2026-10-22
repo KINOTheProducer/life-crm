@@ -141,6 +141,20 @@
       "when": 1792641174166,
       "tag": "0019_capture_progress",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1792687618196,
+      "tag": "0020_reconnected",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1792688144985,
+      "tag": "0021_contact_periods",
+      "breakpoints": true
     }
   ]
 }

@@ -2,12 +2,13 @@ import "server-only";
 import type { Extractor, KnownPerson, Resort, SavedItem } from "@life-crm/ai";
 import { factCategoryLabels, importantDateKindLabels, partnerPrompts, type ImportantDateKind, type PartialDate } from "@life-crm/core";
 import { and, asc, eq, inArray, isNull, ne, schema, type Tx } from "@life-crm/db";
-import type { ResortSuggestion, ResortTarget, SavedKind } from "@/lib/resort-items";
+import { newPersonKey, type ResortDestination, type ResortSuggestion, type ResortTarget, type SavedKind } from "@/lib/resort-items";
 import { formatPartialDate } from "./dates";
+import { addRelatedPerson } from "./family";
 import { addMilestone, partnershipFor } from "./partners";
 import { recordTimeline } from "./timeline";
 
-const { facts, importantDates, notes, partnershipMilestones, timelineEntries } = schema;
+const { contacts, facts, importantDates, notes, partnershipMilestones, timelineEntries } = schema;
 
 /** An error whose message is safe to show. */
 export class ResortError extends Error {}
@@ -53,7 +54,9 @@ export const savedLines = (saved: Saved[]) => saved.map((s) => s.prompt);
 
 const shortId = { fact: "f", note: "n", date: "d" } as const;
 
-function toTarget(t: Resort["changes"][number]["into"][number]): ResortTarget | null {
+type ModelTarget = Resort["changes"][number]["into"][number];
+
+function toTarget(t: ModelTarget): ResortTarget | null {
   const date = t.month != null && t.day != null ? { month: t.month, day: t.day, year: t.year } : null;
   switch (t.kind) {
     case "fact":
@@ -85,13 +88,24 @@ export async function suggestResort(
   });
   const result = await extractor.resort({ today, subject, items, knownPeople: others, partnerPrompts });
   const names = new Map(others.map((p) => [p.id, p.name]));
+  const destination = (t: ModelTarget): ResortDestination => {
+    if (t.personId) return { kind: "person", id: t.personId, name: names.get(t.personId) ?? "Someone else" };
+    if (t.newPerson) {
+      const p = t.newPerson;
+      return { kind: "new", firstName: p.firstName.trim().slice(0, 100), lastName: p.lastName?.trim().slice(0, 100) || null, relation: p.relation, relationLabel: p.relationLabel?.trim().slice(0, 100) || null };
+    }
+    return { kind: "subject" };
+  };
   const ref = (s: Saved) => ({ kind: s.kind, id: s.id, text: s.text });
 
   return result.changes.flatMap((c, i) => {
     const source = byShort.get(c.id);
     if (!source) return [];
     const dupe = c.duplicateOf ? byShort.get(c.duplicateOf) : null;
-    const into = c.into.map(toTarget).filter((t): t is ResortTarget => !!t);
+    const into = c.into.flatMap((t) => {
+      const target = toTarget(t);
+      return target ? [{ target, to: destination(t) }] : [];
+    });
     if (!dupe && into.length === 0) return [];
     return [
       {
@@ -99,7 +113,6 @@ export async function suggestResort(
         source: ref(source),
         reason: c.reason,
         duplicateOf: dupe ? ref(dupe) : null,
-        person: !dupe && c.personId ? { id: c.personId, name: names.get(c.personId) ?? "Someone else" } : null,
         into: dupe ? [] : into,
       },
     ];
@@ -222,11 +235,25 @@ export async function applyResort(tx: Tx, tenantId: string, contactId: string, a
       if (!(await liveRow(tx, s.duplicateOf.kind, s.duplicateOf.id, contactId))) throw new ResortError("Something changed since these suggestions were made. Run it again.");
     }
   }
-  if (accepted.some((s) => s.person)) {
-    const ids = [...new Set(accepted.flatMap((s) => (s.person ? [s.person.id] : [])))];
-    const found = await tx.select({ id: schema.contacts.id }).from(schema.contacts).where(and(inArray(schema.contacts.id, ids), isNull(schema.contacts.deletedAt)));
+  const moves = accepted.flatMap((s) => s.into);
+  const ids = [...new Set(moves.flatMap((m) => (m.to.kind === "person" ? [m.to.id] : [])))];
+  if (ids.length) {
+    const found = await tx.select({ id: contacts.id }).from(contacts).where(and(inArray(contacts.id, ids), isNull(contacts.deletedAt)));
     if (found.length !== ids.length || ids.includes(contactId)) throw new ResortError("One of the people no longer exists. Run it again.");
   }
+  if (moves.some((m) => m.target.kind === "milestone" && m.to.kind !== "subject")) throw new ResortError("Milestones can only go on your partner.");
+
+  // People the items name who aren't saved yet, added once each and linked to the subject.
+  const created = new Map<string, string>();
+  const newPeople = moves.flatMap((m) => (m.to.kind === "new" ? [m.to] : []));
+  if (newPeople.length) {
+    const [subject] = await tx.select({ firstName: contacts.firstName }).from(contacts).where(eq(contacts.id, contactId));
+    for (const p of newPeople) {
+      const key = newPersonKey(p);
+      if (!created.has(key)) created.set(key, await addRelatedPerson(tx, tenantId, contactId, subject!.firstName, p));
+    }
+  }
+  const destinationId = (to: ResortDestination) => (to.kind === "subject" ? contactId : to.kind === "person" ? to.id : created.get(newPersonKey(to))!);
 
   for (const s of accepted) {
     const { kind, id } = s.source;
@@ -234,13 +261,9 @@ export async function applyResort(tx: Tx, tenantId: string, contactId: string, a
       await removeSaved(tx, kind, id);
       continue;
     }
-    const target = s.person?.id ?? contactId;
     const only = s.into.length === 1 ? s.into[0]! : null;
-    if (only && target === contactId && (await rewrite(tx, kind, id, only))) continue;
-    for (const t of s.into) {
-      if (t.kind === "milestone" && target !== contactId) throw new ResortError("Milestones can only go on your partner.");
-      await create(tx, tenantId, target, t, rows.get(id)!.createdAt);
-    }
+    if (only && only.to.kind === "subject" && (await rewrite(tx, kind, id, only.target))) continue;
+    for (const m of s.into) await create(tx, tenantId, destinationId(m.to), m.target, rows.get(id)!.createdAt);
     await removeSaved(tx, kind, id);
   }
 }

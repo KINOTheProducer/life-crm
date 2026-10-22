@@ -6,7 +6,7 @@ import { useState, useTransition } from "react";
 import { previewResort, saveResort } from "@/app/(app)/people/[id]/import/actions";
 import { Button } from "@/components/ui/button";
 import { useSteps, WorkingSteps } from "@/components/working-steps";
-import { describeTarget, type ResortSuggestion } from "@/lib/resort-items";
+import { describeTarget, type ResortDestination, type ResortSuggestion } from "@/lib/resort-items";
 import { cn } from "@/lib/utils";
 
 /** Suggested moves for saved items, each one ticked to apply. */
@@ -37,12 +37,12 @@ export function ResortList({
                     </span>
                   </span>
                 ) : (
-                  s.into.map((t, i) => (
+                  s.into.map((m, i) => (
                     <span key={i} className="flex items-start gap-2">
                       <ArrowRight className="mt-0.5 size-3.5 shrink-0" />
                       <span>
-                        {s.person && <span className="font-medium">{s.person.name}: </span>}
-                        {describeTarget(t)}
+                        <Destination to={m.to} />
+                        {describeTarget(m.target)}
                       </span>
                     </span>
                   ))
@@ -54,6 +54,18 @@ export function ResortList({
         );
       })}
     </ul>
+  );
+}
+
+function Destination({ to }: { to: ResortDestination }) {
+  if (to.kind === "subject") return null;
+  if (to.kind === "person") return <span className="font-medium">{to.name}: </span>;
+  return (
+    <>
+      <span className="font-medium">{[to.firstName, to.lastName].filter(Boolean).join(" ")}</span>
+      <span className="text-muted-foreground"> (new{to.relationLabel ? `, ${to.relationLabel.toLowerCase()}` : ""})</span>
+      {": "}
+    </>
   );
 }
 

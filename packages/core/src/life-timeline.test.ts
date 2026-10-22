@@ -1,20 +1,26 @@
 import { describe, expect, it } from "vitest";
-import { contactShade, lifeSpan, yearTicks, type SpanInput } from "./life-timeline";
+import { contactShade, lifeSpan, periodsProblem, yearTicks, type Period, type SpanInput } from "./life-timeline";
 
 const base: SpanInput = {
-  metYear: null,
+  periods: [],
   familyBirthYear: null,
   isFamily: false,
   selfBirthYear: 1990,
   firstInteractionYear: null,
   addedYear: 2026,
-  lostTouchYear: null,
   deathYear: null,
 };
 
+const period = (startYear: number | null, endYear: number | null = null, startMonth: number | null = null, endMonth: number | null = null): Period => ({
+  startYear,
+  startMonth,
+  endYear,
+  endMonth,
+});
+
 describe("lifeSpan", () => {
   it("uses when you met when it's known", () => {
-    expect(lifeSpan({ ...base, metYear: 2014 }, 2026)).toEqual({ start: 2014, end: 2026, startGuessed: false, ended: null });
+    expect(lifeSpan({ ...base, periods: [period(2014)] }, 2026)).toEqual({ start: 2014, end: 2026, startGuessed: false, ended: null, gaps: [] });
   });
 
   it("starts family at the later of their birth and yours", () => {
@@ -29,13 +35,47 @@ describe("lifeSpan", () => {
   });
 
   it("ends at losing touch or death", () => {
-    expect(lifeSpan({ ...base, metYear: 2005, lostTouchYear: 2012 }, 2026)).toMatchObject({ end: 2012, ended: "lost_touch" });
-    expect(lifeSpan({ ...base, metYear: 2005, deathYear: 2019, lostTouchYear: 2010 }, 2026)).toMatchObject({ end: 2010, ended: "died" });
+    expect(lifeSpan({ ...base, periods: [period(2005, 2012)] }, 2026)).toMatchObject({ end: 2012, ended: "lost_touch" });
+    expect(lifeSpan({ ...base, periods: [period(2005, 2010)], deathYear: 2019 }, 2026)).toMatchObject({ end: 2010, ended: "died" });
   });
 
-  it("never ends before it starts or starts in the future", () => {
-    expect(lifeSpan({ ...base, metYear: 2015, lostTouchYear: 2010 }, 2026)).toMatchObject({ start: 2015, end: 2015 });
-    expect(lifeSpan({ ...base, metYear: 2030 }, 2026)).toMatchObject({ start: 2026, end: 2026 });
+  it("leaves gaps between periods, in any order", () => {
+    const span = lifeSpan({ ...base, periods: [period(2020), period(2005, 2012), period(2014, 2016)] }, 2026);
+    expect(span).toMatchObject({ start: 2005, end: 2026, ended: null, gaps: [{ from: 2012, to: 2014 }, { from: 2016, to: 2020 }] });
+    // Back the next year: no visible gap.
+    expect(lifeSpan({ ...base, periods: [period(2005, 2012), period(2013)] }, 2026).gaps).toEqual([]);
+  });
+
+  it("guesses a start no later than losing touch when you never said when you met", () => {
+    expect(lifeSpan({ ...base, periods: [period(null, 2012)] }, 2026)).toMatchObject({ start: 2012, startGuessed: true, end: 2012 });
+  });
+
+  it("never starts in the future", () => {
+    expect(lifeSpan({ ...base, periods: [period(2030)] }, 2026)).toMatchObject({ start: 2026, end: 2026 });
+  });
+});
+
+describe("periodsProblem", () => {
+  const now = { year: 2026, month: 10 };
+  it("accepts one open period, or closed ones followed by an open one", () => {
+    expect(periodsProblem([period(2014)], now)).toBeNull();
+    expect(periodsProblem([period(2020), period(2005, 2012, 3, 6)], now)).toBeNull();
+    // Same year with no months to tell them apart is fine.
+    expect(periodsProblem([period(2005, 2012), period(2012)], now)).toBeNull();
+  });
+
+  it("needs a start, an end after it, and nothing in the future", () => {
+    expect(periodsProblem([period(null)], now)).toEqual({ index: 0, message: "Add when it started" });
+    expect(periodsProblem([period(2012, 2010)], now)?.message).toBe("Ends before it starts");
+    expect(periodsProblem([period(2012, 2012, 6, 3)], now)?.message).toBe("Ends before it starts");
+    expect(periodsProblem([period(2026, null, 11)], now)?.message).toBe("That start hasn't happened yet");
+    expect(periodsProblem([period(2020, 2027)], now)?.message).toBe("That end hasn't happened yet");
+  });
+
+  it("rejects overlaps and more than one open period", () => {
+    expect(periodsProblem([period(2005, 2012), period(2010)], now)).toEqual({ index: 1, message: "Overlaps with 2005 to 2012" });
+    expect(periodsProblem([period(2005, 2012, null, 6), period(2012, null, 3)], now)?.index).toBe(1);
+    expect(periodsProblem([period(2005), period(2020)], now)).toEqual({ index: 0, message: "Only the latest period can go on to now. Add when this one ended" });
   });
 });
 

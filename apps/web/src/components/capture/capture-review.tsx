@@ -36,6 +36,8 @@ interface CaptureView {
   progress: string[];
   error: string | null;
   durationMs: number | null;
+  /** Saved before, so saving again replaces what it added. */
+  rereading: boolean;
   /** Who was on screen when the note was recorded. */
   contextName: string | null;
 }
@@ -266,13 +268,32 @@ export function CaptureReview({ capture, contacts }: { capture: CaptureView; con
     );
   }
 
-  if (capture.status === "committed" || capture.status === "discarded") {
+  if (capture.status === "discarded") {
     return (
       <Card>
         <CardContent>
-          <p className="text-muted-foreground">
-            This note was {capture.status === "committed" ? "saved" : "discarded"}.
-          </p>
+          <p className="text-muted-foreground">This note was discarded.</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (capture.status === "committed") {
+    return (
+      <Card className="max-w-3xl">
+        <CardHeader>
+          <CardTitle>Transcript</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-3">
+          <textarea rows={10} className={fieldClass} value={transcript} onChange={(e) => setTranscript(e.target.value)} />
+          <Button
+            className="justify-self-start"
+            disabled={pending || !transcript.trim()}
+            onClick={() => startTransition(() => reprocessCapture(capture.id, transcript).then(() => router.refresh()))}
+          >
+            <RotateCcw />
+            Read it again
+          </Button>
         </CardContent>
       </Card>
     );
@@ -401,12 +422,17 @@ export function CaptureReview({ capture, contacts }: { capture: CaptureView; con
         )}
 
         {error && <p className="text-sm text-destructive">{error}</p>}
+        {capture.rereading && (
+          <p className="text-sm text-muted-foreground">
+            Saving replaces the facts, notes and catch-up this note added before. Anything you added by hand stays.
+          </p>
+        )}
         <div className="flex gap-2">
           <Button size="lg" disabled={pending || !drafts?.people.some((p) => p.include)} onClick={save}>
-            {pending ? "Saving…" : "Save to timeline"}
+            {pending ? "Saving…" : capture.rereading ? "Replace on timeline" : "Save to timeline"}
           </Button>
           <Button variant="outline" size="lg" disabled={pending} onClick={() => startTransition(() => discardCapture(capture.id))}>
-            Discard
+            {capture.rereading ? "Keep the old version" : "Discard"}
           </Button>
         </div>
       </div>

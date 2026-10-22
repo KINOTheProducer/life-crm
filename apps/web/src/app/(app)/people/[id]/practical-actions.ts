@@ -58,7 +58,8 @@ export async function addGiftIdea(contactId: string, _prev: FormState, form: For
 
 const giftSchema = z.object({
   direction: z.enum(giftDirections),
-  title: z.string().trim().min(1, "What was it?").max(200),
+  // Room for a gift idea's full wording when it's logged from one.
+  title: z.string().trim().min(1, "What was it?").max(500, "Keep it under 500 characters"),
   occasion: optional(100),
   date: z.iso.date("Pick a date"),
   url: z

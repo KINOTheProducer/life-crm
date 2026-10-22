@@ -3,7 +3,7 @@ import { CaptureReview } from "@/components/capture/capture-review";
 import { PageHeader } from "@/components/page-header";
 import { getCapture } from "@/lib/data/capture";
 import { contactOptions } from "@/lib/data/contacts";
-import { tenantQuery } from "@/lib/session";
+import { requireUser, tenantQuery } from "@/lib/session";
 
 export default async function CapturePage({ params }: PageProps<"/capture/[id]">) {
   const { id } = await params;
@@ -13,13 +13,23 @@ export default async function CapturePage({ params }: PageProps<"/capture/[id]">
     return capture && { capture, contacts: await contactOptions(tx) };
   });
   if (!data) notFound();
+  const { timeZone } = await requireUser();
+  const recordedOn = new Intl.DateTimeFormat("en-CA", { weekday: "long", month: "long", day: "numeric", year: "numeric", timeZone }).format(
+    data.capture.createdAt,
+  );
+  const saved = data.capture.status === "committed";
 
   return (
     <>
       <PageHeader
-        title="Review your note."
-        aside="Nothing is saved until you say so."
-        description="Untick anything that's wrong and fix names, then save."
+        meta={`Recorded ${recordedOn}`}
+        title={saved ? "Your note." : "Review your note."}
+        aside={saved ? "Already on your timeline." : "Nothing is saved until you say so."}
+        description={
+          saved
+            ? "Fix the transcript if anything was misheard, then read it again. You'll review the changes before they replace what this note added."
+            : "Untick anything that's wrong and fix names, then save."
+        }
       />
       {/* Remount on status change so drafts reset from the fresh extraction. */}
       <CaptureReview
@@ -32,6 +42,7 @@ export default async function CapturePage({ params }: PageProps<"/capture/[id]">
           progress: data.capture.progress ?? [],
           error: data.capture.error,
           durationMs: data.capture.durationMs,
+          rereading: !!data.capture.committedAt,
           contextName: data.contacts.find((c) => c.id === data.capture.contextContactId)?.name ?? null,
         }}
         contacts={data.contacts}

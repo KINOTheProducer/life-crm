@@ -15,19 +15,30 @@ const input: ResortInput = {
   ],
 };
 
-const blank: ResortTarget = { kind: "fact", category: null, label: null, value: null, dateKind: null, milestone: null, month: null, day: null, year: null };
+const blank: ResortTarget = {
+  kind: "fact",
+  category: null,
+  label: null,
+  value: null,
+  dateKind: null,
+  milestone: null,
+  month: null,
+  day: null,
+  year: null,
+  personId: null,
+  newPerson: null,
+};
 
 describe("sanitizeResort", () => {
   it("keeps a duplicate, a split and a move to someone else", () => {
     const out = sanitizeResort(
       {
         changes: [
-          { id: "f1", reason: "Same as the game fact", duplicateOf: "f2", personId: null, into: [] },
+          { id: "f1", reason: "Same as the game fact", duplicateOf: "f2", into: [] },
           {
             id: "n1",
             reason: "Has a milestone in it",
             duplicateOf: null,
-            personId: null,
             into: [{ ...blank, kind: "milestone", milestone: "official", month: 3, day: 3, year: 2023 }],
           },
         ],
@@ -41,11 +52,11 @@ describe("sanitizeResort", () => {
     const out = sanitizeResort(
       {
         changes: [
-          { id: "x9", reason: "", duplicateOf: null, personId: null, into: [{ ...blank, category: "interest", label: "A", value: "B" }] },
-          { id: "f1", reason: "", duplicateOf: "f1", personId: null, into: [] },
-          { id: "f2", reason: "", duplicateOf: null, personId: null, into: [{ ...blank, category: "interest", label: "" , value: "x" }] },
-          { id: "f1", reason: "", duplicateOf: "f2", personId: null, into: [] },
-          { id: "f2", reason: "", duplicateOf: "f1", personId: null, into: [] },
+          { id: "x9", reason: "", duplicateOf: null, into: [{ ...blank, category: "interest", label: "A", value: "B" }] },
+          { id: "f1", reason: "", duplicateOf: "f1", into: [] },
+          { id: "f2", reason: "", duplicateOf: null, into: [{ ...blank, category: "interest", label: "" , value: "x" }] },
+          { id: "f1", reason: "", duplicateOf: "f2", into: [] },
+          { id: "f2", reason: "", duplicateOf: "f1", into: [] },
         ],
       },
       input,
@@ -58,25 +69,52 @@ describe("sanitizeResort", () => {
       id: "n1",
       reason: "",
       duplicateOf: null,
-      personId: null,
       into: [{ ...blank, kind: "milestone" as const, milestone: "official" as const, month: 3, day: 3, year: 2023 }],
     };
     expect(sanitizeResort({ changes: [change] }, { ...input, subject: { id: "c-holly", name: "Holly" } }).changes).toEqual([]);
-    expect(sanitizeResort({ changes: [{ ...change, personId: "c-emma" }] }, input).changes).toEqual([]);
+    const onEmma = { ...change, into: [{ ...change.into[0]!, personId: "c-emma" }] };
+    expect(sanitizeResort({ changes: [onEmma] }, input).changes).toEqual([]);
   });
 
   it("ignores the subject or unknown ids as the person to move to", () => {
-    const into = [{ ...blank, category: "work" as const, label: "Job", value: "Sick Kids" }];
+    const fact = { ...blank, category: "work" as const, label: "Job", value: "Sick Kids" };
     const out = sanitizeResort(
       {
         changes: [
-          { id: "n1", reason: "", duplicateOf: null, personId: "c-holly", into },
-          { id: "f2", reason: "", duplicateOf: null, personId: "c-emma", into },
+          { id: "n1", reason: "", duplicateOf: null, into: [{ ...fact, personId: "c-holly" }] },
+          { id: "f2", reason: "", duplicateOf: null, into: [{ ...fact, personId: "c-emma" }] },
         ],
       },
       input,
     );
-    expect(out.changes.map((c) => c.personId)).toEqual([null, "c-emma"]);
+    expect(out.changes.map((c) => c.into[0]!.personId)).toEqual([null, "c-emma"]);
+  });
+
+  it("splits a note across the subject and a new relative, and matches a new person already known", () => {
+    const jake = { firstName: "Jake", lastName: null, relation: "sibling" as const, relationLabel: "Brother" };
+    const out = sanitizeResort(
+      {
+        changes: [
+          {
+            id: "n1",
+            reason: "",
+            duplicateOf: null,
+            into: [
+              { ...blank, category: "interest", label: "Show", value: "Severance" },
+              { ...blank, category: "interest", label: "Hobby", value: "Fishing", newPerson: jake },
+              { ...blank, category: "work", label: "Job", value: "Sick Kids", newPerson: { ...jake, firstName: "Emma", lastName: "Reid" } },
+              { ...blank, category: "work", label: "Job", value: "x", newPerson: { ...jake, firstName: " " } },
+            ],
+          },
+        ],
+      },
+      input,
+    );
+    expect(out.changes[0]!.into.map((t) => [t.value, t.personId, t.newPerson?.firstName ?? null])).toEqual([
+      ["Severance", null, null],
+      ["Fishing", null, "Jake"],
+      ["Sick Kids", "c-emma", null],
+    ]);
   });
 });
 

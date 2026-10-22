@@ -200,7 +200,11 @@ function GroupRows({
       {group.rows.map((r) => {
         const years: number[] = [];
         for (let y = Math.max(r.start, min); y <= r.end; y++) years.push(y);
-        const ending = r.ended === "died" ? `, died ${r.end}` : r.ended === "lost_touch" ? `, lost touch ${r.end}` : "";
+        const ending =
+          r.gaps.map((g) => `, out of touch ${g.from} to ${g.to}`).join("") +
+          (r.ended === "died" ? `, died ${r.end}` : r.ended === "lost_touch" ? `, lost touch ${r.end}` : "");
+        // Years out of touch show as a break in the bar.
+        const away = (y: number) => r.gaps.some((g) => y > g.from && y < g.to);
         return (
           <div key={`${group.key}-${r.id}`} className="contents">
             <Link href={`/people/${r.id}`} className="truncate py-1 pr-3 text-sm hover:underline">
@@ -218,9 +222,13 @@ function GroupRows({
                 )}
                 style={{ left: `${left(r.start)}%`, width: `${width(r.start, r.end)}%` }}
               >
-                {years.map((y) => (
-                  <span key={y} className="h-full flex-1 bg-coral" style={{ opacity: contactShade(r.contacts[y] ?? 0, busiest) * 0.85 }} />
-                ))}
+                {years.map((y) =>
+                  away(y) ? (
+                    <span key={y} className="h-full flex-1 bg-card" />
+                  ) : (
+                    <span key={y} className="h-full flex-1 bg-coral" style={{ opacity: contactShade(r.contacts[y] ?? 0, busiest) * 0.85 }} />
+                  ),
+                )}
               </Link>
               {r.events
                 .filter((e) => e.year >= min && e.year <= currentYear)
