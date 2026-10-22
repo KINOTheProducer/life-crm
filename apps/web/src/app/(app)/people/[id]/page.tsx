@@ -6,7 +6,7 @@ import { Avatar } from "@/components/avatar";
 import { BirthdayField } from "@/components/profile/birthday-field";
 import { CadenceField } from "@/components/profile/cadence-field";
 import { CirclesField } from "@/components/profile/circles-field";
-import { SpanField } from "@/components/profile/span-field";
+import { PeriodsField } from "@/components/profile/periods-field";
 import { ClosenessField } from "@/components/profile/closeness-field";
 import { NameField } from "@/components/profile/name-field";
 import { Composer } from "@/components/profile/composer";
@@ -31,6 +31,7 @@ import { getProfile, parseKinds } from "@/lib/data/profile";
 import { summaryFor } from "@/lib/data/assistant";
 import { aiEnabledFor } from "@/lib/ai";
 import { contactInfoFor } from "@/lib/data/contact-info";
+import { periodsOf } from "@/lib/data/periods";
 import { facesFor } from "@/lib/data/faces";
 import { ensureSelf, friendOf, householdOf, loadFamily, relationsOf } from "@/lib/data/family";
 import { listMemories } from "@/lib/data/memories";
@@ -70,6 +71,7 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
     faces: (await facesFor(tx, [id])).get(id) ?? [],
     info: await contactInfoFor(tx, id),
     household: await householdOf(tx, id),
+    periods: await periodsOf(tx, id),
     immich: Boolean(await immichConnection(tx, user.id)),
     family: relationsOf(await loadFamily(tx, await ensureSelf(tx, user)), id),
     friendOf: await friendOf(tx, id),
@@ -255,14 +257,7 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
                 )}
               </BirthdayField>
               {!contact.isSelf && (
-                <SpanField
-                  key={`${contact.metYear}-${contact.metMonth}-${contact.lostTouchYear}-${contact.reconnectedYear}`}
-                  contactId={contact.id}
-                  metYear={contact.metYear}
-                  metMonth={contact.metMonth}
-                  lostTouchYear={contact.lostTouchYear}
-                  reconnectedYear={contact.reconnectedYear}
-                />
+                <PeriodsField key={JSON.stringify(result.periods)} contactId={contact.id} periods={result.periods} today={todayIso} />
               )}
               {contact.howMet && (
                 <div className="grid gap-1">

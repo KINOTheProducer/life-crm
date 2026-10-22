@@ -201,10 +201,10 @@ function GroupRows({
         const years: number[] = [];
         for (let y = Math.max(r.start, min); y <= r.end; y++) years.push(y);
         const ending =
-          (r.gap ? `, out of touch ${r.gap.from} to ${r.gap.to}` : "") +
+          r.gaps.map((g) => `, out of touch ${g.from} to ${g.to}`).join("") +
           (r.ended === "died" ? `, died ${r.end}` : r.ended === "lost_touch" ? `, lost touch ${r.end}` : "");
         // Years out of touch show as a break in the bar.
-        const away = (y: number) => r.gap != null && y > r.gap.from && y < r.gap.to;
+        const away = (y: number) => r.gaps.some((g) => y > g.from && y < g.to);
         return (
           <div key={`${group.key}-${r.id}`} className="contents">
             <Link href={`/people/${r.id}`} className="truncate py-1 pr-3 text-sm hover:underline">

@@ -1,12 +1,13 @@
 "use server";
 
-import { birthdayInText, closenessTiers, factCategories, interactionTypes, todayIn } from "@life-crm/core";
+import { birthdayInText, closenessTiers, factCategories, interactionTypes, periodsProblem, todayIn, type Period } from "@life-crm/core";
 import { and, eq, isNull, schema } from "@life-crm/db";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { birthdayOf, setBirthday } from "@/lib/data/contacts";
 import { formatPartialDate, toIsoDate } from "@/lib/data/dates";
 import { deleteInteraction, insertFact, insertInteraction, insertNote, updateInteraction } from "@/lib/data/entries";
+import { setPeriods } from "@/lib/data/periods";
 import { dateProblemText, partialDateFrom, personName } from "@/lib/forms";
 import { requireUser, tenantQuery } from "@/lib/session";
 
@@ -220,45 +221,24 @@ export async function archiveFact(contactId: string, factId: string) {
   revalidatePath(`/people/${contactId}`);
 }
 
-const spanYear = z.union([
-  z.literal("").transform(() => null),
-  z.coerce.number().int("Use a whole year").min(1900, "That's before 1900").max(2100, "That's too far ahead"),
-]);
+const year = z.number().int("Use a whole year").min(1900, "That's before 1900").max(2100, "That's too far ahead");
+const month = z.number().int().min(1).max(12).nullable();
+const periodsSchema = z
+  .array(z.object({ startYear: year.nullable(), startMonth: month, endYear: year.nullable(), endMonth: month }))
+  .max(20, "That's a lot of periods");
 
-/** When you met (year, optionally month), the year you lost touch and when you caught back up, for the life timeline. */
-export async function updateSpan(contactId: string, _prev: FormState, form: FormData): Promise<FormState> {
-  const parsed = z
-    .object({
-      metYear: spanYear,
-      metMonth: z.union([z.literal("").transform(() => null), z.coerce.number().int().min(1).max(12)]),
-      lostTouchYear: spanYear,
-      reconnectedYear: spanYear,
-    })
-    .safeParse({
-      metYear: String(form.get("metYear") ?? "").trim(),
-      metMonth: String(form.get("metMonth") ?? "").trim(),
-      lostTouchYear: String(form.get("lostTouchYear") ?? "").trim(),
-      // Only counts while "caught back up" is ticked.
-      reconnectedYear: form.get("reconnected") ? String(form.get("reconnectedYear") ?? "").trim() : "",
-    });
-  if (!parsed.success) return { error: parsed.error.issues[0]?.message };
-  const { metYear, metMonth, lostTouchYear } = parsed.data;
-  const reconnectedYear = lostTouchYear == null ? null : parsed.data.reconnectedYear;
+/** When you've known someone: periods with a start and, unless it's still going, an end. Feeds the life timeline. */
+export async function updatePeriods(contactId: string, periods: Period[]): Promise<FormState & { index?: number }> {
+  const parsed = periodsSchema.safeParse(periods);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message, index: parsed.error.issues[0]?.path[0] as number | undefined };
+  // A month without its year means nothing.
+  const clean = parsed.data.map((p) => ({ ...p, startMonth: p.startYear == null ? null : p.startMonth, endMonth: p.endYear == null ? null : p.endMonth }));
   const user = await requireUser();
-  const thisYear = todayIn(user.timeZone).year;
-  if (metYear != null && metYear > thisYear) return { error: "You can't have met in the future" };
-  if (lostTouchYear != null && lostTouchYear > thisYear) return { error: "That year hasn't happened yet" };
-  if (metYear != null && lostTouchYear != null && lostTouchYear < metYear) return { error: "You lost touch before you met" };
-  if (form.get("reconnected") && lostTouchYear != null && reconnectedYear == null) return { error: "Add the year you caught back up" };
-  if (reconnectedYear != null && reconnectedYear > thisYear) return { error: "That year hasn't happened yet" };
-  if (lostTouchYear != null && reconnectedYear != null && reconnectedYear < lostTouchYear) return { error: "You caught back up before you lost touch" };
+  const today = todayIn(user.timeZone);
+  const problem = periodsProblem(clean, { year: today.year, month: today.month });
+  if (problem) return { error: problem.message, index: problem.index };
   if (!(await contactExists(contactId))) return { error: "Person not found" };
-  await tenantQuery((tx) =>
-    tx
-      .update(contacts)
-      .set({ metYear, metMonth: metYear == null ? null : metMonth, lostTouchYear, reconnectedYear })
-      .where(eq(contacts.id, contactId)),
-  );
+  await tenantQuery((tx) => setPeriods(tx, user.tenantId, contactId, clean));
   revalidatePath(`/people/${contactId}`);
   revalidatePath("/people/timeline");
   return { ok: Date.now() };
