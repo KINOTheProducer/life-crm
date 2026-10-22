@@ -8,7 +8,7 @@ import { clamp01, type ProgressRef } from "./progress";
 const StoryScene = dynamic(() => import("./scene"), { ssr: false });
 
 const chapters = [
-  { title: "It's all", aside: "in your head.", body: "Birthdays, kids' names, who just moved, who you owe a call. Sticky notes everywhere, and more you never wrote down." },
+  { title: "You care about", aside: "a lot of people.", body: "Birthdays, kids' names, who just moved, who you owe a call. That's a lot to keep track of." },
   { title: "Say it once.", aside: "", body: "Talk for thirty seconds after you see someone. Who you saw, what's new, what to remember. It goes straight in." },
   { title: "It sorts itself.", aside: "", body: "Names, birthdays, jobs and plans land on the right person. You check them before anything is saved." },
   { title: "And your head", aside: "is clear.", body: "Birthdays and catch-ups come back when they matter, so you don't have to hold on to any of it." },

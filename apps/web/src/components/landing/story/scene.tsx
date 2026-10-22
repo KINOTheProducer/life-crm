@@ -202,7 +202,7 @@ function Sideboard() {
 const DESK = { x: LEFT + 0.42, z: -0.3, top: 0.75 };
 const CHAIR_X = LEFT + 1.35;
 const SCREEN = new THREE.Vector3(LEFT + 0.27, 1.37, DESK.z);
-const HEAD = new THREE.Vector3(CHAIR_X - 0.03, 1.42, DESK.z);
+const HEAD = new THREE.Vector3(CHAIR_X, 1.31, DESK.z + 0.02);
 
 function Desk() {
   return (
@@ -259,7 +259,7 @@ function Screen({ tex }: { tex: THREE.Texture }) {
 
 function Chair() {
   return (
-    <group position={[CHAIR_X, 0, DESK.z]}>
+    <group>
       <mesh position={[0.05, 0.03, 0]}>
         <cylinderGeometry args={[0.26, 0.28, 0.04, 24]} />
         <Clay color={C.ink} rough={0.4} />
@@ -301,45 +301,109 @@ function Limb({ from, to, r, color }: { from: V3; to: V3; r: number; color: stri
 const SKIN = "#e8b894";
 const SWEATER = C.sage;
 const PANTS = "#5b4a3c";
+const HAIR = "#4a3426";
+
+/** Sweater torso: narrow at the waist, rounded shoulders. Lathed, then squashed front to back. */
+const torsoGeometry = (() => {
+  const pts = [
+    [0, 0],
+    [0.14, 0],
+    [0.16, 0.06],
+    [0.15, 0.2],
+    [0.17, 0.34],
+    [0.19, 0.42],
+    [0.17, 0.48],
+    [0.1, 0.52],
+    [0, 0.53],
+  ].map(([x, y]) => new THREE.Vector2(x, y));
+  return new THREE.LatheGeometry(pts, 32);
+})();
+
+// Turned a little toward the camera so we see their face side on, not the back of their head.
+const SEAT_TURN = 0.35;
 
 function Person({ p }: { p: ProgressRef }) {
   const upper = useRef<THREE.Group>(null);
+  const head = useRef<THREE.Group>(null);
+  const arms = useRef<(THREE.Group | null)[]>([]);
   useFrame(({ clock }) => {
-    // Hunched over the desk while it's all in their head, sitting back once it's out.
+    const t = clock.elapsedTime;
+    // Leaning in while there's a lot going on, sitting back once it's all in.
     const ease = smooth(segment(p.current, 0.7, 0.9));
     if (upper.current) {
-      upper.current.rotation.z = lerp(0.14, -0.1, ease);
-      upper.current.position.y = 0.62 + Math.sin(clock.elapsedTime * 1.6) * 0.004;
+      upper.current.rotation.z = lerp(0.12, -0.08, ease);
+      upper.current.position.y = 0.55 + Math.sin(t * 1.6) * 0.004;
     }
+    // Looks up from the screen at the end.
+    if (head.current) head.current.rotation.z = lerp(0.08, -0.12, ease) + Math.sin(t * 0.7) * 0.02;
+    // Hands come off the keyboard and rest in their lap.
+    arms.current.forEach((a) => a && (a.rotation.z = lerp(0, 0.42, ease)));
   });
   return (
-    <group position={[CHAIR_X, 0, DESK.z]}>
-      {[-0.11, 0.11].map((z) => (
+    <group>
+      {/* Hips and legs */}
+      <RoundedBox args={[0.3, 0.16, 0.36]} radius={0.07} smoothness={4} position={[0.06, 0.6, 0]}>
+        <Clay color={PANTS} />
+      </RoundedBox>
+      {[-0.1, 0.1].map((z) => (
         <group key={z}>
-          <Limb from={[0.08, 0.6, z]} to={[-0.38, 0.58, z]} r={0.085} color={PANTS} />
-          <Limb from={[-0.38, 0.58, z]} to={[-0.42, 0.1, z]} r={0.07} color={PANTS} />
-          <RoundedBox args={[0.24, 0.08, 0.12]} radius={0.035} position={[-0.48, 0.04, z]}>
+          <Limb from={[0.04, 0.6, z]} to={[-0.36, 0.6, z]} r={0.08} color={PANTS} />
+          <Limb from={[-0.36, 0.6, z]} to={[-0.4, 0.12, z]} r={0.068} color={PANTS} />
+          <RoundedBox args={[0.26, 0.08, 0.12]} radius={0.035} position={[-0.46, 0.04, z]}>
             <Clay color={C.ink} />
           </RoundedBox>
         </group>
       ))}
-      <group ref={upper} position={[0.05, 0.62, 0]}>
-        <Limb from={[0, 0, 0]} to={[-0.04, 0.5, 0]} r={0.18} color={SWEATER} />
-        <Limb from={[-0.06, 0.6, 0]} to={[-0.07, 0.68, 0]} r={0.05} color={SKIN} />
-        <mesh position={[-0.08, 0.8, 0]}>
-          <sphereGeometry args={[0.15, 28, 20]} />
+      <group ref={upper} position={[0.06, 0.55, 0]}>
+        <mesh geometry={torsoGeometry} scale={[0.72, 1, 1.12]}>
+          <Clay color={SWEATER} />
+        </mesh>
+        {/* Collar and neck */}
+        <mesh position={[0, 0.52, 0]} rotation={[Math.PI / 2, 0, 0]}>
+          <torusGeometry args={[0.065, 0.022, 10, 24]} />
+          <Clay color={SWEATER} />
+        </mesh>
+        <mesh position={[-0.01, 0.58, 0]}>
+          <cylinderGeometry args={[0.05, 0.055, 0.12, 16]} />
           <Clay color={SKIN} />
         </mesh>
-        <mesh position={[-0.05, 0.84, 0]} scale={[1, 0.88, 1.02]}>
-          <sphereGeometry args={[0.152, 28, 20, 0, Math.PI * 2, 0, Math.PI * 0.62]} />
-          <Clay color={C.bark} />
-        </mesh>
-        {[-1, 1].map((s) => (
-          <group key={s}>
-            <Limb from={[-0.03, 0.45, s * 0.2]} to={[-0.25, 0.22, s * 0.25]} r={0.065} color={SWEATER} />
-            <Limb from={[-0.25, 0.22, s * 0.25]} to={[-0.7, 0.16, s * 0.15]} r={0.055} color={SWEATER} />
-            <mesh position={[-0.74, 0.16, s * 0.14]}>
-              <sphereGeometry args={[0.05, 14, 12]} />
+        <group ref={head} position={[-0.02, 0.64, 0]} scale={1.12}>
+          <mesh position={[-0.01, 0.12, 0]} scale={[1, 1.12, 0.94]}>
+            <sphereGeometry args={[0.125, 32, 24]} />
+            <Clay color={SKIN} />
+          </mesh>
+          {/* Nose and ears */}
+          <mesh position={[-0.135, 0.11, 0]}>
+            <sphereGeometry args={[0.022, 12, 10]} />
+            <Clay color={SKIN} />
+          </mesh>
+          {[-1, 1].map((s) => (
+            <mesh key={s} position={[0.0, 0.11, s * 0.118]} scale={[0.7, 1, 0.5]}>
+              <sphereGeometry args={[0.03, 12, 10]} />
+              <Clay color={SKIN} />
+            </mesh>
+          ))}
+          {/* Short hair: a cap over the top and a fuller back */}
+          <mesh position={[0.005, 0.15, 0]} scale={[1.02, 1.02, 0.98]}>
+            <sphereGeometry args={[0.13, 32, 20, 0, Math.PI * 2, 0, Math.PI * 0.42]} />
+            <Clay color={HAIR} rough={0.9} />
+          </mesh>
+          <mesh position={[0.04, 0.12, 0]} scale={[0.95, 1.05, 0.98]}>
+            <sphereGeometry args={[0.12, 28, 20]} />
+            <Clay color={HAIR} rough={0.9} />
+          </mesh>
+        </group>
+        {/* Arms down to the keyboard */}
+        {[-1, 1].map((s, i) => (
+          <group key={s} ref={(el) => void (arms.current[i] = el)} position={[0, 0.44, 0]}>
+            <mesh position={[0, 0, s * 0.19]}>
+              <sphereGeometry args={[0.07, 16, 12]} />
+              <Clay color={SWEATER} />
+            </mesh>
+            <Limb from={[0, 0, s * 0.2]} to={[-0.16, -0.24, s * 0.24]} r={0.06} color={SWEATER} />
+            <Limb from={[-0.16, -0.24, s * 0.24]} to={[-0.74, -0.22, s * 0.13]} r={0.052} color={SWEATER} />
+            <mesh position={[-0.8, -0.22, s * 0.12]} scale={[1.3, 0.7, 1]}>
+              <sphereGeometry args={[0.045, 14, 12]} />
               <Clay color={SKIN} />
             </mesh>
           </group>
@@ -465,8 +529,10 @@ function Workspace({ p }: { p: ProgressRef }) {
       <Desk />
       <Monitor glow={glow} />
       <Screen tex={screen.tex} />
-      <Chair />
-      <Person p={p} />
+      <group position={[CHAIR_X, 0, DESK.z]} rotation={[0, SEAT_TURN, 0]}>
+        <Chair />
+        <Person p={p} />
+      </group>
       <Notes p={p} onArrived={onArrived} />
     </>
   );
