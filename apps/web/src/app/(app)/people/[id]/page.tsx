@@ -221,6 +221,7 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
             activeKinds={kinds}
             names={profile.names}
             timeZone={timeZone}
+            today={todayIso}
           />
         </div>
 

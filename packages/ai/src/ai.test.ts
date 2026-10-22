@@ -66,6 +66,11 @@ describe("sanitizeExtraction", () => {
     expect(clean.interaction).toMatchObject({ date: "2026-10-19", participantRefs: ["p1"] });
   });
 
+  it("keeps a catch-up from landing after the note was recorded", () => {
+    const future: Extraction = { ...extraction, interaction: { ...extraction.interaction!, date: "2026-10-20" } };
+    expect(sanitizeExtraction(future, input).interaction!.date).toBe("2026-10-19");
+  });
+
   it("never maps two people to the same contact", () => {
     const dup: Extraction = {
       people: [extraction.people[0]!, { ...extraction.people[1]!, existingContactId: "c-sarah" }],
@@ -84,7 +89,7 @@ describe("sanitizeExtraction", () => {
 describe("buildExtractionMessage", () => {
   it("includes date, known people and transcript", () => {
     const msg = buildExtractionMessage({ ...input, contextPerson: { id: "c-sarah", name: "Sarah Chen" } });
-    expect(msg).toContain("Today is 2026-10-19 (America/Toronto)");
+    expect(msg).toContain("recorded on Monday 2026-10-19 (America/Toronto)");
     expect(msg).toContain("- c-sarah: Sarah Chen");
     expect(msg).toContain("Context person: c-sarah: Sarah Chen");
     expect(msg).toContain(input.transcript);

@@ -30,6 +30,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
+import { InteractionEntry } from "@/components/profile/interaction-entry";
 import type { TimelineEntry } from "@/lib/data/timeline";
 import { thumbUrl } from "@/lib/immich-urls";
 import { cn } from "@/lib/utils";
@@ -116,6 +117,7 @@ export function Timeline({
   activeKinds,
   names,
   timeZone,
+  today,
 }: {
   contactId: string;
   entries: TimelineEntry[];
@@ -123,6 +125,8 @@ export function Timeline({
   activeKinds: TimelineKind[];
   names: Record<string, string>;
   timeZone: string;
+  /** User's local date, YYYY-MM-DD. */
+  today: string;
 }) {
   const monthFmt = new Intl.DateTimeFormat("en-CA", { month: "long", year: "numeric", timeZone });
   // Catch-ups are stored as calendar dates (noon UTC), so show them in UTC to keep the day stable.
@@ -186,44 +190,62 @@ export function Timeline({
                   >
                     <Icon className="size-4" />
                   </span>
-                  <div className="grid gap-1.5 rounded-2xl bg-card p-4">
-                    <div className="flex items-baseline justify-between gap-4">
-                      <p className="font-medium">
-                        {entry.kind === "fact" ? (
-                          <>
-                            <span className="text-muted-foreground">{entry.title}: </span>
-                            {entry.body}
-                          </>
-                        ) : entry.kind === "memory" && entry.refId ? (
-                          <Link href={`/memories/${entry.refId}`} className="hover:underline">
-                            {titleFor(entry, names)}
-                          </Link>
-                        ) : (
-                          titleFor(entry, names)
-                        )}
-                      </p>
-                      <p className="shrink-0 font-mono text-xs text-muted-foreground">{day}</p>
+                  {entry.kind === "interaction" && entry.refId ? (
+                    <InteractionEntry
+                      interactionId={entry.refId}
+                      title={titleFor(entry, names)}
+                      day={day}
+                      type={entry.title as InteractionType}
+                      date={entry.occurredAt.toISOString().slice(0, 10)}
+                      location={location ?? null}
+                      summary={entry.body}
+                      today={today}
+                    />
+                  ) : (
+                    <div className="grid gap-1.5 rounded-2xl bg-card p-4">
+                      <div className="flex items-baseline justify-between gap-4">
+                        <p className="font-medium">
+                          {entry.kind === "fact" ? (
+                            <>
+                              <span className="text-muted-foreground">{entry.title}: </span>
+                              {entry.body}
+                            </>
+                          ) : entry.kind === "memory" && entry.refId ? (
+                            <Link href={`/memories/${entry.refId}`} className="hover:underline">
+                              {titleFor(entry, names)}
+                            </Link>
+                          ) : (
+                            titleFor(entry, names)
+                          )}
+                        </p>
+                        <p className="shrink-0 font-mono text-xs text-muted-foreground">{day}</p>
+                      </div>
+                      {location && <p className="text-[13px] text-muted-foreground">{location}</p>}
+                      {entry.body && entry.kind !== "fact" && <p className="whitespace-pre-line text-[15px] leading-relaxed">{entry.body}</p>}
+                      {photos.length > 0 && (
+                        <Link href={`/memories/${entry.refId}`} className="mt-1 grid grid-cols-4 gap-1.5">
+                          {photos.map((id) => (
+                            // eslint-disable-next-line @next/next/no-img-element -- proxied Immich thumbnail
+                            <img key={id} src={thumbUrl(id)} alt="" loading="lazy" className="aspect-square w-full rounded-lg object-cover" />
+                          ))}
+                        </Link>
+                      )}
+                      {learned.length > 0 && (
+                        <ul className="flex flex-wrap gap-1.5 pt-1">
+                          {learned.map((l) => (
+                            <li key={l} className="rounded-full bg-secondary px-2.5 py-1 text-xs">
+                              {l}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                      {entry.kind === "voice" && entry.captureId && (
+                        <Link href={`/capture/${entry.captureId}`} className="justify-self-start pt-1 text-[13px] text-muted-foreground hover:text-foreground">
+                          Re-read this note
+                        </Link>
+                      )}
                     </div>
-                    {location && <p className="text-[13px] text-muted-foreground">{location}</p>}
-                    {entry.body && entry.kind !== "fact" && <p className="whitespace-pre-line text-[15px] leading-relaxed">{entry.body}</p>}
-                    {photos.length > 0 && (
-                      <Link href={`/memories/${entry.refId}`} className="mt-1 grid grid-cols-4 gap-1.5">
-                        {photos.map((id) => (
-                          // eslint-disable-next-line @next/next/no-img-element -- proxied Immich thumbnail
-                          <img key={id} src={thumbUrl(id)} alt="" loading="lazy" className="aspect-square w-full rounded-lg object-cover" />
-                        ))}
-                      </Link>
-                    )}
-                    {learned.length > 0 && (
-                      <ul className="flex flex-wrap gap-1.5 pt-1">
-                        {learned.map((l) => (
-                          <li key={l} className="rounded-full bg-secondary px-2.5 py-1 text-xs">
-                            {l}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
+                  )}
                 </li>
               );
             })}

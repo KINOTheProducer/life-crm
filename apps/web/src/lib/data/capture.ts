@@ -22,10 +22,11 @@ import { z } from "zod";
 import { extractorForUser, transcriberForUser } from "@/lib/ai";
 import { db } from "@/lib/db";
 import { dateToInstant, formatPartialDate, parseIsoDate, toIsoDate } from "./dates";
+import { refreshLastInteraction } from "./entries";
 import { resolveCheckins } from "./reminders";
 import { recordTimeline, type TimelineInput } from "./timeline";
 
-const { captures, contacts, facts, importantDates, interactionPeople, interactions, notes } = schema;
+const { captures, contacts, facts, importantDates, interactionPeople, interactions, notes, timelineEntries } = schema;
 
 /** An error whose message is safe to show the user. */
 export class CaptureError extends Error {}
@@ -106,9 +107,15 @@ export async function processCapture(tenantId: string, captureId: string, timeZo
         const [row] = await tx.select().from(captures).where(eq(captures.id, captureId));
         return row;
       });
-      if (!capture?.audio) throw new AiError("This capture has no audio.");
-      const transcriber = await withTenant(db, tenantId, (tx) => transcriberForUser(tx, capture.userId));
-      text = await transcriber.transcribe(capture.audio, capture.audioMime ?? "audio/webm");
+      if (capture?.audio) {
+        const transcriber = await withTenant(db, tenantId, (tx) => transcriberForUser(tx, capture.userId));
+        text = await transcriber.transcribe(capture.audio, capture.audioMime ?? "audio/webm");
+      } else if (capture?.transcript) {
+        // Audio is gone once a note is saved; re-reading a saved note works from its transcript.
+        text = capture.transcript;
+      } else {
+        throw new AiError("This capture has no audio.");
+      }
     }
     if (!text.trim()) throw new AiError("No speech was detected in the recording.");
 
@@ -125,11 +132,14 @@ export async function processCapture(tenantId: string, captureId: string, timeZo
         firstLine,
         people,
         contextPerson: people.find((p) => p.id === capture?.contextContactId) ?? null,
+        recordedAt: capture!.createdAt,
         extractor: await extractorForUser(tx, capture!.userId),
       };
     });
 
-    const today = toIsoDate(todayIn(timeZone));
+    // Relative dates are resolved against the day it was recorded, so re-reading an old note
+    // still puts "yesterday" on the day before the recording.
+    const today = toIsoDate(todayIn(timeZone, context.recordedAt));
     const progress = progressWriter(tenantId, captureId, (partial) => [
       context.firstLine,
       ...extractionProgress(partial, { knownPeople: context.people, today }),
@@ -211,12 +221,15 @@ export type CommitInput = z.infer<typeof commitSchema>;
 /** Write an approved capture to people, facts, notes, interactions and timelines in one transaction. */
 export async function commitCapture(tx: Tx, tenantId: string, captureId: string, input: CommitInput): Promise<string[]> {
   const [capture] = await tx
-    .select({ status: captures.status, createdAt: captures.createdAt })
+    .select({ status: captures.status, createdAt: captures.createdAt, committedAt: captures.committedAt })
     .from(captures)
     .where(eq(captures.id, captureId))
     .for("update");
   if (!capture) throw new CaptureError("This voice note no longer exists.");
   if (capture.status !== "ready") throw new CaptureError("This voice note has already been handled.");
+
+  // Saving a re-read note replaces what it added the first time.
+  if (capture.committedAt) await undoCapture(tx, captureId);
 
   const recordedAt = capture.createdAt;
   const timeline: TimelineInput[] = [];
@@ -355,6 +368,32 @@ export async function commitCapture(tx: Tx, tenantId: string, captureId: string,
     .where(eq(captures.id, captureId));
 
   return [...new Set(contactIdByRef.values())];
+}
+
+/**
+ * Take back what a saved note added to profiles: its facts, notes and catch-ups and their
+ * timeline entries. People it created stay, since they may have more on them by now.
+ */
+async function undoCapture(tx: Tx, captureId: string) {
+  const now = new Date();
+  await tx
+    .update(facts)
+    .set({ archivedAt: now })
+    .where(and(eq(facts.captureId, captureId), isNull(facts.archivedAt)));
+  await tx
+    .update(notes)
+    .set({ deletedAt: now })
+    .where(and(eq(notes.captureId, captureId), isNull(notes.deletedAt)));
+  const people = await tx
+    .select({ contactId: interactionPeople.contactId })
+    .from(interactionPeople)
+    .innerJoin(interactions, eq(interactions.id, interactionPeople.interactionId))
+    .where(eq(interactions.captureId, captureId));
+  await tx.delete(interactions).where(eq(interactions.captureId, captureId));
+  await tx
+    .delete(timelineEntries)
+    .where(and(eq(timelineEntries.captureId, captureId), inArray(timelineEntries.kind, ["voice", "interaction"])));
+  await refreshLastInteraction(tx, [...new Set(people.map((p) => p.contactId))]);
 }
 
 export type { Extraction };

@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { birthdayOf, setBirthday } from "@/lib/data/contacts";
 import { formatPartialDate, toIsoDate } from "@/lib/data/dates";
-import { insertFact, insertInteraction, insertNote } from "@/lib/data/entries";
+import { deleteInteraction, insertFact, insertInteraction, insertNote, updateInteraction } from "@/lib/data/entries";
 import { dateProblemText, partialDateFrom, personName } from "@/lib/forms";
 import { requireUser, tenantQuery } from "@/lib/session";
 
@@ -169,6 +169,28 @@ export async function logInteraction(contactId: string, _prev: FormState, form: 
   await tenantQuery((tx) => insertInteraction(tx, user.tenantId, contactId, parsed.data));
   revalidatePath(`/people/${contactId}`);
   return { ok: Date.now() };
+}
+
+/** Edit a catch-up already on the timeline. */
+export async function editInteraction(interactionId: string, _prev: FormState, form: FormData): Promise<FormState> {
+  if (!uuid.safeParse(interactionId).success) return { error: "Catch-up not found" };
+  const parsed = interactionSchema.safeParse(Object.fromEntries(form));
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message };
+  const user = await requireUser();
+  if (parsed.data.date > toIsoDate(todayIn(user.timeZone))) return { error: "That date is in the future" };
+
+  const people = await tenantQuery((tx) => updateInteraction(tx, interactionId, parsed.data));
+  if (!people) return { error: "Catch-up not found" };
+  for (const id of people) revalidatePath(`/people/${id}`);
+  revalidatePath("/dashboard");
+  return { ok: Date.now() };
+}
+
+export async function removeInteraction(interactionId: string) {
+  if (!uuid.safeParse(interactionId).success) return;
+  const people = await tenantQuery((tx) => deleteInteraction(tx, interactionId));
+  for (const id of people) revalidatePath(`/people/${id}`);
+  revalidatePath("/dashboard");
 }
 
 const factSchema = z.object({
