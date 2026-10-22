@@ -202,12 +202,22 @@ function Sideboard() {
 // The desk sits against the left wall; whoever's at it faces the wall (-x), so the camera sees the screen.
 const DESK = { x: LEFT + 0.42, z: -0.3, top: 0.75 };
 const CHAIR_X = LEFT + 1.12;
-// The monitor is angled toward the camera so its screen can be read.
+// The monitor faces whoever's at the desk, swings round to the camera while the list fills up so
+// it can be read, then turns back to them, now full.
 const MONITOR_TURN = 0.55;
-const MONITOR = new THREE.Vector3(LEFT + 0.4, DESK.top, DESK.z);
+const MONITOR_HOME = LEFT + 0.26;
+const MONITOR_SHOWN = LEFT + 0.4;
 const SCREEN_W = 1.2;
 const SCREEN_H = 0.69;
-const SCREEN = new THREE.Vector3(0.03, 0.66, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), -MONITOR_TURN).add(MONITOR);
+const SCREEN_OFFSET = new THREE.Vector3(0.03, 0.66, 0);
+const turnAt = (t: number) => smooth(segment(t, 0.4, 0.5)) * (1 - smooth(segment(t, 0.68, 0.8)));
+/** Where the screen sits while turned to the camera, for framing the close-up. */
+const SCREEN_SHOWN = SCREEN_OFFSET.clone()
+  .applyAxisAngle(new THREE.Vector3(0, 1, 0), -MONITOR_TURN)
+  .add(new THREE.Vector3(MONITOR_SHOWN, DESK.top, DESK.z));
+// Live screen pose, updated by the monitor every frame, so notes fly to wherever it is.
+const SCREEN = new THREE.Vector3(MONITOR_HOME, DESK.top, DESK.z).add(SCREEN_OFFSET);
+const facingScreen = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, Math.PI / 2, 0));
 const HEAD = new THREE.Vector3(CHAIR_X, 1.25, DESK.z + 0.02);
 
 function Desk() {
@@ -236,9 +246,21 @@ function Desk() {
   );
 }
 
-function Monitor({ glow }: { glow: RefObject<THREE.PointLight | null> }) {
+function Monitor({ p, tex, glow }: { p: ProgressRef; tex: THREE.Texture; glow: RefObject<THREE.PointLight | null> }) {
+  const group = useRef<THREE.Group>(null);
+  const screen = useRef<THREE.Mesh>(null);
+  useFrame(() => {
+    const k = turnAt(p.current);
+    const g = group.current;
+    if (!g || !screen.current) return;
+    g.rotation.y = -MONITOR_TURN * k;
+    g.position.x = lerp(MONITOR_HOME, MONITOR_SHOWN, k);
+    g.updateMatrixWorld();
+    screen.current.getWorldPosition(SCREEN);
+    screen.current.getWorldQuaternion(facingScreen);
+  });
   return (
-    <group position={MONITOR} rotation={[0, -MONITOR_TURN, 0]}>
+    <group ref={group} position={[MONITOR_HOME, DESK.top, DESK.z]}>
       <RoundedBox args={[0.22, 0.02, 0.3]} radius={0.008} position={[0, 0.01, 0]}>
         <Clay color={C.ink} rough={0.4} />
       </RoundedBox>
@@ -249,18 +271,13 @@ function Monitor({ glow }: { glow: RefObject<THREE.PointLight | null> }) {
       <RoundedBox args={[0.05, SCREEN_H + 0.06, SCREEN_W + 0.06]} radius={0.02} position={[0, 0.66, 0]}>
         <Clay color={C.ink} rough={0.35} />
       </RoundedBox>
+      <mesh ref={screen} position={SCREEN_OFFSET} rotation={[0, Math.PI / 2, 0]} userData={{ noShadow: true }}>
+        <planeGeometry args={[SCREEN_W, SCREEN_H]} />
+        {/* Unlit and kept under the bloom threshold, so the UI stays readable. */}
+        <meshBasicMaterial map={tex} color="#e4e0da" toneMapped={false} />
+      </mesh>
       <pointLight ref={glow} position={[0.7, 0.46, 0]} color="#e6eeff" intensity={0.4} distance={2.5} decay={2} />
     </group>
-  );
-}
-
-function Screen({ tex }: { tex: THREE.Texture }) {
-  return (
-    <mesh position={SCREEN} rotation={[0, Math.PI / 2 - MONITOR_TURN, 0]} userData={{ noShadow: true }}>
-      <planeGeometry args={[SCREEN_W, SCREEN_H]} />
-      {/* Unlit and kept under the bloom threshold, so the UI stays readable. */}
-      <meshBasicMaterial map={tex} color="#e4e0da" toneMapped={false} />
-    </mesh>
   );
 }
 
@@ -405,7 +422,6 @@ function scatterNotes() {
 
 const HEAD_NOTES = 12;
 const FLIGHT = 0.08;
-const facingScreen = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, Math.PI / 2 - MONITOR_TURN, 0));
 
 /** Moves a note toward the screen along an arc, hiding it once it's gone in. */
 function fly(o: THREE.Object3D, from: THREE.Vector3, fromRot: THREE.Quaternion, e: number, size: number, arc: number) {
@@ -486,8 +502,7 @@ function Workspace({ p }: { p: ProgressRef }) {
   return (
     <>
       <Desk />
-      <Monitor glow={glow} />
-      <Screen tex={screen.tex} />
+      <Monitor p={p} tex={screen.tex} glow={glow} />
       <group position={[CHAIR_X, 0, DESK.z]} rotation={[0, SEAT_TURN, 0]}>
         <Chair />
         <Person p={p} />
@@ -605,8 +620,8 @@ const shots = [
   { at: 0.0, target: new THREE.Vector3(0.3, 0.9, 0.3), zoom: 0.95 },
   { at: 0.3, target: new THREE.Vector3(-1.6, 1.2, -0.1), zoom: 1.3 },
   // In close on the screen while the list fills up.
-  { at: 0.5, target: SCREEN.clone().add(new THREE.Vector3(0.1, -0.05, 0.1)), zoom: 3.6 },
-  { at: 0.66, target: SCREEN.clone().add(new THREE.Vector3(0.1, -0.05, 0.1)), zoom: 3.6 },
+  { at: 0.5, target: SCREEN_SHOWN.clone().add(new THREE.Vector3(0.1, -0.05, 0.1)), zoom: 3.6 },
+  { at: 0.66, target: SCREEN_SHOWN.clone().add(new THREE.Vector3(0.1, -0.05, 0.1)), zoom: 3.6 },
   { at: 0.84, target: new THREE.Vector3(0.3, 0.9, 0.3), zoom: 0.95 },
 ];
 
