@@ -52,7 +52,7 @@ export default async function MemoriesPage({ searchParams }: PageProps<"/memorie
         }
       />
       {items.length === 0 ? (
-        <div className="grid max-w-xl gap-2 rounded-3xl bg-card p-8">
+        <div className="grid max-w-xl gap-2 rounded-3xl bg-card p-6 md:p-8">
           <p className="type-display text-3xl">Trips, birthdays, the dinner that went until 2am.</p>
           <p className="text-muted-foreground">Tag who was there and pull in the photos from Immich. Each memory shows up on everyone&apos;s timeline.</p>
         </div>

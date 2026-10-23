@@ -158,7 +158,7 @@ export function FamilyTree({
 
   return (
     <div className="grid gap-6">
-      <div ref={scroller} className="h-[min(72vh,760px)] overflow-auto rounded-3xl bg-card">
+      <div ref={scroller} className="max-h-[min(72vh,760px)] overflow-auto rounded-3xl bg-card">
         <div className="relative" style={{ width, height }}>
           <svg className="pointer-events-none absolute inset-0 text-border" width={width} height={height} aria-hidden>
             {layout.couples.map((c, i) => (

@@ -123,7 +123,7 @@ export function Composer({ contactId, firstName, today }: { contactId: string; f
         </form>
       ) : tab === "event" ? (
         <form action={eventAction} className="grid gap-3">
-          <div className="grid grid-cols-[1fr_1fr_2fr] gap-2">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-[1fr_1fr_2fr] max-sm:[&>:last-child]:col-span-2">
             <select
               name="type"
               aria-label="What happened"
@@ -157,7 +157,7 @@ export function Composer({ contactId, firstName, today }: { contactId: string; f
         </form>
       ) : (
         <form action={ixAction} className="grid gap-3">
-          <div className="grid grid-cols-[1fr_1fr_2fr] gap-2">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-[1fr_1fr_2fr] max-sm:[&>:last-child]:col-span-2">
             <select name="type" aria-label="Type" defaultValue="in_person" className={selectClass}>
               {interactionTypes.map((t) => (
                 <option key={t} value={t}>

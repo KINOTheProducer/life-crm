@@ -65,7 +65,7 @@ export function PhotoPicker({ memoryId, attached, onClose }: { memoryId: string;
   const allPicked = fresh.length > 0 && fresh.every((a) => picked.has(a.id));
 
   return (
-    <div className="grid gap-4 rounded-3xl bg-card p-6">
+    <div className="grid gap-4 rounded-3xl bg-card p-5 md:p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="type-display text-[1.625rem]">{submitted ? `Searching “${submitted}”` : "Photos from those days"}</h2>
         <Button variant="ghost" size="icon-sm" aria-label="Close" onClick={onClose}>
@@ -247,7 +247,7 @@ export function Gallery({
       {picking && <PhotoPicker memoryId={memoryId} attached={assets.map((a) => a.assetId)} onClose={() => setPicking(false)} />}
 
       {!immichConnected && assets.length === 0 && (
-        <p className="rounded-3xl bg-card p-6 text-sm text-muted-foreground">
+        <p className="rounded-3xl bg-card p-5 md:p-6 text-sm text-muted-foreground">
           <a href="/settings" className="underline underline-offset-4">
             Connect Immich
           </a>{" "}

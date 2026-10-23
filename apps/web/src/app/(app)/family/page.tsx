@@ -114,7 +114,7 @@ export default async function FamilyPage({ searchParams }: PageProps<"/family">)
       <PageHeader
         title="Family."
         aside={focusName ? `Around ${focusName}.` : `${relativeCount || "No"} ${relativeCount === 1 ? "relative" : "relatives"} so far.`}
-        description={onlyYou ? "Start with your parents, partner, siblings or kids. Click yourself in the tree to add someone." : undefined}
+        description={onlyYou ? "Start with your parents, partner, siblings or kids. Tap yourself in the tree to add someone." : undefined}
         actions={
           <div className="flex gap-1">
             <Link href={focusId !== family.selfId ? `/family?focus=${focusId}` : "/family"} className={tab(!everyone)}>
@@ -134,7 +134,7 @@ export default async function FamilyPage({ searchParams }: PageProps<"/family">)
 
       {everyone ? (
         <div className="grid gap-4">
-          {groups.size === 0 && <p className="rounded-3xl bg-card p-8 text-muted-foreground">No one in your tree yet.</p>}
+          {groups.size === 0 && <p className="rounded-3xl bg-card p-6 md:p-8 text-muted-foreground">No one in your tree yet.</p>}
           {groupOrder
             .filter((g) => groups.has(g))
             .map((g) => (

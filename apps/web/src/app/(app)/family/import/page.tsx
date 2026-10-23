@@ -7,7 +7,7 @@ import { buttonVariants } from "@/components/ui/button";
 export default function FamilyImportPage() {
   return (
     <>
-      <Link href="/family" className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+      <Link href="/family" className="mb-3 inline-flex min-h-11 items-center gap-1.5 text-sm md:mb-6 md:min-h-0 text-muted-foreground hover:text-foreground">
         <ArrowLeft className="size-3.5" />
         Family
       </Link>
@@ -22,7 +22,7 @@ export default function FamilyImportPage() {
           </a>
         }
       />
-      <div className="max-w-2xl rounded-3xl bg-card p-8">
+      <div className="max-w-2xl rounded-3xl bg-card p-6 md:p-8">
         <GedcomImport />
       </div>
     </>

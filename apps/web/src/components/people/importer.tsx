@@ -59,7 +59,7 @@ export function Importer() {
 
   if (done) {
     return (
-      <div className="grid max-w-xl gap-3 rounded-3xl bg-card p-8">
+      <div className="grid max-w-xl gap-3 rounded-3xl bg-card p-6 md:p-8">
         <p className="type-display text-3xl">
           {done.created} added{done.merged ? `, ${done.merged} merged` : ""}.
         </p>

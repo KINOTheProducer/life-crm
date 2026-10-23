@@ -147,7 +147,7 @@ export function GroupCatchup({ circleId, members, today }: { circleId: string; m
 
   return (
     <form onSubmit={submitKeepingValues(action)} className="grid gap-3">
-      <div className="grid grid-cols-[1fr_1fr_2fr] gap-2">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-[1fr_1fr_2fr] max-sm:[&>:last-child]:col-span-2">
         <select name="type" aria-label="Type" defaultValue="in_person" className={selectClass}>
           {interactionTypes.map((t) => (
             <option key={t} value={t}>

@@ -62,7 +62,7 @@ export default async function PeoplePage({ searchParams }: PageProps<"/people">)
         aside={activeTier ? tierLabel[activeTier].toLowerCase() : undefined}
         actions={
           <>
-            <Link href="/people/timeline" className={buttonVariants({ variant: "ghost" })}>
+            <Link href="/people/timeline" className={buttonVariants({ variant: "ghost", className: "max-md:bg-card" })}>
               <ChartGantt />
               Over the years
             </Link>
@@ -79,7 +79,7 @@ export default async function PeoplePage({ searchParams }: PageProps<"/people">)
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <form action="/people" className="relative mr-2">
+        <form action="/people" className="relative w-full md:mr-2 md:w-auto">
           {activeTier && <input type="hidden" name="tier" value={activeTier} />}
           {month && <input type="hidden" name="month" value={month} />}
           {city && <input type="hidden" name="city" value={city} />}
@@ -92,22 +92,25 @@ export default async function PeoplePage({ searchParams }: PageProps<"/people">)
             defaultValue={query}
             placeholder="Search names, notes, numbers…"
             aria-label="Search people"
-            className="h-10 w-72 rounded-full border border-input bg-card pr-4 pl-10 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+            className="h-11 w-full rounded-full border md:h-10 md:w-72 border-input bg-card pr-4 pl-10 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
           />
         </form>
-        <Link href={href()} className={cn("rounded-full px-3.5 py-2 text-sm", !activeTier ? "bg-primary text-primary-foreground" : "bg-card hover:bg-secondary")}>
+        {/* One row that scrolls sideways on phones, wraps on wider screens. */}
+        <div className="-mx-4 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none] md:mx-0 md:flex-wrap md:overflow-visible md:px-0">
+        <Link href={href()} className={cn("shrink-0 rounded-full px-3.5 py-2.5 text-sm md:py-2", !activeTier ? "bg-primary text-primary-foreground" : "bg-card hover:bg-secondary")}>
           Everyone
         </Link>
         {closenessTiers.map((t) => (
           <Link
             key={t}
             href={href(t)}
-            className={cn("flex items-center gap-2 rounded-full px-3.5 py-2 text-sm", activeTier === t ? "bg-primary text-primary-foreground" : "bg-card hover:bg-secondary")}
+            className={cn("flex shrink-0 items-center gap-2 rounded-full px-3.5 py-2.5 text-sm md:py-2", activeTier === t ? "bg-primary text-primary-foreground" : "bg-card hover:bg-secondary")}
           >
             <span className={cn("size-2.5 rounded-full", tierTone[t])} />
             {tierLabel[t]}
           </Link>
         ))}
+        </div>
       </div>
 
       <PeopleFilters
@@ -118,7 +121,7 @@ export default async function PeoplePage({ searchParams }: PageProps<"/people">)
       />
 
       {people.length === 0 ? (
-        <div className="rounded-3xl bg-card p-10">
+        <div className="rounded-3xl bg-card p-6 md:p-10">
           <p className="type-display text-3xl">{query ? `No one matches "${query}".` : filtered ? "No one matches those filters." : "No one here yet."}</p>
           {!query && !filtered && (
             <p className="mt-2 text-muted-foreground">
@@ -132,7 +135,7 @@ export default async function PeoplePage({ searchParams }: PageProps<"/people">)
         </div>
       ) : (
         <div className="overflow-hidden rounded-3xl bg-card">
-          <div className="grid grid-cols-[1fr_160px_160px_140px] gap-4 border-b border-border px-6 py-3 text-[13px] text-muted-foreground">
+          <div className="hidden grid-cols-[1fr_160px_160px_140px] gap-4 border-b md:grid border-border px-6 py-3 text-[13px] text-muted-foreground">
             <span>Name</span>
             <span>Last catch-up</span>
             <span>Birthday</span>
@@ -143,22 +146,33 @@ export default async function PeoplePage({ searchParams }: PageProps<"/people">)
               const name = [p.firstName, p.lastName].filter(Boolean).join(" ");
               return (
                 <li key={p.id}>
-                  <Link href={`/people/${p.id}`} className="grid grid-cols-[1fr_160px_160px_140px] items-center gap-4 px-6 py-3 transition-colors hover:bg-secondary/50">
-                    <span className="flex min-w-0 items-center gap-3">
-                      <Avatar id={p.id} name={name} src={avatarSrc(p.avatarRef)} size={36} />
+                  <Link
+                    href={`/people/${p.id}`}
+                    className="flex min-h-16 items-center gap-3 px-4 py-2.5 transition-colors hover:bg-secondary/50 md:grid md:min-h-0 md:grid-cols-[1fr_160px_160px_140px] md:gap-4 md:px-6 md:py-3"
+                  >
+                    <span className="flex min-w-0 flex-1 items-center gap-3">
+                      <Avatar id={p.id} name={name} src={avatarSrc(p.avatarRef)} size={40} className="md:size-9!" />
                       <span className="grid min-w-0">
-                        <span className="flex min-w-0 items-baseline gap-2">
+                        <span className="flex min-w-0 items-center gap-2">
                           <span className="truncate font-medium">{name}</span>
                           {p.nickname && <span className="truncate text-sm text-muted-foreground">“{p.nickname}”</span>}
+                          <span className={cn("size-2 shrink-0 rounded-full md:hidden", tierTone[p.closeness])} aria-label={tierLabel[p.closeness]} role="img" />
                         </span>
-                        {p.matched && <span className="truncate text-[13px] text-muted-foreground">{p.matched}</span>}
+                        <span className="truncate text-[13px] text-muted-foreground">
+                          {p.matched ?? <span className="md:hidden">{p.lastInteractionAt ? `Last catch-up ${ago(p.lastInteractionAt).toLowerCase()}` : "No catch-ups yet"}</span>}
+                        </span>
                       </span>
                     </span>
-                    <span className="text-sm text-muted-foreground">{ago(p.lastInteractionAt)}</span>
-                    <span className={cn("text-sm", p.birthday && p.birthday.daysAway <= 7 ? "text-accent-ink" : "text-muted-foreground")}>
+                    {p.birthday && p.birthday.daysAway <= 7 && (
+                      <span className="shrink-0 rounded-full bg-coral/15 px-2.5 py-1 text-xs font-medium text-accent-ink md:hidden">
+                        {p.birthday.daysAway === 0 ? "Birthday today" : `Bday in ${p.birthday.daysAway}d`}
+                      </span>
+                    )}
+                    <span className="hidden text-sm text-muted-foreground md:block">{ago(p.lastInteractionAt)}</span>
+                    <span className={cn("hidden text-sm md:block", p.birthday && p.birthday.daysAway <= 7 ? "text-accent-ink" : "text-muted-foreground")}>
                       {p.birthday ? (p.birthday.daysAway === 0 ? "Today" : `In ${p.birthday.daysAway} days`) : "Not set"}
                     </span>
-                    <span className="flex items-center gap-2 text-sm">
+                    <span className="hidden items-center gap-2 text-sm md:flex">
                       <span className={cn("size-2.5 rounded-full", tierTone[p.closeness])} />
                       {tierLabel[p.closeness]}
                     </span>

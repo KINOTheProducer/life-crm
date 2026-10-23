@@ -41,12 +41,12 @@ export default async function PlacesPage({ searchParams }: PageProps<"/places">)
       </form>
 
       {all.length === 0 ? (
-        <div className="grid max-w-xl gap-2 rounded-3xl bg-card p-8">
+        <div className="grid max-w-xl gap-2 rounded-3xl bg-card p-6 md:p-8">
           <p className="type-display text-3xl">Add addresses and they&apos;ll gather here.</p>
           <p className="text-muted-foreground">Handy before a trip: see who you know in a city before you book.</p>
         </div>
       ) : places.length === 0 ? (
-        <div className="grid max-w-xl gap-2 rounded-3xl bg-card p-8">
+        <div className="grid max-w-xl gap-2 rounded-3xl bg-card p-6 md:p-8">
           <p className="type-display text-3xl">No one in &ldquo;{query}&rdquo; yet.</p>
           <Link href="/places" className="text-sm text-muted-foreground underline underline-offset-4">
             See every city
@@ -55,7 +55,7 @@ export default async function PlacesPage({ searchParams }: PageProps<"/places">)
       ) : (
         <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
           {places.map((p) => (
-            <section key={p.city.toLowerCase()} className="grid content-start gap-3 rounded-3xl bg-card p-6">
+            <section key={p.city.toLowerCase()} className="grid content-start gap-3 rounded-3xl bg-card p-5 md:p-6">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <h2 className="type-display text-2xl">{p.city}</h2>

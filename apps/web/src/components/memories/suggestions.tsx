@@ -61,10 +61,10 @@ export function Suggestions() {
         )}
       </div>
 
-      {!result && <p className="rounded-3xl bg-card p-8 text-muted-foreground">Looking through Immich for times with your people…</p>}
-      {result?.error && <p className="rounded-3xl bg-card p-8 text-destructive">{result.error}</p>}
+      {!result && <p className="rounded-3xl bg-card p-6 md:p-8 text-muted-foreground">Looking through Immich for times with your people…</p>}
+      {result?.error && <p className="rounded-3xl bg-card p-6 md:p-8 text-destructive">{result.error}</p>}
       {result && !result.error && visible.length === 0 && (
-        <div className="grid gap-2 rounded-3xl bg-card p-8">
+        <div className="grid gap-2 rounded-3xl bg-card p-6 md:p-8">
           <p className="type-display text-3xl">Nothing new to suggest.</p>
           <p className="text-muted-foreground">Every big day with your people is already a memory, or you said no to it. Try a longer range, or link more faces.</p>
         </div>
@@ -88,7 +88,7 @@ function SuggestionCard({ suggestion: s, onGone }: { suggestion: SuggestionView;
   const people = s.people.filter((p) => !left.has(p.id));
 
   return (
-    <section className="grid gap-5 rounded-3xl bg-card p-6 lg:grid-cols-[1.3fr_1fr]">
+    <section className="grid gap-5 rounded-3xl bg-card p-5 md:p-6 lg:grid-cols-[1.3fr_1fr]">
       <ul className="grid grid-cols-4 gap-1.5">
         {shown.map((p, i) => (
           <li key={p.id} className={cn("relative overflow-hidden rounded-xl bg-secondary", i === 0 ? "col-span-2 row-span-2" : "aspect-square")}>

@@ -64,7 +64,7 @@ export function InteractionEntry({
 
   return (
     <form action={action} className="grid gap-3 rounded-2xl bg-card p-4">
-      <div className="grid grid-cols-[1fr_1fr_2fr] gap-2">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-[1fr_1fr_2fr] max-sm:[&>:last-child]:col-span-2">
         <select name="type" aria-label="Type" defaultValue={type} className={selectClass}>
           {interactionTypes.map((t) => (
             <option key={t} value={t}>

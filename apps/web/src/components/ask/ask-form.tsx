@@ -125,7 +125,7 @@ export function AskForm({ initial }: { initial: string }) {
       {state.error && !pending && <p className="text-sm text-destructive">{state.error}</p>}
 
       {state.result && !pending && (
-        <div className="grid gap-5 rounded-3xl bg-card p-6">
+        <div className="grid gap-5 rounded-3xl bg-card p-5 md:p-6">
           <p className="text-[17px] leading-relaxed whitespace-pre-line">{state.result.answer}</p>
           {state.result.citations.length > 0 && (
             <div className="grid gap-2">
