@@ -1,22 +1,12 @@
-"use client";
-
 import Image, { type StaticImageData } from "next/image";
-import { type ReactNode, useEffect, useState } from "react";
-import { cn } from "@/lib/utils";
+import type { ReactNode } from "react";
 
 /**
- * Holds the hero copy back until the photo has loaded, then fades both in together, so the
- * text never sits on an empty background while the image catches up.
+ * Hero photo behind the landing copy. The blurred placeholder is inlined in the HTML, so the
+ * background is there on first paint and sharpens once the real image arrives. The copy never
+ * waits on the photo.
  */
 export function HeroReveal({ src, alt, children }: { src: StaticImageData; alt: string; children: ReactNode }) {
-  const [ready, setReady] = useState(false);
-
-  // Don't hold the copy hostage to a slow or failed image.
-  useEffect(() => {
-    const t = setTimeout(() => setReady(true), 2500);
-    return () => clearTimeout(t);
-  }, []);
-
   return (
     <>
       <Image
@@ -24,12 +14,11 @@ export function HeroReveal({ src, alt, children }: { src: StaticImageData; alt: 
         alt={alt}
         fill
         priority
+        placeholder="blur"
         sizes="100vw"
-        onLoad={() => setReady(true)}
-        onError={() => setReady(true)}
-        className={cn("-z-20 object-cover object-[center_40%] transition-opacity duration-700 ease-out", ready ? "opacity-100" : "opacity-0")}
+        className="-z-20 object-cover object-[center_40%]"
       />
-      <div className={cn("transition-[opacity,translate] duration-700 ease-out", ready ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0")}>{children}</div>
+      <div className="animate-in fade-in slide-in-from-bottom-2 duration-700 ease-out">{children}</div>
     </>
   );
 }
