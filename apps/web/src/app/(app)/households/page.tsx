@@ -31,7 +31,7 @@ export default async function HouseholdsPage() {
           )
         }
       />
-      <div className="grid gap-8 lg:grid-cols-[1fr_340px]">
+      <div className="grid gap-6 md:gap-8 lg:grid-cols-[1fr_340px]">
         <div className="grid content-start gap-8">
           {suggestions.length > 0 && (
             <section className="grid gap-3">
@@ -56,14 +56,14 @@ export default async function HouseholdsPage() {
           )}
 
           {households.length === 0 ? (
-            <div className="grid gap-2 rounded-3xl bg-card p-8">
+            <div className="grid gap-2 rounded-3xl bg-card p-6 md:p-8">
               <p className="type-display text-3xl">One address, one card.</p>
               <p className="text-muted-foreground">Group the people who live together, then export the list for holiday cards or labels.</p>
             </div>
           ) : (
             <div className="grid gap-3.5 sm:grid-cols-2">
               {households.map((h) => (
-                <div key={h.id} className="grid content-start gap-3 rounded-3xl bg-card p-6">
+                <div key={h.id} className="grid content-start gap-3 rounded-3xl bg-card p-5 md:p-6">
                   <Link href={`/households/${h.id}`} className="type-display text-2xl leading-tight hover:underline">
                     {h.label}
                   </Link>
@@ -84,7 +84,7 @@ export default async function HouseholdsPage() {
             </div>
           )}
         </div>
-        <aside className="grid content-start gap-3 rounded-3xl bg-card p-6">
+        <aside className="grid content-start gap-3 rounded-3xl bg-card p-5 md:p-6">
           <h2 className="flex items-center gap-2 text-sm text-muted-foreground">
             <Plus className="size-4" />
             New household

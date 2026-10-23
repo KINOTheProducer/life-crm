@@ -175,3 +175,15 @@
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
+
+/*
+ * iOS zooms into any field under 16px when it's focused. Keep fields at 16px on
+ * phones; unlayered so it wins over text-sm on individual inputs.
+ */
+@media (max-width: 767px) {
+  input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"]),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}

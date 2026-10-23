@@ -25,13 +25,13 @@ export default async function TrashPage() {
   const { rows, now } = await trashed();
   return (
     <>
-      <Link href="/people" className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+      <Link href="/people" className="mb-3 inline-flex min-h-11 items-center gap-1.5 text-sm md:mb-6 md:min-h-0 text-muted-foreground hover:text-foreground">
         <ArrowLeft className="size-3.5" />
         People
       </Link>
       <PageHeader title="Trash." aside="Kept for 30 days." description="Restore someone with everything you'd saved about them, or delete them for good." />
       {rows.length === 0 ? (
-        <p className="rounded-3xl bg-card p-8 text-muted-foreground">The trash is empty.</p>
+        <p className="rounded-3xl bg-card p-6 md:p-8 text-muted-foreground">The trash is empty.</p>
       ) : (
         <ul className="divide-y divide-border rounded-3xl bg-card px-6">
           {rows.map((r) => {

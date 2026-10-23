@@ -1,5 +1,5 @@
 import { closenessLabels, factCategoryLabels, todayIn, upcoming } from "@life-crm/core";
-import { ArrowLeft, FileUp, Heart, NotebookText, Mail, MessageCircle, Mic, Phone, StickyNote } from "lucide-react";
+import { ArrowLeft, FileUp, Heart, NotebookPen, NotebookText, Mail, MessageCircle, Mic, Phone, StickyNote } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Avatar } from "@/components/avatar";
@@ -43,7 +43,11 @@ import { circleOptions, circlesOf } from "@/lib/data/circles";
 import { householdFor, householdOptions } from "@/lib/data/households";
 import { countSettled, listDebts, listGifts, listTasks, repeatedIdeas } from "@/lib/data/practical";
 import { tenantQuery } from "@/lib/session";
+import { cn } from "@/lib/utils";
 
+
+/** Phone-only tile for calling, texting and logging, big enough to hit with a thumb. */
+const quickAction = "flex min-h-16 flex-col items-center justify-center gap-1.5 rounded-[1.125rem] bg-card text-xs font-medium";
 
 const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
@@ -124,23 +128,35 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
     contact.isDeceased ? `passed away${contact.deathYear ? ` in ${contact.deathYear}` : ""}` : lastTalked(contact.lastInteractionAt).toLowerCase(),
   ].filter(Boolean);
 
+  const sections = [
+    { id: "timeline", label: "Timeline" },
+    { id: "contact", label: "Contact" },
+    { id: "details", label: "Details" },
+    { id: "about", label: "About" },
+    { id: "family", label: "Family" },
+    { id: "reminders", label: "Reminders" },
+    { id: "gifts", label: "Gifts", hidden: contact.isSelf },
+    { id: "memories", label: "Memories" },
+  ];
+
   return (
     <>
-      <Link href="/people" className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+      <Link href="/people" className="mb-3 inline-flex min-h-11 items-center gap-1.5 text-sm md:mb-6 md:min-h-0 text-muted-foreground hover:text-foreground">
         <ArrowLeft className="size-3.5" />
         People
       </Link>
-      <header className="flex flex-wrap items-end justify-between gap-6 pb-8">
-        <div className="flex items-end gap-5">
-          <Avatar id={contact.id} name={profile.name} src={avatarSrc(contact.avatarRef)} size={104} className="text-[2.5rem]" />
-          <div className="grid gap-2">
+      <header className="flex flex-wrap items-end justify-between gap-6 pb-6 md:pb-8">
+        {/* Phones: centred avatar and name, like a contact card. */}
+        <div className="flex w-full flex-col items-center gap-4 text-center md:w-auto md:flex-row md:items-end md:gap-5 md:text-left">
+          <Avatar id={contact.id} name={profile.name} src={avatarSrc(contact.avatarRef)} size={104} className="size-[88px]! text-[2.25rem]! md:size-[104px]! md:text-[2.5rem]!" />
+          <div className="grid justify-items-center gap-2 md:justify-items-start">
             <NameField contactId={contact.id} name={contact}>
-              <h1 className="type-display text-[3.25rem] leading-[1.02]">
+              <h1 className="type-display text-[2.25rem] leading-[1.04] md:text-[3.25rem] md:leading-[1.02]">
                 {profile.name}
                 {contact.nickname && <em className="text-muted-foreground"> “{contact.nickname}”</em>}
               </h1>
             </NameField>
-            <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[15px] text-muted-foreground">
+            <p className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-[15px] text-muted-foreground md:justify-start">
               {isPartner && (
                 <Badge variant="accent">
                   <Heart className="fill-current" />
@@ -158,19 +174,47 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
             </p>
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <nav aria-label={`Reach ${contact.firstName}`} className="grid w-full auto-cols-fr grid-flow-col gap-2 md:hidden">
           {phone?.href && (
-            <a href={phone.href} className={buttonVariants({ variant: "outline", size: "icon" })} aria-label={`Call ${contact.firstName}`} title={`Call ${phone.display}`}>
+            <a href={phone.href} className={quickAction}>
+              <Phone className="size-5" strokeWidth={1.8} />
+              Call
+            </a>
+          )}
+          {phone && (
+            <a href={`sms:${phone.value}`} className={quickAction}>
+              <MessageCircle className="size-5" strokeWidth={1.8} />
+              Text
+            </a>
+          )}
+          {email?.href && (
+            <a href={email.href} className={quickAction}>
+              <Mail className="size-5" strokeWidth={1.8} />
+              Email
+            </a>
+          )}
+          <a href="#catch-up" className={quickAction}>
+            <NotebookPen className="size-5" strokeWidth={1.8} />
+            Log
+          </a>
+          <Link href={`/capture/new?contact=${contact.id}`} className={cn(quickAction, "bg-primary text-primary-foreground")}>
+            <Mic className="size-5" strokeWidth={1.8} />
+            Voice
+          </Link>
+        </nav>
+        <div className="-mx-4 flex w-[calc(100%+2rem)] items-center gap-2 overflow-x-auto px-4 [scrollbar-width:none] md:mx-0 md:w-auto md:flex-wrap md:overflow-visible md:px-0 max-md:[&>*]:h-11 max-md:[&>*]:shrink-0">
+          {phone?.href && (
+            <a href={phone.href} className={buttonVariants({ variant: "outline", size: "icon", className: "max-md:hidden" })} aria-label={`Call ${contact.firstName}`} title={`Call ${phone.display}`}>
               <Phone />
             </a>
           )}
           {phone && (
-            <a href={`sms:${phone.value}`} className={buttonVariants({ variant: "outline", size: "icon" })} aria-label={`Text ${contact.firstName}`} title={`Text ${phone.display}`}>
+            <a href={`sms:${phone.value}`} className={buttonVariants({ variant: "outline", size: "icon", className: "max-md:hidden" })} aria-label={`Text ${contact.firstName}`} title={`Text ${phone.display}`}>
               <MessageCircle />
             </a>
           )}
           {email?.href && (
-            <a href={email.href} className={buttonVariants({ variant: "outline", size: "icon" })} aria-label={`Email ${contact.firstName}`} title={email.display}>
+            <a href={email.href} className={buttonVariants({ variant: "outline", size: "icon", className: "max-md:hidden" })} aria-label={`Email ${contact.firstName}`} title={email.display}>
               <Mail />
             </a>
           )}
@@ -181,12 +225,12 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
             </Link>
           )}
           {!contact.isSelf && (
-            <Link href={`/people/${contact.id}/brief`} className={buttonVariants({ variant: "ghost" })}>
+            <Link href={`/people/${contact.id}/brief`} className={buttonVariants({ variant: "ghost", className: "max-md:bg-card" })}>
               <NotebookText />
               Brief me
             </Link>
           )}
-          <Link href={`/people/${contact.id}/import`} className={buttonVariants({ variant: "ghost" })}>
+          <Link href={`/people/${contact.id}/import`} className={buttonVariants({ variant: "ghost", className: "max-md:bg-card" })}>
             <FileUp />
             Import
           </Link>
@@ -195,21 +239,31 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
             <StickyNote />
             Add note
           </a>
-          <a href="#catch-up" className={buttonVariants({ variant: "outline" })}>
+          <a href="#catch-up" className={buttonVariants({ variant: "outline", className: "max-md:hidden" })}>
             Log catch-up
           </a>
           <a href="#life-event" className={buttonVariants({ variant: "outline" })}>
             Life event
           </a>
-          <Link href={`/capture/new?contact=${contact.id}`} className={buttonVariants()}>
+          <Link href={`/capture/new?contact=${contact.id}`} className={buttonVariants({ className: "max-md:hidden" })}>
             <Mic />
             Voice note
           </Link>
         </div>
       </header>
 
-      <div className="grid gap-8 lg:grid-cols-[1fr_340px]">
-        <div className="grid content-start gap-8">
+      <nav aria-label="Sections" className="-mx-4 mb-4 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none] lg:hidden">
+        {sections
+          .filter((x) => !x.hidden)
+          .map((x) => (
+            <a key={x.id} href={`#${x.id}`} className="shrink-0 rounded-full bg-card px-3.5 py-2.5 text-sm">
+              {x.label}
+            </a>
+          ))}
+      </nav>
+
+      <div className="grid gap-6 md:gap-8 lg:grid-cols-[1fr_340px]">
+        <div className="grid content-start gap-6 md:gap-8">
           {!contact.isSelf && (
             <SummaryCard
               contactId={contact.id}
@@ -221,19 +275,21 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
           )}
           <Composer contactId={contact.id} firstName={contact.firstName} today={todayIso} />
           {result.faces.length > 0 && result.immich && <PersonPhotosPanel contactId={contact.id} firstName={contact.firstName} isSelf={contact.isSelf} />}
-          <Timeline
-            contactId={contact.id}
-            entries={profile.timeline.entries}
-            hasMore={profile.timeline.hasMore}
-            activeKinds={kinds}
-            names={profile.names}
-            timeZone={timeZone}
-            today={todayIso}
-          />
+          <div id="timeline" className="scroll-mt-4">
+            <Timeline
+              contactId={contact.id}
+              entries={profile.timeline.entries}
+              hasMore={profile.timeline.hasMore}
+              activeKinds={kinds}
+              names={profile.names}
+              timeZone={timeZone}
+              today={todayIso}
+            />
+          </div>
         </div>
 
         <aside className="grid content-start gap-6">
-          <Card>
+          <Card id="contact" className="scroll-mt-4">
             <CardHeader>
               <CardTitle>Contact</CardTitle>
             </CardHeader>
@@ -241,7 +297,7 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
               <ContactCard contactId={contact.id} info={result.info} company={contact.company} jobTitle={contact.jobTitle} household={result.household} />
             </CardContent>
           </Card>
-          <Card>
+          <Card id="details" className="scroll-mt-4">
             <CardHeader>
               <CardTitle>Details</CardTitle>
             </CardHeader>
@@ -302,7 +358,7 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
               {!contact.isSelf && <TrashPersonButton contactId={contact.id} firstName={contact.firstName} />}
             </CardContent>
           </Card>
-          <Card>
+          <Card id="family" className="scroll-mt-4">
             <CardHeader>
               <CardTitle>Family</CardTitle>
             </CardHeader>
@@ -317,7 +373,7 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
               />
             </CardContent>
           </Card>
-          <Card>
+          <Card id="reminders" className="scroll-mt-4">
             <CardHeader>
               <CardTitle>Reminders</CardTitle>
             </CardHeader>
@@ -336,7 +392,7 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
                   <TasksCard contactId={contact.id} firstName={contact.firstName} tasks={result.tasks} today={todayIso} />
                 </CardContent>
               </Card>
-              <Card>
+              <Card id="gifts" className="scroll-mt-4">
                 <CardHeader>
                   <CardTitle>Gifts</CardTitle>
                 </CardHeader>
@@ -361,7 +417,7 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
               </Card>
             </>
           )}
-          <Card>
+          <Card id="memories" className="scroll-mt-4">
             <CardHeader>
               <CardTitle>Memories</CardTitle>
             </CardHeader>
@@ -392,13 +448,15 @@ export default async function PersonPage({ params, searchParams }: PageProps<"/p
               </CardContent>
             </Card>
           )}
-          <FactsPanel
-            contactId={contact.id}
-            firstName={contact.firstName}
-            facts={profile.facts
-              .filter((f) => contact.isSelf || f.category !== "wishlist")
-              .map((f) => ({ ...f, category: f.category as keyof typeof factCategoryLabels }))}
-          />
+          <div id="about" className="scroll-mt-4">
+            <FactsPanel
+              contactId={contact.id}
+              firstName={contact.firstName}
+              facts={profile.facts
+                .filter((f) => contact.isSelf || f.category !== "wishlist")
+                .map((f) => ({ ...f, category: f.category as keyof typeof factCategoryLabels }))}
+            />
+          </div>
         </aside>
       </div>
     </>

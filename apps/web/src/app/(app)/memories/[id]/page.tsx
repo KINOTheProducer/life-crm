@@ -31,12 +31,12 @@ export default async function MemoryPage({ params }: PageProps<"/memories/[id]">
 
   return (
     <>
-      <Link href="/memories" className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+      <Link href="/memories" className="mb-3 inline-flex min-h-11 items-center gap-1.5 text-sm md:mb-6 md:min-h-0 text-muted-foreground hover:text-foreground">
         <ArrowLeft className="size-3.5" />
         Memories
       </Link>
 
-      <div className="grid gap-8 lg:grid-cols-[1fr_380px]">
+      <div className="grid gap-6 md:gap-8 lg:grid-cols-[1fr_380px]">
         <div className="grid content-start gap-8">
           <section className={cn("relative isolate min-h-80 overflow-hidden rounded-3xl", cover ? "bg-[#2a211b] text-white" : toneFor(m.id))}>
             {cover && (
@@ -50,7 +50,7 @@ export default async function MemoryPage({ params }: PageProps<"/memories/[id]">
               <p className="type-meta opacity-80">
                 {memoryKindLabels[m.kind]} · {formatDateRange(m.startedOn, m.endedOn)}
               </p>
-              <h1 className="type-display text-[3.25rem] leading-[1.02]">
+              <h1 className="type-display text-[2.25rem] leading-[1.04] md:text-[3.25rem] md:leading-[1.02]">
                 {m.title}
                 {m.reason && <em className={cover ? "text-white/75" : "text-muted-foreground"}> {m.reason}</em>}
               </h1>
@@ -73,7 +73,7 @@ export default async function MemoryPage({ params }: PageProps<"/memories/[id]">
             today={data.today}
             values={{ title: m.title, kind: m.kind, reason: m.reason, startedOn: m.startedOn, endedOn: m.endedOn, location: m.location, story: m.story, people: people.map((p) => p.id) }}
           >
-            <div className="grid gap-5 rounded-3xl bg-card p-6">
+            <div className="grid gap-5 rounded-3xl bg-card p-5 md:p-6">
               <div className="grid gap-2">
                 <h2 className="text-sm text-muted-foreground">Who was there</h2>
                 {people.length === 0 ? (

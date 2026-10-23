@@ -6,7 +6,7 @@ import { Importer } from "@/components/people/importer";
 export default function ImportPage() {
   return (
     <>
-      <Link href="/people" className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+      <Link href="/people" className="mb-3 inline-flex min-h-11 items-center gap-1.5 text-sm md:mb-6 md:min-h-0 text-muted-foreground hover:text-foreground">
         <ArrowLeft className="size-3.5" />
         People
       </Link>

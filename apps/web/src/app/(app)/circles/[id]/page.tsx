@@ -40,15 +40,15 @@ export default async function CirclePage({ params }: PageProps<"/circles/[id]">)
 
   return (
     <>
-      <Link href="/circles" className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+      <Link href="/circles" className="mb-3 inline-flex min-h-11 items-center gap-1.5 text-sm md:mb-6 md:min-h-0 text-muted-foreground hover:text-foreground">
         <ArrowLeft className="size-3.5" />
         Circles
       </Link>
       <header className="flex items-center gap-4 pb-8">
         <span className={cn("size-5 rounded-full ring-1 ring-foreground/15", toneClass[circle.tone])} />
-        <h1 className="type-display text-[3.25rem] leading-[1.02]">{circle.name}</h1>
+        <h1 className="type-display text-[2.25rem] leading-[1.04] md:text-[3.25rem] md:leading-[1.02]">{circle.name}</h1>
       </header>
-      <div className="grid gap-8 lg:grid-cols-[1fr_340px]">
+      <div className="grid gap-6 md:gap-8 lg:grid-cols-[1fr_340px]">
         <div className="grid content-start gap-6">
           <Card>
             <CardHeader>

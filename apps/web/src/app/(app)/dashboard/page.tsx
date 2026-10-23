@@ -99,8 +99,8 @@ export default async function DashboardPage() {
         <section className="flex flex-col overflow-hidden rounded-3xl bg-card lg:row-span-2">
           {next ? (
             <>
-              <div className={cn("relative grid h-60 place-items-center", toneFor(next.contactId))}>
-                <span className="type-display text-[7rem] text-foreground/80 italic">{initials(next.name)}</span>
+              <div className={cn("relative grid h-44 place-items-center md:h-60", toneFor(next.contactId))}>
+                <span className="type-display text-[5rem] text-foreground/80 italic md:text-[7rem]">{initials(next.name)}</span>
                 <span className="absolute top-4 left-4 rounded-full bg-white/90 px-3 py-1.5 text-xs">
                   Birthday · {next.daysAway === 0 ? "today" : monthDay.format(new Date(Date.UTC(next.date.year, next.date.month - 1, next.date.day))).split(",")[0]}
                 </span>
@@ -109,9 +109,9 @@ export default async function DashboardPage() {
                   <span className="type-meta mt-1">{next.daysAway === 1 ? "day" : "days"}</span>
                 </span>
               </div>
-              <div className="grid gap-1 px-6 pt-5 pb-6">
+              <div className="grid gap-1 px-5 pt-5 pb-5 md:px-6 md:pb-6">
                 <p className="text-sm text-muted-foreground">Coming up</p>
-                <Link href={`/people/${next.contactId}`} className="type-display text-[2rem] hover:underline">
+                <Link href={`/people/${next.contactId}`} className="type-display text-[1.75rem] leading-tight hover:underline md:text-[2rem]">
                   {next.turning ? `${next.name.split(" ")[0]} turns ${next.turning}` : `${next.name}'s birthday`}
                 </Link>
                 {known && <p className="text-[15px] text-muted-foreground">{known.value}</p>}
@@ -144,7 +144,7 @@ export default async function DashboardPage() {
         </section>
 
         {/* Drifting */}
-        <section className="rounded-3xl bg-card p-6">
+        <section className="rounded-3xl bg-card p-5 md:p-6">
           <h2 className="text-sm text-muted-foreground">Drifting</h2>
           {data.drifting.length === 0 ? (
             <p className="mt-3 text-[15px]">You&apos;re up to date with everyone.</p>
@@ -169,7 +169,7 @@ export default async function DashboardPage() {
         </section>
 
         {/* Closeness */}
-        <section className="rounded-3xl bg-card p-6">
+        <section className="rounded-3xl bg-card p-5 md:p-6">
           <h2 className="text-sm text-muted-foreground">{people} people</h2>
           <div className="mt-3 grid grid-cols-2 gap-2.5">
             {tiers.map((t) => (
@@ -182,11 +182,11 @@ export default async function DashboardPage() {
         </section>
 
         {/* Year */}
-        <section className="rounded-3xl bg-card p-6 lg:col-span-2">
+        <section className="rounded-3xl bg-card p-5 md:p-6 lg:col-span-2">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <h2 className="text-sm text-muted-foreground">Your year</h2>
-              <p className="type-display mt-1 text-[1.875rem]">
+              <p className="type-display mt-1 text-[1.625rem] leading-tight md:text-[1.875rem]">
                 {data.year.total} catch-ups
                 {data.year.previous > 0 && <em className="text-muted-foreground">, {data.year.total >= data.year.previous ? "up" : "down"} from {data.year.previous}</em>}
               </p>
@@ -205,7 +205,7 @@ export default async function DashboardPage() {
       {data.news.length > 0 && <News items={data.news} />}
 
       {data.inbox.length > 0 && (
-        <section className="mt-3.5 rounded-3xl bg-card p-6">
+        <section className="mt-3.5 rounded-3xl bg-card p-5 md:p-6">
           <div className="flex items-center justify-between">
             <h2 className="text-sm text-muted-foreground">Reminders</h2>
             <Link href="/reminders" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
@@ -232,9 +232,9 @@ function PartnerCard({ partner: p }: { partner: Partner }) {
   const lastDate =
     p.dateNight.daysSince == null ? "No date nights logged yet" : p.dateNight.daysSince === 0 ? "Date night today" : `Last date night ${p.dateNight.daysSince} days ago`;
   return (
-    <section className="flex flex-wrap items-center gap-6 rounded-3xl bg-card p-6">
+    <section className="flex flex-wrap items-center gap-x-6 gap-y-4 rounded-3xl bg-card p-5 md:p-6">
       <Avatar id={p.contactId} name={p.name} src={avatarSrc(p.avatarRef)} size={64} className="text-2xl" />
-      <div className="grid min-w-48 flex-1 gap-1">
+      <div className="grid min-w-0 flex-1 basis-48 gap-1">
         <p className="flex flex-wrap items-center gap-x-1.5 text-sm text-muted-foreground">
           <Heart className="size-3.5 fill-coral text-coral" />
           {p.label}
@@ -248,7 +248,7 @@ function PartnerCard({ partner: p }: { partner: Partner }) {
           {p.dateNight.due && ", time for one"}
         </p>
       </div>
-      <dl className="grid min-w-56 flex-1 gap-2 text-[15px]">
+      <dl className="grid min-w-0 flex-1 basis-56 gap-2 text-[15px]">
         {(p.followUp || p.wish) && (
           <div className="grid gap-0.5">
             <dt className="text-[13px] text-muted-foreground">{p.followUp ? "Ask about" : "Gift idea"}</dt>
@@ -279,7 +279,7 @@ const newsDate = new Intl.DateTimeFormat("en-CA", { month: "short", day: "numeri
 /** Life events from the last month. Hard news leads with a check-in, not a congratulations. */
 function News({ items }: { items: NewsItem[] }) {
   return (
-    <section className="mt-3.5 rounded-3xl bg-card p-6">
+    <section className="mt-3.5 rounded-3xl bg-card p-5 md:p-6">
       <h2 className="text-sm text-muted-foreground">News from your people</h2>
       <ul className="mt-2 divide-y divide-border">
         {items.map((n) => (

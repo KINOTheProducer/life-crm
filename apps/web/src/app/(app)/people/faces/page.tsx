@@ -16,7 +16,7 @@ export default async function FacesPage() {
       {connected ? (
         <FaceMatcher />
       ) : (
-        <p className="rounded-3xl bg-card p-8 text-muted-foreground">
+        <p className="rounded-3xl bg-card p-6 md:p-8 text-muted-foreground">
           <Link href="/settings" className="underline underline-offset-4">
             Connect Immich
           </Link>{" "}

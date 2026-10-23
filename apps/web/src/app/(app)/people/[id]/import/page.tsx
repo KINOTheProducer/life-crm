@@ -21,7 +21,7 @@ export default async function ImportPage({ params }: PageProps<"/people/[id]/imp
 
   return (
     <>
-      <Link href={`/people/${id}`} className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+      <Link href={`/people/${id}`} className="mb-3 inline-flex min-h-11 items-center gap-1.5 text-sm md:mb-6 md:min-h-0 text-muted-foreground hover:text-foreground">
         <ArrowLeft className="size-3.5" />
         {data.existing.firstName}
       </Link>

@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Newsreader } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import { APP_NAME } from "@/lib/brand";
@@ -24,6 +24,12 @@ const displaySerif = Newsreader({
 export const metadata: Metadata = {
   title: { default: `${APP_NAME}: a personal CRM for friends and family`, template: `%s · ${APP_NAME}` },
   description: "Birthday reminders, voice notes and a timeline for everyone you care about. Self-host it or use the hosted version.",
+};
+
+export const viewport: Viewport = {
+  // Lets the tab bar and sheets pad themselves around the home indicator and notch.
+  viewportFit: "cover",
+  themeColor: "#f2efe9",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

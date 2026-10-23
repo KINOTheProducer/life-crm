@@ -16,16 +16,16 @@ export default async function CirclesPage() {
   return (
     <>
       <PageHeader title="Circles." aside={circles.length ? "The groups you think of together." : "Group the people who go together."} />
-      <div className="grid gap-8 lg:grid-cols-[1fr_340px]">
+      <div className="grid gap-6 md:gap-8 lg:grid-cols-[1fr_340px]">
         <div className="grid content-start gap-3.5 sm:grid-cols-2">
           {circles.length === 0 && (
-            <div className="grid gap-2 rounded-3xl bg-card p-8 sm:col-span-2">
+            <div className="grid gap-2 rounded-3xl bg-card p-6 md:p-8 sm:col-span-2">
               <p className="type-display text-3xl">Uni crew, the climbing gang, Mom&apos;s side.</p>
               <p className="text-muted-foreground">Keep shared notes for each group and log one catch-up for everyone who was there.</p>
             </div>
           )}
           {circles.map((c) => (
-            <Link key={c.id} href={`/circles/${c.id}`} className="grid gap-4 rounded-3xl bg-card p-6 transition-transform hover:-translate-y-0.5">
+            <Link key={c.id} href={`/circles/${c.id}`} className="grid gap-4 rounded-3xl bg-card p-5 md:p-6 transition-transform hover:-translate-y-0.5">
               <div className="flex items-center gap-3">
                 <span className={cn("size-4 rounded-full ring-1 ring-foreground/15", toneClass[c.tone])} />
                 <span className="type-display text-2xl">{c.name}</span>
@@ -44,7 +44,7 @@ export default async function CirclesPage() {
             </Link>
           ))}
         </div>
-        <aside className="grid content-start gap-3 rounded-3xl bg-card p-6">
+        <aside className="grid content-start gap-3 rounded-3xl bg-card p-5 md:p-6">
           <h2 className="flex items-center gap-2 text-sm text-muted-foreground">
             <Plus className="size-4" />
             New circle

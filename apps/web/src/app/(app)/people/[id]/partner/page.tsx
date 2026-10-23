@@ -63,7 +63,7 @@ export default async function PartnerPage({ params }: PageProps<"/people/[id]/pa
   const polyamorous = prefs.relationshipStyle === "polyamorous";
 
   const back = (
-    <Link href={`/people/${id}`} className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+    <Link href={`/people/${id}`} className="mb-3 inline-flex min-h-11 items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground md:mb-6 md:min-h-0">
       <ArrowLeft className="size-3.5" />
       {name}
     </Link>
@@ -73,8 +73,8 @@ export default async function PartnerPage({ params }: PageProps<"/people/[id]/pa
     return (
       <>
         {back}
-        <header className="grid gap-2 pb-8">
-          <h1 className="type-display text-[3.25rem] leading-[1.02]">
+        <header className="grid gap-2 pb-6 md:pb-8">
+          <h1 className="type-display text-[2.25rem] leading-[1.04] md:text-[3.25rem] md:leading-[1.02]">
             {contact.firstName} <em className="text-muted-foreground">and you.</em>
           </h1>
           <p className="max-w-xl text-[15px] text-muted-foreground">
@@ -122,11 +122,11 @@ export default async function PartnerPage({ params }: PageProps<"/people/[id]/pa
   return (
     <>
       {back}
-      <header className="flex flex-wrap items-end justify-between gap-6 pb-8">
-        <div className="flex items-end gap-5">
-          <Avatar id={contact.id} name={name} src={avatarSrc(contact.avatarRef)} size={104} className="text-[2.5rem]" />
+      <header className="flex flex-wrap items-end justify-between gap-6 pb-6 md:pb-8">
+        <div className="flex items-end gap-4 md:gap-5">
+          <Avatar id={contact.id} name={name} src={avatarSrc(contact.avatarRef)} size={104} className="size-[72px]! text-[1.75rem]! md:size-[104px]! md:text-[2.5rem]!" />
           <div className="grid gap-2">
-            <h1 className="type-display text-[3.25rem] leading-[1.02]">
+            <h1 className="type-display text-[2.25rem] leading-[1.04] md:text-[3.25rem] md:leading-[1.02]">
               {contact.firstName} <em className="text-muted-foreground">and you.</em>
             </h1>
             <p className="flex flex-wrap items-center gap-2 text-[15px] text-muted-foreground">
@@ -156,16 +156,16 @@ export default async function PartnerPage({ params }: PageProps<"/people/[id]/pa
       {stats.length > 0 && (
         <div className="mb-6 grid gap-3.5 sm:grid-cols-3">
           {stats.map((s) => (
-            <div key={s.label} className={s.accent ? "rounded-3xl bg-coral p-6 text-white" : "rounded-3xl bg-card p-6"}>
+            <div key={s.label} className={s.accent ? "rounded-3xl bg-coral p-5 text-white md:p-6" : "rounded-3xl bg-card p-5 md:p-6"}>
               <p className={s.accent ? "text-sm text-white/85" : "text-sm text-muted-foreground"}>{s.label}</p>
-              <p className="type-display mt-1 text-[2rem] leading-tight">{s.value}</p>
+              <p className="type-display mt-1 text-[1.75rem] leading-tight md:text-[2rem]">{s.value}</p>
               {s.hint && <p className={s.accent ? "text-sm text-white/85" : "text-sm text-muted-foreground"}>{s.hint}</p>}
             </div>
           ))}
         </div>
       )}
 
-      <div className="grid gap-8 lg:grid-cols-[1fr_340px]">
+      <div className="grid gap-6 md:gap-8 lg:grid-cols-[1fr_340px]">
         <div className="grid content-start gap-6">
           <Card>
             <CardHeader>

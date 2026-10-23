@@ -76,7 +76,7 @@ export default async function LifeTimelinePage({ searchParams }: PageProps<"/peo
 
   return (
     <>
-      <Link href="/people" className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+      <Link href="/people" className="mb-3 inline-flex min-h-11 items-center gap-1.5 text-sm md:mb-6 md:min-h-0 text-muted-foreground hover:text-foreground">
         <ArrowLeft className="size-3.5" />
         People
       </Link>
@@ -106,16 +106,16 @@ export default async function LifeTimelinePage({ searchParams }: PageProps<"/peo
       </div>
 
       <div className="grid gap-8 xl:grid-cols-[1fr_300px]">
-        <section className="overflow-x-auto rounded-3xl bg-card p-6">
+        <section className="overflow-x-auto rounded-3xl bg-card p-5 md:p-6">
           {rows.length === 0 ? (
             <div className="grid gap-2 py-6">
               <p className="type-display text-3xl">No one to show yet.</p>
               <p className="text-muted-foreground">Add when you met people on their page (under Details), and log catch-ups.</p>
             </div>
           ) : (
-            <div className="relative min-w-[720px]">
+            <div className="relative min-w-[560px] md:min-w-[720px]">
               {/* Your eras, behind everything. */}
-              <div className="pointer-events-none absolute inset-y-0 right-0 left-[180px]">
+              <div className="pointer-events-none absolute inset-y-0 right-0 left-[120px] md:left-[180px]">
                 {eras.map((e) => (
                   <div
                     key={e.id}
@@ -129,7 +129,7 @@ export default async function LifeTimelinePage({ searchParams }: PageProps<"/peo
                 ))}
               </div>
 
-              <div className="relative grid grid-cols-[180px_1fr] pt-6">
+              <div className="relative grid grid-cols-[120px_1fr] pt-6 md:grid-cols-[180px_1fr]">
                 <div />
                 <div className="relative mb-2 h-5 border-b border-border">
                   {ticks.map((t) => (
@@ -161,7 +161,7 @@ export default async function LifeTimelinePage({ searchParams }: PageProps<"/peo
           </p>
         </section>
 
-        <aside className="grid content-start gap-4 rounded-3xl bg-card p-6">
+        <aside className="grid content-start gap-4 rounded-3xl bg-card p-5 md:p-6">
           <div className="grid gap-1">
             <h2 className="type-display text-2xl">Your eras</h2>
             <p className="text-sm text-muted-foreground">Schools, cities, jobs. They show behind the bars, so you can see who arrived when.</p>

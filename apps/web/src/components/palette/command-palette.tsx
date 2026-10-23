@@ -155,7 +155,7 @@ export function CommandPalette() {
         ref={palette}
         aria-label="Go to"
         onClick={(e) => e.target === palette.current && palette.current.close()}
-        className="m-auto mt-[12vh] w-[min(640px,calc(100vw-2rem))] rounded-3xl bg-card p-0 text-foreground shadow-2xl backdrop:bg-black/40"
+        className="m-auto mt-[calc(env(safe-area-inset-top)+0.75rem)] w-[min(640px,calc(100vw-2rem))] sm:mt-[12vh] rounded-3xl bg-card p-0 text-foreground shadow-2xl backdrop:bg-black/40"
       >
         <div className="flex items-center gap-3 border-b border-border px-5">
           <Search className="size-4 text-muted-foreground" />
@@ -184,11 +184,11 @@ export function CommandPalette() {
             aria-expanded
             aria-controls="palette-results"
             aria-activedescendant={results[selected] ? `cmd-${results[selected].id}` : undefined}
-            className="h-14 flex-1 bg-transparent text-[15px] outline-none"
+            className="h-14 min-w-0 flex-1 bg-transparent text-base outline-none sm:text-[15px]"
           />
-          <kbd className="rounded-md border border-border px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">esc</kbd>
+          <kbd className="hidden rounded-md border border-border px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground sm:inline">esc</kbd>
         </div>
-        <ul id="palette-results" role="listbox" className="max-h-[50vh] overflow-y-auto p-2">
+        <ul id="palette-results" role="listbox" className="max-h-[60dvh] overflow-y-auto p-2 sm:max-h-[50vh]">
           {results.length === 0 && <li className="px-3 py-6 text-center text-sm text-muted-foreground">Nothing matches.</li>}
           {results.map((r, i) => {
             const Icon = r.icon;
@@ -224,7 +224,7 @@ export function CommandPalette() {
         ref={adder}
         aria-label="Quick add"
         onClick={(e) => e.target === adder.current && adder.current.close()}
-        className="m-auto mt-[12vh] w-[min(520px,calc(100vw-2rem))] rounded-3xl bg-card p-6 text-foreground shadow-2xl backdrop:bg-black/40"
+        className="m-auto mt-[calc(env(safe-area-inset-top)+0.75rem)] w-[min(520px,calc(100vw-2rem))] sm:mt-[12vh] rounded-3xl bg-card p-5 md:p-6 text-foreground shadow-2xl backdrop:bg-black/40"
       >
         <QuickAdd
           key={adds}

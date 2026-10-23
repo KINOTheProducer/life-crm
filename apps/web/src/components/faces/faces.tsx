@@ -335,7 +335,7 @@ export function PersonPhotosPanel({ contactId, firstName, isSelf = false }: { co
   ] as const;
 
   return (
-    <section className="grid gap-4 rounded-3xl bg-card p-6">
+    <section className="grid gap-4 rounded-3xl bg-card p-5 md:p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="type-display text-[1.625rem]">Photos</h2>
         {!isSelf && (

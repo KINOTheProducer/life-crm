@@ -157,7 +157,7 @@ export function CardScanner() {
 
   return (
     <div className="grid gap-6">
-      <div className="grid gap-6 rounded-3xl bg-card p-6 md:grid-cols-2">
+      <div className="grid gap-6 rounded-3xl bg-card p-5 md:p-6 md:grid-cols-2">
         {slot("front")}
         {slot("back")}
       </div>
@@ -201,7 +201,7 @@ function CardReview({ card, match, onRestart }: { card: CardExtraction; match: {
           if (res?.error) setError(res.error);
         });
       }}
-      className="grid gap-6 rounded-3xl bg-card p-6"
+      className="grid gap-6 rounded-3xl bg-card p-5 md:p-6"
     >
       {match && (
         <label className="flex items-start gap-3 rounded-2xl bg-butter px-4 py-3 text-sm">

@@ -35,7 +35,7 @@ export default async function RemindersPage() {
           </>
         }
       />
-      <div className="grid gap-8 lg:grid-cols-[1fr_340px]">
+      <div className="grid gap-6 md:gap-8 lg:grid-cols-[1fr_340px]">
         <div className="grid content-start gap-6">
           <Card>
             <CardHeader>
