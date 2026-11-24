@@ -5,6 +5,7 @@
   <Registry>https://github.com/KINOTheProducer/life-crm/pkgs/container/life-crm</Registry>
   <Network>bridge</Network>
   <Shell>sh</Shell>
+  <ExtraParams>--restart unless-stopped</ExtraParams>
   <Privileged>false</Privileged>
   <Support>https://github.com/KINOTheProducer/life-crm/issues</Support>
   <Project>https://github.com/KINOTheProducer/life-crm</Project>

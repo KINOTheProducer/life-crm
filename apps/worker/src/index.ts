@@ -16,6 +16,16 @@ console.log(
   `worker: reminders every ${intervalMs / 1000}s, email ${deps.mailer ? "on" : "off"}, push ${deps.push ? "on" : "off"}`,
 );
 
+// Connection errors come wrapped in a DrizzleQueryError with the whole query attached;
+// log one line with the actual cause instead.
+function describeError(error: unknown): string {
+  const err = error as { message?: string; code?: string; cause?: { message?: string; code?: string } };
+  const cause = err.cause;
+  if (cause?.code) return `${cause.code} ${cause.message ?? ""}`.trim();
+  if (err.code) return `${err.code} ${err.message ?? ""}`.trim();
+  return error instanceof Error ? (error.stack ?? error.message) : String(error);
+}
+
 let running = false;
 let lastPurge = 0;
 async function tick() {
@@ -32,7 +42,7 @@ async function tick() {
       if (removed > 0) console.log(`worker: removed ${removed} person(s) from the trash`);
     }
   } catch (error) {
-    console.error("worker: reminder tick failed", error);
+    console.error(`worker: reminder tick failed: ${describeError(error)}`);
   } finally {
     running = false;
   }

@@ -4,7 +4,14 @@ import postgres from "postgres";
 import * as schema from "./schema";
 
 export function createDb(url: string) {
-  const client = postgres(url, { max: 10 });
+  const client = postgres(url, {
+    max: 10,
+    // Drop idle connections so a restarted or unreachable Postgres doesn't leave dead
+    // sockets in the pool, and fail fast on connect instead of hanging for 30s.
+    idle_timeout: 60,
+    max_lifetime: 30 * 60,
+    connect_timeout: 10,
+  });
   return drizzle(client, { schema, casing: "snake_case" });
 }
 
