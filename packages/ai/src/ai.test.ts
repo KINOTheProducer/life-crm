@@ -127,6 +127,17 @@ describe("OpenAiCompatibleExtractor", () => {
     expect(result.interaction).toMatchObject({ type: "other", location: null });
   });
 
+  it("spells the schema out in the system prompt for servers that ignore response_format", async () => {
+    const fetchMock = vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
+      const system = JSON.parse(String(init?.body)).messages[0].content as string;
+      expect(system).toContain('"firstName"');
+      expect(system).toContain('"participantRefs"');
+      return Response.json({ choices: [{ message: { content: JSON.stringify(extraction) } }] });
+    });
+    const extractor = new OpenAiCompatibleExtractor({ baseUrl: "http://x/v1", model: "m", fetch: fetchMock as typeof fetch });
+    expect(await extractor.extract(input)).toEqual(extraction);
+  });
+
   it("rejects output that doesn't match the schema", async () => {
     const fetchMock = vi.fn(async () => Response.json({ choices: [{ message: { content: '{"people": "nope"}' } }] }));
     const extractor = new OpenAiCompatibleExtractor({ baseUrl: "http://x/v1", model: "m", fetch: fetchMock as typeof fetch });

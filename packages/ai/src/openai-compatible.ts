@@ -90,6 +90,17 @@ export function repairToSchema(value: unknown, schema: JsonSchema): unknown {
   return value;
 }
 
+/**
+ * Not every server honours response_format (GLM, some local models), and without the shape in
+ * front of them they invent their own keys. Say it in the prompt as well.
+ */
+export function withSchemaPrompt(system: string, schema: unknown): string {
+  return `${system}
+
+Reply with a single JSON object and nothing else: no prose, no code fences. It must use exactly these keys and types, with every key present (use null where nothing applies), and must not copy the structure of the input:
+${JSON.stringify(schema)}`;
+}
+
 const extractionJsonSchema = jsonSchemaFor(extractionSchema);
 const documentJsonSchema = jsonSchemaFor(documentSchema);
 const resortJsonSchema = jsonSchemaFor(resortSchema);
@@ -170,7 +181,7 @@ export class OpenAiCompatibleExtractor implements Extractor {
       body: JSON.stringify({
         model: this.config.model,
         messages: [
-          { role: "system", content: system },
+          { role: "system", content: withSchemaPrompt(system, format.schema) },
           { role: "user", content: message },
         ],
         response_format: {
