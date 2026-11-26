@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { z } from "zod";
 import { DEFAULT_CLAUDE_MODEL } from "./anthropic";
+import { extractJson, repairToSchema } from "./openai-compatible";
 import { AiError, noEmDashes } from "./types";
 
 /**
@@ -198,12 +199,16 @@ export class OpenAiCompatibleAssistant implements Assistant {
     if (!content) throw new AiError("The model returned an empty response.", true);
     let json: unknown;
     try {
-      json = JSON.parse(content);
+      json = JSON.parse(extractJson(content));
     } catch {
       throw new AiError("The model returned invalid JSON.", true);
     }
-    const parsed = schema.safeParse(json);
-    if (!parsed.success) throw new AiError("The model's output didn't match the expected format.", true);
+    let parsed = schema.safeParse(json);
+    if (!parsed.success) parsed = schema.safeParse(repairToSchema(json, jsonSchema(schema) as Parameters<typeof repairToSchema>[1]));
+    if (!parsed.success) {
+      console.warn(`[ai] ${name} output rejected (${this.config.model}):`, JSON.stringify(parsed.error.issues.slice(0, 5)), content.slice(0, 500));
+      throw new AiError("The model's output didn't match the expected format.", true);
+    }
     return parsed.data;
   }
 

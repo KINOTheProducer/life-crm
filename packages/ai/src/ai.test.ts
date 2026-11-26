@@ -114,6 +114,19 @@ describe("OpenAiCompatibleExtractor", () => {
     expect(String(fetchMock.mock.calls[0]![0])).toBe("http://ollama:11434/v1/chat/completions");
   });
 
+  it("repairs fenced output with missing keys and unknown enum values", async () => {
+    const sloppy = {
+      people: [{ ref: "p1", firstName: "Sarah", facts: [{ category: "Job", label: "Job", value: "Nurse" }] }],
+      interaction: { type: "coffee", date: "2026-10-18", summary: "Coffee.", participantRefs: ["p1"] },
+    };
+    const content = "Here you go:\n```json\n" + JSON.stringify(sloppy) + "\n```";
+    const fetchMock = vi.fn(async () => Response.json({ choices: [{ message: { content } }] }));
+    const extractor = new OpenAiCompatibleExtractor({ baseUrl: "http://x/v1", model: "m", fetch: fetchMock as typeof fetch });
+    const result = await extractor.extract(input);
+    expect(result.people[0]).toMatchObject({ firstName: "Sarah", lastName: null, birthday: null, facts: [{ category: "other", value: "Nurse" }] });
+    expect(result.interaction).toMatchObject({ type: "other", location: null });
+  });
+
   it("rejects output that doesn't match the schema", async () => {
     const fetchMock = vi.fn(async () => Response.json({ choices: [{ message: { content: '{"people": "nope"}' } }] }));
     const extractor = new OpenAiCompatibleExtractor({ baseUrl: "http://x/v1", model: "m", fetch: fetchMock as typeof fetch });
