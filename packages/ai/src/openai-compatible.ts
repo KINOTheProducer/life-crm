@@ -28,6 +28,68 @@ function jsonSchemaFor(schema: z.ZodType) {
   const { $schema: _ignored, ...rest } = z.toJSONSchema(schema);
   return rest;
 }
+type JsonSchema = {
+  type?: string | string[];
+  anyOf?: JsonSchema[];
+  properties?: Record<string, JsonSchema>;
+  items?: JsonSchema;
+  enum?: unknown[];
+};
+
+/** Models behind OpenAI-style APIs often wrap JSON in code fences or add prose around it. */
+export function extractJson(content: string): string {
+  const fenced = content.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  const text = (fenced?.[1] ?? content).trim();
+  if (text.startsWith("{") || text.startsWith("[")) return text;
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+  return start >= 0 && end > start ? text.slice(start, end + 1) : text;
+}
+
+/**
+ * Smooth over the usual small mistakes weaker or local models make against a JSON schema:
+ * missing keys, unknown enum values, numbers as strings. Anything it can't fix is left for
+ * zod to reject.
+ */
+export function repairToSchema(value: unknown, schema: JsonSchema): unknown {
+  if (schema.anyOf) {
+    const nullable = schema.anyOf.some((s) => s.type === "null");
+    if (value === undefined || value === null) return nullable ? null : value;
+    const branch = schema.anyOf.find((s) => s.type !== "null");
+    return branch ? repairToSchema(value, branch) : value;
+  }
+  const type = Array.isArray(schema.type) ? schema.type.find((t) => t !== "null") : schema.type;
+  if (Array.isArray(schema.type) && schema.type.includes("null") && (value === undefined || value === null)) return null;
+  if (schema.enum) {
+    if (typeof value === "string" && !schema.enum.includes(value)) {
+      const lower = value.trim().toLowerCase().replace(/[\s-]+/g, "_");
+      if (schema.enum.includes(lower)) return lower;
+      return schema.enum.includes("other") ? "other" : value;
+    }
+    return value;
+  }
+  if (type === "object" && schema.properties) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+    const input = value as Record<string, unknown>;
+    const out: Record<string, unknown> = {};
+    for (const [key, child] of Object.entries(schema.properties)) {
+      const fixed = repairToSchema(input[key], child);
+      if (fixed !== undefined) out[key] = fixed;
+    }
+    return out;
+  }
+  if (type === "array") {
+    if (value === undefined || value === null) return [];
+    if (!Array.isArray(value)) return value;
+    return schema.items ? value.map((v) => repairToSchema(v, schema.items!)) : value;
+  }
+  if ((type === "integer" || type === "number") && typeof value === "string" && value.trim() !== "" && !Number.isNaN(Number(value))) {
+    return Number(value);
+  }
+  if (type === "integer" && typeof value === "number") return Math.round(value);
+  return value;
+}
+
 const extractionJsonSchema = jsonSchemaFor(extractionSchema);
 const documentJsonSchema = jsonSchemaFor(documentSchema);
 const resortJsonSchema = jsonSchemaFor(resortSchema);
@@ -129,12 +191,16 @@ export class OpenAiCompatibleExtractor implements Extractor {
     if (!content) throw new AiError("The model returned an empty response.", true);
     let json: unknown;
     try {
-      json = JSON.parse(content);
+      json = JSON.parse(extractJson(content));
     } catch {
       throw new AiError("The model returned invalid JSON.", true);
     }
-    const parsed = schema.safeParse(json);
-    if (!parsed.success) throw new AiError("The model's output didn't match the expected format.", true);
+    let parsed = schema.safeParse(json);
+    if (!parsed.success) parsed = schema.safeParse(repairToSchema(json, format.schema as JsonSchema));
+    if (!parsed.success) {
+      console.warn(`[ai] ${format.name} output rejected (${this.config.model}):`, JSON.stringify(parsed.error.issues.slice(0, 5)), content.slice(0, 500));
+      throw new AiError("The model's output didn't match the expected format.", true);
+    }
     return parsed.data;
   }
 }
