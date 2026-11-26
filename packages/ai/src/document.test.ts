@@ -103,7 +103,7 @@ describe("readDocument", () => {
     const fetchMock = vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
       const body = JSON.parse(String(init?.body));
       expect(body.response_format.json_schema.name).toBe("document");
-      expect(body.messages[0].content).toBe(DOCUMENT_SYSTEM_PROMPT);
+      expect(body.messages[0].content.startsWith(DOCUMENT_SYSTEM_PROMPT)).toBe(true);
       return Response.json({ choices: [{ message: { content: JSON.stringify(doc) } }] });
     });
     const extractor = new OpenAiCompatibleExtractor({ baseUrl: "http://x/v1", model: "m", fetch: fetchMock as typeof fetch });

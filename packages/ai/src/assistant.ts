@@ -2,7 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { z } from "zod";
 import { DEFAULT_CLAUDE_MODEL } from "./anthropic";
-import { extractJson, repairToSchema } from "./openai-compatible";
+import { extractJson, repairToSchema, withSchemaPrompt } from "./openai-compatible";
 import { AiError, noEmDashes } from "./types";
 
 /**
@@ -184,7 +184,7 @@ export class OpenAiCompatibleAssistant implements Assistant {
       body: JSON.stringify({
         model: this.config.model,
         messages: [
-          { role: "system", content: system },
+          { role: "system", content: withSchemaPrompt(system, jsonSchema(schema)) },
           { role: "user", content: message },
         ],
         response_format: { type: "json_schema", json_schema: { name, strict: true, schema: jsonSchema(schema) } },
